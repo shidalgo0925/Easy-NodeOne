@@ -61,7 +61,7 @@
       "name": "EPosOne",
       "description": "El punto de venta inteligente que impulsa tu negocio.",
       "primary_domain": "eposone.easytech.services",
-      "icon": "",
+      "icon": "images/logo-eposone.svg",
       "status": "active",
       "version": "1.0",
       "surface": "product",
@@ -70,17 +70,17 @@
       "home_hint": "eposone.eposone_home",
       "app_ids": ["eposone"],
       "list_in_portal": true,
-      "logo_url": "images/logo-eposone-wordmark.jpg",
+      "logo_url": "images/logo-eposone-brand.jpg",
       "favicon_url": "images/logo-eposone.svg",
       "licensing": {
         "model": "register",
         "saas_code": "eposone"
       },
       "theme": {
-        "primary": "#FF5722",
-        "primary_dark": "#1A233A",
-        "accent": "#FF8A65",
-        "background": "#FFFFFF"
+        "primary": "#FF6600",
+        "primary_dark": "#001A4B",
+        "accent": "#FF6600",
+        "background": "#F7F8FC"
       }
     },
     "epayroll": {

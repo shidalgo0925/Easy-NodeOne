@@ -223,6 +223,73 @@ body.ets-portal--auth .auth-login-card .card-header {
     flex-shrink: 0;
 }
 
+.ets-portal-product-card__logo {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.75rem;
+    object-fit: contain;
+    background: #fff;
+    border: 1px solid var(--ets-border);
+    flex-shrink: 0;
+    padding: 0.15rem;
+}
+
+/* EPosOne brand (navy + orange) — Host producto / Mis Productos */
+body.ets-portal--eposone,
+html[data-brand="eposone"] body.ets-portal {
+    --ets-primary: #FF6600;
+    --ets-primary-dark: #001A4B;
+    --ets-accent: #FF6600;
+    --ets-bg: #F7F8FC;
+    --ets-border: #E2E8F0;
+    background:
+        radial-gradient(1100px 480px at 8% -12%, rgba(255, 102, 0, 0.18) 0%, transparent 55%),
+        linear-gradient(180deg, var(--ets-bg), #ffffff 48%);
+}
+
+body.ets-portal--eposone .ets-portal-nav__link:hover,
+body.ets-portal--eposone .ets-portal-nav__link.is-active,
+html[data-brand="eposone"] .ets-portal-nav__link:hover,
+html[data-brand="eposone"] .ets-portal-nav__link.is-active {
+    color: var(--ets-primary-dark);
+    background: rgba(255, 102, 0, 0.14);
+}
+
+body.ets-portal--eposone .ets-portal-btn--primary,
+html[data-brand="eposone"] .ets-portal-btn--primary {
+    background: var(--ets-primary);
+    border-color: var(--ets-primary);
+    color: #fff;
+}
+
+body.ets-portal--eposone .ets-portal-product-card,
+html[data-brand="eposone"] .ets-portal-product-card {
+    box-shadow: 0 8px 24px rgba(0, 26, 75, 0.06);
+}
+
+body.ets-portal--eposone .ets-portal-brand__logo,
+html[data-brand="eposone"] .ets-portal-brand__logo {
+    width: auto;
+    max-width: 9.5rem;
+    height: 2.5rem;
+    border-radius: 0;
+    object-fit: contain;
+}
+
+body.ets-portal--eposone .ets-portal-brand__name,
+html[data-brand="eposone"] .ets-portal-brand__name {
+    /* Wordmark already says EPosOne — avoid duplicate text next to full logo */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 .ets-portal-product-card h3 {
     margin: 0 0 0.25rem;
     font-size: 1.15rem;

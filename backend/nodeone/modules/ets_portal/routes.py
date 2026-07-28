@@ -1,21 +1,28 @@
-"""Rutas Portal ETS MVP — Bienvenido + Mis Productos."""
+"""Rutas Portal ETS MVP — Bienvenido + Mis Productos.
+
+Solo se sirven en Host ``surface=portal``. En Host de producto se redirige
+al Portal de cuenta canónico (ADR-017 enmienda: el producto no sirve Mis Productos).
+"""
 
 from __future__ import annotations
 
-from flask import Blueprint, abort, flash, redirect, render_template, url_for
-from flask_login import current_user, login_required
+from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask_login import login_required
 
 from nodeone.core.platform.context_resolver import current_app_context
+from nodeone.core.platform.portal_urls import absolute_portal_path
 from nodeone.modules.ets_portal.portal_service import PortalService
 
 ets_portal_bp = Blueprint('ets_portal', __name__, url_prefix='/portal')
 
 
 def _require_portal_surface():
-    """Portal ETS: host portal, o producto (ADR-017 Hito 4 → Mis Productos)."""
+    """Portal de cuenta: solo Host portal. Producto → redirect canónico."""
     ctx = current_app_context()
-    if ctx.surface in ('portal', 'product'):
+    if ctx.surface == 'portal':
         return None
+    if ctx.surface == 'product':
+        return redirect(absolute_portal_path(request.path or '/portal/'), code=302)
     try:
         return redirect(url_for('dashboard'))
     except Exception:
@@ -33,6 +40,8 @@ def home():
         'ets_portal/home.html',
         portal_products=products,
         brand_name=current_app_context().display_name,
+        brand_preset=current_app_context().brand_preset,
+        brand_theme=current_app_context().theme_overlay(),
     )
 
 
@@ -47,6 +56,8 @@ def products():
         'ets_portal/products.html',
         portal_products=products_list,
         brand_name=current_app_context().display_name,
+        brand_preset=current_app_context().brand_preset,
+        brand_theme=current_app_context().theme_overlay(),
     )
 
 

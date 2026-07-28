@@ -111,6 +111,12 @@ class PortalService:
             domain = (definition.primary_domain or '').strip()
             open_url = f'https://{domain}' if domain else ''
             product = item.get('product') or {}
+            icon_path = (
+                (product.get('icon') or '').strip()
+                or (definition.icon or '').strip()
+                or (definition.favicon_url or '').strip()
+            )
+            logo_path = (definition.logo_url or '').strip()
             out.append(
                 {
                     'product_code': code,
@@ -121,12 +127,15 @@ class PortalService:
                     'trial_ends_at': item.get('trial_ends_at'),
                     'name': product.get('name') or definition.name,
                     'description': definition.description or definition.tagline or '',
-                    'icon': product.get('icon') or definition.icon or '',
+                    'icon': icon_path,
+                    'logo_url': logo_path,
+                    'icon_url': icon_path,
                     'primary_domain': domain,
                     'open_url': open_url,
                     'surface': definition.surface,
                     'home_hint': definition.home_hint,
                     'app_ids': list(definition.app_ids or ()),
+                    'brand_preset': definition.brand_preset or '',
                 }
             )
         out.sort(key=lambda p: (p.get('name') or '').lower())

@@ -64,10 +64,13 @@ def _authenticated_tenant_nav_preferred() -> bool:
     """
     En Host de producto (p. ej. eposone.*), con sesión autenticada preferir branding
     del tenant (organization_settings / SaasOrganization), como en EN1.
-    Landing anónima y Portal ETS siguen con BrandContext del producto.
+
+    Excepción: rutas ``/portal*`` (Mis Productos / cuenta) usan BrandContext del
+    producto (colores e icono EPosOne), no el logo del tenant.
     """
     try:
         import app as M
+        from flask import request
         from flask_login import current_user
 
         from nodeone.core.platform.context_resolver import current_app_context
@@ -77,7 +80,12 @@ def _authenticated_tenant_nav_preferred() -> bool:
             return False
         if not getattr(current_user, 'is_authenticated', False):
             return False
-        return current_app_context().surface == SURFACE_PRODUCT
+        if current_app_context().surface != SURFACE_PRODUCT:
+            return False
+        path = (getattr(request, 'path', None) or '').strip()
+        if path.startswith('/portal'):
+            return False
+        return True
     except Exception:
         return False
 

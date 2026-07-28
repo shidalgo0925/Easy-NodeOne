@@ -12,9 +12,19 @@
 {% if portal_products %}
 <ul class="ets-portal-product-list">
     {% for p in portal_products %}
-    <li class="ets-portal-product-card">
+    <li class="ets-portal-product-card{% if p.brand_preset %} ets-portal-product-card--{{ p.brand_preset }}{% endif %}">
         <div class="ets-portal-product-card__body">
-            <div class="ets-portal-product-card__icon" aria-hidden="true">{{ (p.icon or p.name[:1])|e }}</div>
+            {% set icon_src = p.icon_url or p.icon or p.logo_url %}
+            {% if icon_src %}
+            <img class="ets-portal-product-card__logo"
+                 src="{{ url_for('static', filename=icon_src) }}"
+                 alt=""
+                 width="48"
+                 height="48"
+                 decoding="async">
+            {% else %}
+            <div class="ets-portal-product-card__icon" aria-hidden="true">{{ (p.name[:1])|e }}</div>
+            {% endif %}
             <div>
                 <h3>{{ p.name }}</h3>
                 {% if p.description %}

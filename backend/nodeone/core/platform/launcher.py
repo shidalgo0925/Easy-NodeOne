@@ -228,6 +228,11 @@ def _product_host_post_login_target(app_ctx, session) -> str:
     from flask import url_for
 
     host_code = (app_ctx.product_code or '').strip().lower()
+    # Preferir last_selected / org con catálogo aunque la sesión actual ya tenga el producto
+    # (evita caer en una cia “vacía” con suscripción pero sin datos).
+    if host_code:
+        _try_session_org_with_product(host_code, session)
+
     usable: list[dict] = []
     try:
         from nodeone.modules.ets_portal.portal_service import PortalService
@@ -276,22 +281,43 @@ def _try_session_org_with_product(product_code: str, session) -> bool:
 
         if not getattr(current_user, 'is_authenticated', False):
             return False
-        for org in organizations_for_session_after_login(current_user):
-            oid = int(org.id)
+
+        def _org_has(oid: int) -> bool:
             usable = PortalService.list_usable_products_for_tenant(
                 oid, scope_organization_id=oid
             )
             if any((p.get('product_code') or '').strip().lower() == code for p in usable):
-                session['organization_id'] = oid
-                session.pop('require_org_selection', None)
-                save_last_selected_organization(current_user, oid)
                 return True
-            # Fallback: suscripción entitled aunque falte fila entitlement
-            if SubscriptionRegistry.has_product(oid, code, scope_organization_id=oid):
-                session['organization_id'] = oid
-                session.pop('require_org_selection', None)
-                save_last_selected_organization(current_user, oid)
-                return True
+            return bool(
+                SubscriptionRegistry.has_product(oid, code, scope_organization_id=oid)
+            )
+
+        orgs = list(organizations_for_session_after_login(current_user))
+        candidates = [int(o.id) for o in orgs if _org_has(int(o.id))]
+        if not candidates:
+            return False
+        chosen = None
+        try:
+            last_pref = int(getattr(current_user, 'last_selected_organization_id', None) or 0)
+        except (TypeError, ValueError):
+            last_pref = 0
+        if last_pref in candidates:
+            chosen = last_pref
+        else:
+            from models.core_master import CoreProduct
+
+            best_n = -1
+            for oid in candidates:
+                n = CoreProduct.query.filter_by(organization_id=oid).count()
+                if n > best_n:
+                    best_n = n
+                    chosen = oid
+            if chosen is None:
+                chosen = candidates[0]
+        session['organization_id'] = int(chosen)
+        session.pop('require_org_selection', None)
+        save_last_selected_organization(current_user, int(chosen))
+        return True
     except Exception:
         return False
     return False

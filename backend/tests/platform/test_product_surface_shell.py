@@ -57,6 +57,29 @@ class TestProductSurfaceShell(unittest.TestCase):
         self.assertEqual(dest, '/resolved/eposone.eposone_home')
         self.assertEqual(session.get('platform_active_app_id'), 'eposone')
 
+    def test_post_login_ignores_landing_next_root(self):
+        """next=/ (CTA landing) no debe devolver a la landing pública."""
+        from nodeone.core.platform.context_resolver import ContextResolver
+        from nodeone.core.platform.launcher import post_login_redirect_target
+
+        bundled = ContextResolver.resolve('eposone.easytech.services')
+        session = {}
+        usable = [{'product_code': 'eposone', 'is_entitled': True}]
+
+        with patch(
+            'nodeone.core.platform.context_resolver.current_app_context',
+            return_value=bundled,
+        ), patch(
+            'nodeone.modules.ets_portal.portal_service.PortalService.list_usable_products_for_current_tenant',
+            return_value=usable,
+        ), patch(
+            'flask.url_for',
+            side_effect=lambda ep, **kw: f'/resolved/{ep}',
+        ):
+            dest = post_login_redirect_target(next_page='/', user=MagicMock(), session=session)
+        self.assertEqual(dest, '/resolved/eposone.eposone_home')
+        self.assertEqual(session.get('platform_active_app_id'), 'eposone')
+
     def test_post_login_many_products_still_opens_host_product(self):
         """Con entitlement del producto del host → dashboard, aunque haya N productos."""
         from nodeone.core.platform.context_resolver import ContextResolver

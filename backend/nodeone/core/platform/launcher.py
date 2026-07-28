@@ -178,14 +178,16 @@ def post_login_redirect_target(*, next_page: str | None, user, session) -> str:
     """URL destino tras login / selector de org (ADR-013 + ADR-017 lanzador)."""
     from flask import url_for
 
-    # next=/portal en host producto: servir local (misma sesión), no saltar a otro dominio.
+    # Host producto: next=/portal → local; next=/ (landing) → ignorar y abrir producto.
     try:
         from nodeone.core.platform.context_resolver import current_app_context
 
         if next_page and current_app_context().surface == 'product':
-            path = (next_page or '').strip()
+            path = (next_page or '').strip().split('?', 1)[0]
             if path.startswith('/portal'):
-                return path.split('?', 1)[0] or '/portal/'
+                return path or '/portal/'
+            if path in ('/', ''):
+                next_page = None
     except Exception:
         pass
 

@@ -7,10 +7,9 @@ from nodeone.core.platform.session_cookies import cookie_domain_for_host
 
 
 class TestCookieDomainForHost(unittest.TestCase):
-    def test_ets_product_and_portal(self):
+    def test_ets_product_hosts(self):
         self.assertEqual(cookie_domain_for_host('eposone.easytech.services'), '.easytech.services')
-        self.assertEqual(cookie_domain_for_host('app.easytech.services'), '.easytech.services')
-        self.assertEqual(cookie_domain_for_host('portal.easytech.services'), '.easytech.services')
+        self.assertEqual(cookie_domain_for_host('epayroll.easytech.services'), '.easytech.services')
         self.assertEqual(cookie_domain_for_host('easytech.services'), '.easytech.services')
 
     def test_en1_host_only(self):

@@ -1,7 +1,6 @@
 """Rutas Portal — Bienvenido + Mis Productos.
 
-Se sirven en Host portal, producto y plataforma EN1. En producto, misma sesión
-(«Cambiar producto» sin saltar a app.easytech).
+Se sirven en Host producto y plataforma EN1 (misma sesión al cambiar producto).
 """
 
 from __future__ import annotations

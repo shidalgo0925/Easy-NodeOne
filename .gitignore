@@ -95,3 +95,5 @@ docs/_build/
 # Backup files
 *.bak
 *.backup
+backups/*.dump
+backups/*.db

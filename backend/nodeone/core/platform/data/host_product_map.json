@@ -1,12 +1,10 @@
 {
-  "_comment": "ADR-011/013 — Solo resolución Host → product_code. Definición del producto: product_registry.json (ProductRegistry).",
+  "_comment": "ADR-011/013 — Host → product_code. Portal de cuenta = EN1 (appprd/appdev).",
   "default_product": "en1",
   "hosts": {
     "appprd.easynodeone.com": "en1",
     "appdev.easynodeone.com": "en1",
     "apptst.easynodeone.com": "en1",
-    "app.easytech.services": "portal",
-    "portal.easytech.services": "portal",
     "eposone.easytech.services": "eposone",
     "eposone-stg.easytech.services": "eposone",
     "epayroll.easytech.services": "epayroll",
@@ -17,7 +15,6 @@
     "apps.internationalinstitute.us": "iius"
   },
   "host_prefixes": {
-    "portal": "portal",
     "eposone": "eposone",
     "epayroll": "epayroll",
     "eclassone": "eclassone",

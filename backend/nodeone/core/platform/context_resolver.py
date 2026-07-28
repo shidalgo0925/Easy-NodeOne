@@ -109,12 +109,9 @@ def _builtin_host_map() -> dict[str, Any]:
         'hosts': {
             'appdev.easynodeone.com': PRODUCT_EN1,
             'appprd.easynodeone.com': PRODUCT_EN1,
-            'app.easytech.services': 'portal',
-            'portal.easytech.services': 'portal',
             'eposone.easytech.services': 'eposone',
         },
         'host_prefixes': {
-            'portal': 'portal',
             'eposone': 'eposone',
             'epayroll': 'epayroll',
             'eclassone': 'eclassone',

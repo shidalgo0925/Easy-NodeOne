@@ -1,6 +1,5 @@
-"""Cookie de sesión compartida entre hosts del ecosistema ETS (*.easytech.services).
+"""Cookie de sesión compartida entre hosts de producto ETS (*.easytech.services).
 
-Sin Domain compartido, login en eposone.* no vale en app.easytech.services (Portal).
 En hosts EN1 (*.easynodeone.com) la cookie sigue siendo host-only.
 """
 

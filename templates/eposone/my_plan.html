@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}EPosOne — Mi plan | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 en1-eposone-page" id="epos-my-plan-page">
+  <div class="epos-page-header mb-3">
+    <div>
+      <h1 class="epos-page-title">
+        <i class="fas fa-crown me-2" style="color: var(--epos-accent)" aria-hidden="true"></i>Mi plan
+      </h1>
+      <p class="epos-page-subtitle mb-0">Lo contratado define qué puede hacer su negocio en EPosOne.</p>
+    </div>
+    {% if next_plan %}
+    <a class="btn btn-sm epos-btn" href="{{ url_for('eposone.eposone_my_plan') }}#planes">
+      Actualizar a {{ next_plan.name }} · {{ next_plan_price_label }}/mes
+    </a>
+    {% endif %}
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <div class="epos-card h-100">
+        <div class="epos-card-body">
+          <div class="text-muted small text-uppercase mb-1">Plan actual</div>
+          <div class="fs-3 fw-semibold">{{ plan.name }}</div>
+          <div class="fs-5" style="color: var(--epos-accent)">{{ price_label }}<span class="text-muted fs-6">/mes</span></div>
+          {% if entitlement_state %}
+          <div class="mt-2"><span class="badge text-bg-light border">Estado: {{ entitlement_state }}</span></div>
+          {% endif %}
+          <p class="small text-muted mt-2 mb-0">{{ plan.description }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-8">
+      <div class="epos-card h-100">
+        <div class="epos-card-body">
+          <h2 class="h6 mb-3">Consumo</h2>
+          <div class="row g-2">
+            {% for row in consumption %}
+            <div class="col-sm-6 col-lg-4">
+              <div class="border rounded p-2 h-100 {% if row.at_limit %}border-warning{% endif %}">
+                <div class="small text-muted">{{ row.label }}</div>
+                <div class="fw-semibold">{{ row.display }}</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="epos-card mb-3">
+    <div class="epos-card-body">
+      <h2 class="h6 mb-3">Funcionalidades</h2>
+      <div class="row g-2">
+        {% for f in features %}
+        <div class="col-md-6 col-lg-4">
+          <div class="d-flex align-items-start gap-2 border rounded p-2 h-100">
+            {% if f.state == 'available' %}
+            <span class="text-success" aria-hidden="true">✔</span>
+            {% elif f.state == 'coming_soon' %}
+            <span class="text-muted" aria-hidden="true">⏳</span>
+            {% else %}
+            <span class="text-warning" aria-hidden="true">🔒</span>
+            {% endif %}
+            <div>
+              <div class="fw-semibold">{{ f.label }}</div>
+              <div class="small text-muted">{{ f.description }}</div>
+              {% if f.state == 'locked' %}
+              <a class="small" href="{{ url_for('eposone.eposone_plan_upgrade', feature=f.code) }}">Ver upgrade</a>
+              {% elif f.state == 'coming_soon' %}
+              <span class="badge text-bg-light border">Próximamente</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="epos-card" id="planes">
+    <div class="epos-card-body">
+      <h2 class="h6 mb-3">Planes disponibles</h2>
+      <div class="row g-3">
+        {% for p in all_plans %}
+        <div class="col-md-4">
+          <div class="border rounded p-3 h-100 {% if p.code == plan_code %}border-2{% endif %}"
+               style="{% if p.code == plan_code %}border-color: var(--epos-accent) !important{% endif %}">
+            <div class="fw-semibold fs-5">{{ p.name }}</div>
+            <div class="mb-2" style="color: var(--epos-accent)">
+              USD {{ '%.2f'|format(p.price_monthly) }}<span class="text-muted small">/mes</span>
+            </div>
+            <p class="small text-muted">{{ p.description }}</p>
+            {% if p.code == plan_code %}
+            <span class="badge text-bg-success-subtle border border-success-subtle">Plan actual</span>
+            {% elif p.price_monthly > plan.price_monthly %}
+            <a class="btn btn-sm btn-outline-secondary"
+               href="mailto:ventas@easytech.services?subject=Upgrade%20EPosOne%20a%20{{ p.name }}">
+              Solicitar {{ p.name }}
+            </a>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <p class="small text-muted mt-3 mb-0">
+        El cambio de plan actualiza límites y features automáticamente vía licencia — sin reinstalar.
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

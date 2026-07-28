@@ -2308,6 +2308,61 @@ def eposone_order_new():
     return redirect(url_for('eposone.eposone_order_domain_detail', order_id=int(order.id)))
 
 
+_SECTION_FEATURE_GATE = {
+    'kds': 'kds',
+    'delivery': 'delivery',
+    'promotions': 'promotions',
+}
+
+
+@eposone_bp.route('/plan')
+@login_required
+def eposone_my_plan():
+    """Mi Plan — consumo, features y upgrade (motor comercial)."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.commercial_plans import build_mi_plan_payload
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    oid = resolve_organization_id()
+    if oid is None:
+        flash('Seleccioná una empresa para ver el plan.', 'warning')
+        return redirect(url_for('eposone.eposone_home'))
+    payload = build_mi_plan_payload(int(oid))
+    return render_template('eposone/my_plan.html', **payload)
+
+
+@eposone_bp.route('/plan/upgrade')
+@login_required
+def eposone_plan_upgrade():
+    """Pantalla de upgrade / próximamente para una feature bloqueada."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.commercial_plans import (
+        feature_nav_state_for_org,
+        resolve_org_plan_code,
+        upgrade_message,
+    )
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    feature = (request.args.get('feature') or '').strip().lower()
+    if not feature:
+        return redirect(url_for('eposone.eposone_my_plan'))
+    oid = resolve_organization_id()
+    plan_code = resolve_org_plan_code(int(oid), 'eposone') if oid is not None else 'starter'
+    state = feature_nav_state_for_org(oid, feature)
+    if state == 'available':
+        # Ya incluida: ir a la sección si existe
+        slug_map = {'kds': 'kds', 'delivery': 'delivery', 'promotions': 'promotions'}
+        if feature in slug_map:
+            return redirect(url_for('eposone.eposone_section', slug=slug_map[feature]))
+        return redirect(url_for('eposone.eposone_my_plan'))
+    hint = upgrade_message(current_plan_code=plan_code, feature=feature)
+    return render_template('eposone/plan_upgrade.html', hint=hint, feature=feature)
+
+
 @eposone_bp.route('/section/<slug>')
 @login_required
 def eposone_section(slug: str):
@@ -2320,6 +2375,15 @@ def eposone_section(slug: str):
         return redirect(url_for('eposone.eposone_home'))
     if key not in EPOSONE_SECTION_SLUGS:
         abort(404)
+    # Motor comercial: no ejecutar acción si la feature no está en el plan.
+    gate = _SECTION_FEATURE_GATE.get(key)
+    if gate:
+        from nodeone.core.platform.commercial_plans import feature_nav_state_for_org
+        from nodeone.core.platform.runtime import resolve_organization_id
+
+        oid = resolve_organization_id()
+        if feature_nav_state_for_org(oid, gate) != 'available':
+            return redirect(url_for('eposone.eposone_plan_upgrade', feature=gate))
     title, description = EPOSONE_SECTIONS[key]
     if key == 'orders':
         from sqlalchemy import or_

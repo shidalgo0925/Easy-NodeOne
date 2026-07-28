@@ -34,8 +34,16 @@
         <ul class="nav-group-items">
             {% for child in domain.children %}
             <li class="nav-item">
-                <a class="nav-link sidebar-link py-1 {% if child.active %}active{% endif %}" href="{{ child.url }}">
-                    {% if child.icon %}<i class="{{ child.icon }} me-1"></i>{% endif %}
+                <a class="nav-link sidebar-link py-1 {% if child.active %}active{% endif %}{% if child.locked %} app-nav-locked text-muted{% endif %}"
+                   href="{{ child.url }}"
+                   {% if child.locked %}title="{{ child.upgrade_title or 'No incluido en su plan' }}"{% endif %}>
+                    {% if child.coming_soon %}
+                    <i class="fas fa-clock me-1" aria-hidden="true"></i>
+                    {% elif child.locked %}
+                    <i class="fas fa-lock me-1" aria-hidden="true"></i>
+                    {% elif child.icon %}
+                    <i class="{{ child.icon }} me-1"></i>
+                    {% endif %}
                     <span>{{ child.label }}</span>
                 </a>
             </li>

@@ -113,7 +113,8 @@ class TestEposoneNavTree(unittest.TestCase):
                 'Usuarios',
                 'Métodos de pago',
                 'Impuestos',
-                'Licencia',
+                'Mi plan',
+                'Licencias de caja',
             },
         )
         epos_ops = next(d for d in tree.domains if d.id == 'eposone-ops')

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from nodeone.core.nav_menu import NavContext
 from nodeone.core.platform.app_nav import AppNavItem, AppNavTree, safe_url_for
-from nodeone.core.platform.nav_effective_access import eposone_feature
 
 
 def _v_eposone(ctx: NavContext) -> bool:
@@ -34,10 +33,10 @@ def _v_platform_lab(ctx: NavContext) -> bool:
 
 
 def _v_feature(feature: str):
+    """Visible si tiene EPosOne; el lock lo resuelve required_feature en serialize."""
+
     def _inner(ctx: NavContext) -> bool:
-        if not _v_eposone(ctx):
-            return False
-        return eposone_feature(feature, default_if_no_entitlement=True)
+        return _v_eposone(ctx)
 
     return _inner
 
@@ -73,6 +72,7 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
         '/admin/payments',
         '/admin/configuration/taxes',
         '/admin/sales/taxes',
+        '/admin/eposone/plan',
     )
     device_prefixes = (
         '/admin/eposone/section/terminals',
@@ -209,8 +209,8 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                         'Impuestos',
                         'fas fa-percentage',
                         url=safe_url_for('admin_configuration_taxes'),
-                        visible=lambda c: _v_tenant_business_admin(c)
-                        and eposone_feature('fiscal', default_if_no_entitlement=True),
+                        visible=_v_tenant_business_admin,
+                        required_feature='fiscal',
                         active_endpoints=('admin_configuration_taxes', 'admin_sales_taxes'),
                         active_path_prefixes=(
                             '/admin/configuration/taxes',
@@ -218,8 +218,17 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                         ),
                     ),
                     AppNavItem(
+                        'mi-plan',
+                        'Mi plan',
+                        'fas fa-crown',
+                        url=safe_url_for('eposone.eposone_my_plan'),
+                        visible=_v_tenant_business_admin,
+                        active_endpoints=('eposone.eposone_my_plan', 'eposone.eposone_plan_upgrade'),
+                        active_path_prefixes=('/admin/eposone/plan',),
+                    ),
+                    AppNavItem(
                         'licencia-producto',
-                        'Licencia',
+                        'Licencias de caja',
                         'fas fa-key',
                         url=_section('licenses'),
                         visible=_v_tenant_business_admin,
@@ -227,8 +236,7 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                     ),
                 ),
                 active_path_prefixes=admin_prefixes,
-            ),
-            AppNavItem(
+            ),            AppNavItem(
                 'eposone-ops',
                 'EPosOne',
                 'fas fa-tablet-alt',
@@ -306,6 +314,7 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                         'fas fa-tags',
                         url=_section('promotions'),
                         visible=_v_feature('promotions'),
+                        required_feature='promotions',
                         active_path_prefixes=('/admin/eposone/section/promotions',),
                     ),
                     AppNavItem(
@@ -314,6 +323,7 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                         'fas fa-utensils',
                         url=_section('kds'),
                         visible=_v_feature('kds'),
+                        required_feature='kds',
                         active_path_prefixes=('/admin/eposone/section/kds',),
                     ),
                     AppNavItem(
@@ -322,7 +332,17 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                         'fas fa-motorcycle',
                         url=_section('delivery'),
                         visible=_v_feature('delivery'),
+                        required_feature='delivery',
                         active_path_prefixes=('/admin/eposone/section/delivery',),
+                    ),
+                    AppNavItem(
+                        'analytics',
+                        'Analytics',
+                        'fas fa-chart-pie',
+                        url=safe_url_for('eposone.eposone_plan_upgrade', feature='analytics'),
+                        visible=_v_eposone,
+                        required_feature='analytics',
+                        active_path_prefixes=('/admin/eposone/plan/upgrade',),
                     ),
                     AppNavItem(
                         'menu-digital',

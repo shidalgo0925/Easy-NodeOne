@@ -133,6 +133,18 @@ Confirmar que **no se rompió**:
 
 ---
 
+## F. Motor comercial de planes (EP1)
+
+| # | Caso | Esperado | ☐ |
+|---|------|----------|---|
+| F1 | Starter: KDS / Delivery / Promos visibles con 🔒 | Clic → mensaje upgrade Business USD 49.95; no ejecuta acción | ☐ |
+| F2 | Starter: Analytics visible como Próximamente | No ejecuta | ☐ |
+| F3 | Mi Plan muestra consumo (sucursales/cajas/…) y features | ✔ / 🔒 / ⏳ | ☐ |
+| F4 | Cambiar entitlement a Business (sin redeploy) | Desaparecen bloqueos; KDS usable | ☐ |
+| F5 | Enterprise | API y límites según plan (-1 = ilimitado) | ☐ |
+
+---
+
 ## Cierre formal
 
 | Artefacto | Condición |

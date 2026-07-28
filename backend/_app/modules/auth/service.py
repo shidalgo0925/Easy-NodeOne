@@ -7,6 +7,24 @@ def safe_next_path(candidate):
     if not candidate:
         return None
     s = str(candidate).strip()
+    # URL absoluta del mismo Host → path (p. ej. next legado de unauthorized).
+    if s.startswith('https://') or s.startswith('http://'):
+        try:
+            from urllib.parse import urlparse
+
+            from flask import has_request_context, request
+
+            parsed = urlparse(s)
+            host = (parsed.hostname or '').lower()
+            if not host or not has_request_context():
+                return None
+            if host != (request.host or '').split(':')[0].strip().lower():
+                return None
+            s = parsed.path or '/'
+            if parsed.query:
+                s = f'{s}?{parsed.query}'
+        except Exception:
+            return None
     if not s.startswith('/') or s.startswith('//'):
         return None
     if '\\' in s or '\n' in s or '\r' in s:

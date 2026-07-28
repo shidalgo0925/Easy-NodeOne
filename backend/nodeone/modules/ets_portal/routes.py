@@ -33,6 +33,8 @@ def home():
         'ets_portal/home.html',
         portal_products=products,
         brand_name=current_app_context().display_name,
+        brand_preset=current_app_context().brand_preset,
+        brand_theme=current_app_context().theme_overlay(),
     )
 
 
@@ -47,6 +49,8 @@ def products():
         'ets_portal/products.html',
         portal_products=products_list,
         brand_name=current_app_context().display_name,
+        brand_preset=current_app_context().brand_preset,
+        brand_theme=current_app_context().theme_overlay(),
     )
 
 

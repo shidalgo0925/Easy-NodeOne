@@ -51,7 +51,11 @@ class TestPortalService(unittest.TestCase):
         codes = [i['product_code'] for i in items]
         self.assertEqual(codes, ['eposone'])
         self.assertEqual(items[0]['open_url'], 'https://eposone.easytech.services')
-        self.assertIn('Punto de venta', items[0]['description'] or items[0]['name'])
+        desc = (items[0]['description'] or items[0]['name'] or '').lower()
+        self.assertIn('punto de venta', desc)
+        self.assertTrue(items[0].get('icon_url') or items[0].get('icon'))
+        self.assertTrue(str(items[0].get('icon_url') or '').endswith('.svg'))
+        self.assertEqual(items[0].get('brand_preset'), 'eposone')
 
     def test_context_resolver_portal_host(self):
         from nodeone.core.platform.context_resolver import ContextResolver

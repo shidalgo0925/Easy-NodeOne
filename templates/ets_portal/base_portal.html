@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="light" data-brand="portal" data-product="portal" data-surface="portal">
+<html lang="es" data-theme="light" data-brand="{{ brand_preset|default('portal') }}" data-product="{{ brand_preset|default('portal') }}" data-surface="portal">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,10 +7,20 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/ets-portal.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ets-portal.css') }}?v=eposone-brand-20260728">
+    {% if brand_theme %}
+    <style>
+      :root {
+        {% if brand_theme.get('theme_primary') %}--ets-primary: {{ brand_theme.theme_primary }};{% endif %}
+        {% if brand_theme.get('theme_primary_dark') %}--ets-primary-dark: {{ brand_theme.theme_primary_dark }};{% endif %}
+        {% if brand_theme.get('theme_accent') %}--ets-accent: {{ brand_theme.theme_accent }};{% endif %}
+        {% if brand_theme.get('theme_background_cream') %}--ets-bg: {{ brand_theme.theme_background_cream }};{% endif %}
+      }
+    </style>
+    {% endif %}
     {% block head_extra %}{% endblock %}
 </head>
-<body class="ets-portal">
+<body class="ets-portal{% if brand_preset %} ets-portal--{{ brand_preset }}{% endif %}">
     <header class="ets-portal-header">
         <div class="ets-portal-header__inner">
             <a class="ets-portal-brand" href="{{ url_for('ets_portal.home') }}">

@@ -1,10 +1,7 @@
-"""URLs canónicas del Portal de cuenta EN1 (ADR-013 / ADR-017).
+"""URLs canónicas del Portal de cuenta EN1.
 
-Mis Productos vive en la plataforma EN1 (``appprd.easynodeone.com``).
-El host comercial ``app.easytech.services`` quedó fuera de uso (redirige a EN1).
-
-En hosts de producto, ``/portal/*`` se sirve en el mismo host (misma sesión)
-para «Cambiar producto» sin re-login.
+Mis Productos: ``appprd.easynodeone.com`` o ``/portal`` en el host de producto
+(misma sesión).
 """
 
 from __future__ import annotations

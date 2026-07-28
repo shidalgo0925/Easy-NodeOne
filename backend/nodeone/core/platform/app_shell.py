@@ -114,7 +114,7 @@ def _apps_return_payload(*, hide: bool = False) -> dict[str, Any]:
         }
     from flask import url_for
 
-    # Host producto: Mis Productos en el mismo host (misma sesión; no app.easytech).
+    # Host producto: Mis Productos same-host (misma sesión).
     if is_product_surface_shell():
         try:
             from nodeone.core.platform.portal_urls import portal_products_href

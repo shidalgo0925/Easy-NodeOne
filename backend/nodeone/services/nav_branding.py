@@ -45,7 +45,7 @@ def nav_theme_logo_relpath():
 
 
 def brand_context_logo_relpath():
-    """Logo del BrandContext (Product Registry), p. ej. Portal ETS en app.easytech.services."""
+    """Logo del BrandContext (Product Registry) para el host actual."""
     try:
         from nodeone.core.platform.context_resolver import current_app_context
 

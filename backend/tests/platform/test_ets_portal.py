@@ -57,13 +57,13 @@ class TestPortalService(unittest.TestCase):
         self.assertTrue(str(items[0].get('icon_url') or '').endswith('.svg'))
         self.assertEqual(items[0].get('brand_preset'), 'eposone')
 
-    def test_context_resolver_portal_host(self):
+    def test_context_resolver_platform_hosts(self):
         from nodeone.core.platform.context_resolver import ContextResolver
 
-        ctx = ContextResolver.resolve('app.easytech.services')
-        self.assertEqual(ctx.product_code, 'portal')
-        self.assertEqual(ctx.surface, 'portal')
-        self.assertEqual(ctx.display_name, 'Easy Technology Services')
+        for host in ('appprd.easynodeone.com', 'appdev.easynodeone.com'):
+            ctx = ContextResolver.resolve(host)
+            self.assertEqual(ctx.product_code, 'en1', host)
+            self.assertEqual(ctx.surface, 'platform', host)
 
     def test_post_login_goes_to_portal(self):
         from flask import Flask
@@ -77,7 +77,7 @@ class TestPortalService(unittest.TestCase):
         class U:
             pass
 
-        with app.test_request_context('/', headers={'Host': 'app.easytech.services'}):
+        with app.test_request_context('/', headers={'Host': 'appprd.easynodeone.com'}):
             with patch(
                 'nodeone.core.platform.context_resolver.ContextResolver.resolve_product_code',
                 return_value='portal',

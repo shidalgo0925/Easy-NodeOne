@@ -277,6 +277,7 @@ Orden de implementación sugerido: **Hito 1 (EPosOne primero)** → 2 → 4 (val
 | **2026-07-27** | **Producción comercial EPosOne:** landing en `eposone.easytech.services` (planes Starter/Business/Enterprise). Release Management: [ADR-018](ADR-018-RELEASE-MANAGEMENT.md) · paquete [`releases/EN1_RELEASE_v1.0.0.md`](releases/EN1_RELEASE_v1.0.0.md). |
 | **2026-07-28** | **Enmienda superficie:** Host producto no sirve Mis Productos; `/portal/*` en producto → 302 Portal canónico; post-login con entitlement del host → dashboard aunque haya N productos. |
 | **2026-07-28** | **Regla de responsabilidad:** producto solo conoce su entitlement; catálogo / cambio de producto solo en Portal EN1. Chrome: «Cambiar producto». |
+| **2026-07-28** | **Retiro `app.easytech.services`:** Portal canónico = `appprd.easynodeone.com`; Mis Productos same-host en producto; hosts `app`/`portal.easytech` fuera del `host_product_map` (nginx 301 → appprd). |
 
 ---
 
@@ -288,7 +289,7 @@ Orden de implementación sugerido: **Hito 1 (EPosOne primero)** → 2 → 4 (val
 | Hero, beneficios, módulos, planes, FAQ, demo, Entrar | **Hecho** |
 | Auth EN1 (sin segundo sistema) | **Hecho** |
 | Lanzador: host producto + entitlement → dashboard (N ok) / sin derecho → Portal canónico | **Hecho** (2026-07-28) |
-| `/portal/*` solo en Host portal (producto → 302) | **Hecho** (2026-07-28) |
-| `appprd` = infra (no marketing) | **Política** — endurecer DNS/marketing pendiente ops |
+| Mis Productos same-host en producto + canónico `appprd` | **Hecho** (2026-07-28) — `app.easytech` retirado |
+| `appprd` = Portal de cuenta EN1 | **Hecho** |
 | Hito 3 Portal Comercial completo | **Pendiente** |
 | Release oficial v1.0.0 | **Publicado** (`v1.0.0` = `d20bee4`) — QA operativa humana pendiente en checklist del paquete |

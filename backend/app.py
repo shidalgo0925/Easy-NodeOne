@@ -173,7 +173,7 @@ if os.environ.get('NODEONE_SESSION_COOKIE_SECURE', '').strip().lower() in ('1', 
     app.config['SESSION_COOKIE_SECURE'] = True
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-# ETS: cookie compartida eposone.* ↔ app.easytech.services (host-aware; no rompe appprd).
+# Cookie Domain host-aware (producto *.easytech.services compartido; EN1 host-only).
 try:
     from nodeone.core.platform.session_cookies import register_host_aware_session_cookies
 

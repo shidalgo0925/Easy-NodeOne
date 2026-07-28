@@ -83,7 +83,8 @@ class TestEntitlementService(unittest.TestCase):
                 self.oid, 'eposone', plan_code='professional'
             )
         self.assertEqual(rec.product_code, 'eposone')
-        self.assertEqual(rec.plan_code, 'professional')
+        # professional es alias comercial de business
+        self.assertEqual(rec.plan_code, 'business')
         self.assertEqual(rec.effective_state, 'active')
         self.assertEqual(rec.effective_limits.get('pos'), 3)
         self.assertTrue(rec.features.get('kds'))
@@ -196,10 +197,10 @@ class TestEntitlementPlans(unittest.TestCase):
 
         codes = list_plan_codes('eposone')
         self.assertIn('starter', codes)
-        self.assertIn('professional', codes)
+        self.assertIn('business', codes)
         self.assertIn('enterprise', codes)
         pro = get_plan_template('eposone', 'professional')
-        self.assertEqual(pro['resource_limits']['registers'], 10)
+        self.assertEqual(pro['resource_limits']['registers'], 5)
         self.assertTrue(pro['features']['fiscal'])
 
 

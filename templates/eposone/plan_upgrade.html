@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}{{ hint.feature_label }} — Plan | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-4 en1-eposone-page" id="epos-plan-upgrade-page">
+  <div class="row justify-content-center">
+    <div class="col-lg-7">
+      <div class="epos-card">
+        <div class="epos-card-body p-4">
+          <div class="mb-2">
+            {% if hint.state == 'coming_soon' %}
+            <span class="badge text-bg-light border">Próximamente</span>
+            {% else %}
+            <span class="badge text-bg-warning-subtle border">🔒 Bloqueada por plan</span>
+            {% endif %}
+          </div>
+          <h1 class="h4 mb-2">{{ hint.title }}</h1>
+          <p class="mb-3">{{ hint.body }}</p>
+          {% if hint.current_plan %}
+          <p class="small text-muted mb-3">
+            Plan actual: <strong>{{ hint.current_plan.name }}</strong>
+            (USD {{ '%.2f'|format(hint.current_plan.price_monthly) }}/mes)
+          </p>
+          {% endif %}
+          <div class="d-flex flex-wrap gap-2">
+            {% if hint.cta_primary %}
+            <a class="btn epos-btn"
+               href="mailto:ventas@easytech.services?subject=Upgrade%20EPosOne%20a%20{{ hint.target_plan.name if hint.target_plan else '' }}">
+              {{ hint.cta_primary.label }} · {{ hint.cta_primary.price_label }}
+            </a>
+            {% endif %}
+            <a class="btn btn-outline-secondary" href="{{ url_for('eposone.eposone_my_plan') }}">
+              {{ hint.cta_secondary_label or 'Ver mi plan' }}
+            </a>
+            <a class="btn btn-link" href="{{ url_for('eposone.eposone_home') }}">Volver al dashboard</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

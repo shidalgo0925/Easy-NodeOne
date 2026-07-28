@@ -30,6 +30,8 @@ class AppNavItem:
     active_endpoints: tuple[str, ...] = ()
     active_blueprints: tuple[str, ...] = ()
     active_path_prefixes: tuple[str, ...] = ()
+    # Motor comercial: feature requerida (visible aunque bloqueada)
+    required_feature: str | None = None
 
 
 @dataclass(frozen=True)
@@ -124,7 +126,45 @@ def _item_visible(item: AppNavItem, ctx: NavContext) -> bool:
         return False
     if item.children:
         return any(_item_visible(child, ctx) for child in item.children)
+    # Ítems con feature gate se muestran aunque estén bloqueados (upgrade UX).
+    if item.required_feature:
+        return True
     return bool(item.url)
+
+
+def _feature_lock_payload(item: AppNavItem) -> dict[str, Any]:
+    """Estado comercial del ítem (available / locked / coming_soon)."""
+    feat = (item.required_feature or '').strip().lower()
+    if not feat:
+        return {'nav_state': 'available', 'locked': False, 'coming_soon': False}
+    try:
+        from nodeone.core.platform.commercial_plans import (
+            feature_nav_state_for_org,
+            resolve_org_plan_code,
+            upgrade_message,
+        )
+        from nodeone.core.platform.nav_effective_access import current_nav_organization_id
+
+        oid = current_nav_organization_id()
+        state = feature_nav_state_for_org(oid, feat)
+        plan_code = resolve_org_plan_code(int(oid), 'eposone') if oid is not None else 'starter'
+        hint = upgrade_message(current_plan_code=plan_code, feature=feat)
+        return {
+            'nav_state': state,
+            'locked': state in ('locked', 'coming_soon'),
+            'coming_soon': state == 'coming_soon',
+            'required_feature': feat,
+            'upgrade_title': hint.get('title'),
+            'upgrade_body': hint.get('body'),
+            'upgrade_plan': (hint.get('target_plan') or {}).get('name'),
+        }
+    except Exception:
+        return {
+            'nav_state': 'available',
+            'locked': False,
+            'coming_soon': False,
+            'required_feature': feat,
+        }
 
 
 def _endpoint_active(item: AppNavItem) -> bool:
@@ -159,15 +199,33 @@ def _serialize_item(item: AppNavItem, ctx: NavContext) -> dict[str, Any] | None:
     active = _endpoint_active(item)
     if children:
         active = active or any(c.get('active') for c in children)
+    lock = _feature_lock_payload(item)
+    url = item.url
+    if lock.get('locked') and item.required_feature:
+        try:
+            from flask import url_for
+
+            url = url_for(
+                'eposone.eposone_plan_upgrade',
+                feature=item.required_feature,
+            )
+        except Exception:
+            url = item.url or '#'
     row: dict[str, Any] = {
         'id': item.id,
         'label': item.label,
         'icon': item.icon,
-        'url': item.url,
-        'active': active and not children,
+        'url': url,
+        'active': active and not children and not lock.get('locked'),
         'children': children,
         'is_group': bool(children),
         'group_active': active,
+        'locked': bool(lock.get('locked')),
+        'coming_soon': bool(lock.get('coming_soon')),
+        'nav_state': lock.get('nav_state') or 'available',
+        'required_feature': lock.get('required_feature'),
+        'upgrade_title': lock.get('upgrade_title'),
+        'upgrade_body': lock.get('upgrade_body'),
     }
     return row
 

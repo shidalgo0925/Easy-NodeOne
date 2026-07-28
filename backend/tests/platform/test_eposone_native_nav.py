@@ -123,7 +123,7 @@ class TestEposoneNavTree(unittest.TestCase):
             epos_labels,
             {'Instalar dispositivo', 'Dispositivos', 'Turnos'},
         )
-        # Tenant: sin bloque Plataforma (solo SA)
+        # Tenant / producto: sin bloque Plataforma (vive en Host EN1).
         self.assertNotIn('Plataforma', labels)
         mas = next(d for d in tree.domains if d.id == 'mas')
         mas_labels = {c.label for c in mas.children}
@@ -133,7 +133,8 @@ class TestEposoneNavTree(unittest.TestCase):
         self.assertNotIn('Sistema', labels)
         self.assertNotIn('Comercial', labels)
 
-    def test_sa_sees_plataforma_block(self):
+    def test_sa_does_not_embed_plataforma_in_product_nav(self):
+        """Arquitectura: Plataforma se administra en Host EN1, no embebida en EPosOne."""
         from nodeone.core.nav_menu import build_nav_context
         from nodeone.core.platform.app_nav import serialize_nav_sidebar
         from nodeone.modules.eposone.nav import build_nav_tree
@@ -153,11 +154,7 @@ class TestEposoneNavTree(unittest.TestCase):
         with self.app.test_request_context('/admin/eposone/dashboard'):
             rows = serialize_nav_sidebar(build_nav_tree(ctx), ctx)
         labels = [r['label'] for r in rows]
-        self.assertIn('Plataforma', labels)
-        plat = next(r for r in rows if r['id'] == 'plataforma-ets')
-        child_labels = {c['label'] for c in plat['children']}
-        self.assertIn('Organizaciones', child_labels)
-        self.assertIn('Módulos SaaS', child_labels)
+        self.assertNotIn('Plataforma', labels)
 
     def test_clientes_not_contactos(self):
         from nodeone.modules.eposone.nav import build_nav_tree
@@ -206,7 +203,11 @@ class TestMergeNativeAppNav(unittest.TestCase):
             show_tenant_admin_menu=True,
         )
         os.environ['NODEONE_PLATFORM_SEED_EPOSONE_ORG_IDS'] = '1'
-        with self.app.test_request_context('/admin/eposone/dashboard'):
+        with self.app.test_request_context(
+            '/admin/eposone/dashboard',
+            base_url='https://eposone.easytech.services',
+            environ_overrides={'HTTP_HOST': 'eposone.easytech.services'},
+        ):
             out = {'nav_active_area_id': 'eposone'}
             merge_native_app_nav_context(out, MagicMock(), {})
             self.assertTrue(out.get('app_nav_native_active'))
@@ -214,7 +215,7 @@ class TestMergeNativeAppNav(unittest.TestCase):
             self.assertTrue(out.get('nav_use_context_bar'))
             self.assertEqual(out.get('nav_area_children'), [])
             self.assertTrue(out.get('platform_shell_show_apps_return'))
-            self.assertEqual(out.get('platform_apps_return_label'), '← Mis aplicaciones')
+            self.assertEqual(out.get('platform_apps_return_label'), '← Mis productos')
             self.assertTrue(out.get('platform_apps_return_url'))
             self.assertEqual(out.get('platform_shell_app_accent'), 'eposone')
             self.assertEqual(out.get('platform_shell_app_product_name'), 'EPosOne')
@@ -224,10 +225,14 @@ class TestMergeNativeAppNav(unittest.TestCase):
     def test_apps_return_payload_copy(self):
         from nodeone.core.platform.app_shell import _apps_return_payload, _app_identity_payload
 
-        with self.app.test_request_context('/admin/eposone/dashboard'):
+        with self.app.test_request_context(
+            '/admin/eposone/dashboard',
+            base_url='https://eposone.easytech.services',
+            environ_overrides={'HTTP_HOST': 'eposone.easytech.services'},
+        ):
             ret = _apps_return_payload()
             ident = _app_identity_payload('eposone')
-        self.assertEqual(ret['platform_apps_return_label'], '← Mis aplicaciones')
+        self.assertEqual(ret['platform_apps_return_label'], '← Mis productos')
         self.assertNotIn('Salir', ret['platform_apps_return_label'])
         self.assertEqual(ident['platform_shell_app_accent'], 'eposone')
         self.assertEqual(ident['platform_shell_app_product_name'], 'EPosOne')

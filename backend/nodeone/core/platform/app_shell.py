@@ -105,7 +105,7 @@ def sync_active_app_from_request(session, user) -> str | None:
 
 
 def _apps_return_payload(*, hide: bool = False) -> dict[str, Any]:
-    """Retorno al launcher (UX-T1). En surface product se oculta (no hay launcher EN1)."""
+    """Retorno al launcher / Mis productos (cambio de contexto de producto, no otra app)."""
     if hide:
         return {
             'platform_apps_return_url': None,
@@ -113,6 +113,21 @@ def _apps_return_payload(*, hide: bool = False) -> dict[str, Any]:
             'platform_shell_show_apps_return': False,
         }
     from flask import url_for
+
+    # Host producto: Mis productos (Portal) = cambio de contexto EN1, no aislamiento.
+    if is_product_surface_shell():
+        try:
+            return_url = url_for('ets_portal.products')
+        except Exception:
+            try:
+                return_url = url_for('platform_launcher.apps_home')
+            except Exception:
+                return_url = '/portal/products'
+        return {
+            'platform_apps_return_url': return_url,
+            'platform_apps_return_label': '← Mis productos',
+            'platform_shell_show_apps_return': True,
+        }
 
     try:
         return_url = url_for('platform_launcher.apps_home')
@@ -210,13 +225,15 @@ def merge_app_shell_nav_context(out: dict[str, Any], user, session) -> dict[str,
         out.setdefault('platform_app_shell_active', False)
         return out
 
-    # Surface product: shell del producto. EP1 — plataforma solo para SA (no por host).
+    # Surface product: chrome del producto activo (contexto EN1), no portal plataforma.
+    # Plataforma/SaaS/orgs globales se administran en Host EN1 (app*), no aquí.
     if product_primary:
         out.update(
-            build_app_shell_nav_payload(product_primary, ctx, hide_apps_return=True)
+            build_app_shell_nav_payload(product_primary, ctx, hide_apps_return=False)
         )
         from nodeone.core.platform.nav_effective_access import is_system_administrator
 
+        # Solo selector de empresa para SA; sin menú «Plataforma» embebido.
         out['show_platform_admin_nav'] = is_system_administrator(user)
         return out
 
@@ -303,11 +320,11 @@ def merge_native_app_nav_context(out: dict[str, Any], user, session) -> dict[str
             'nav_active_area_id': tree.nav_area_id,
         }
     )
-    out.update(_apps_return_payload(hide=bool(product_primary)))
+    out.update(_apps_return_payload(hide=False))
     out.update(_app_identity_payload(tree.nav_area_id))
     if product_primary:
         from nodeone.core.platform.nav_effective_access import is_system_administrator
 
-        # EP1: SA conserva acceso plataforma; tenant nunca ve multi-tenant global.
+        # Selector de empresa para SA; plataforma multi-tenant vive en Host EN1.
         out['show_platform_admin_nav'] = is_system_administrator(user)
     return out

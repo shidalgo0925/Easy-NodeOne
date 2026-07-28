@@ -176,7 +176,7 @@ def build_setup_guide(organization_id: int) -> SetupGuide:
         next_task = next((t for t in prepare_tasks if not t.done and t.id != 'company'), None)
         return SetupGuide(
             phase='prepare',
-            title='Bienvenido a EN1',
+            title='Bienvenido a EPosOne',
             subtitle='Todavía no podés operar. Completá estas tareas para dejar el negocio listo.',
             tasks=prepare_tasks,
             pending_count=len(pending_prepare),

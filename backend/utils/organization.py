@@ -95,6 +95,18 @@ def get_current_organization_id():
             if raw is None:
                 return default_organization_id()
             return _clamp_org_id(raw)
+        # Multi-empresa: la sesión es el contexto de trabajo (sin re-login).
+        from nodeone.services.user_organization import user_can_switch_organization
+
+        if user_can_switch_organization(current_user):
+            raw = session.get('organization_id')
+            if raw is not None and raw != '':
+                sid = _clamp_org_id(raw)
+                if user_has_access_to_organization(current_user, sid):
+                    return sid
+            return _clamp_org_id(
+                getattr(current_user, 'organization_id', None) or default_organization_id()
+            )
         return _clamp_org_id(getattr(current_user, 'organization_id', None) or default_organization_id())
     raw = session.get('organization_id')
     if raw is None:

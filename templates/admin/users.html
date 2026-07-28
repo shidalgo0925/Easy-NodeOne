@@ -229,6 +229,7 @@
                                     data-advisor="{{ '1' if user.is_advisor else '0' }}"
                                     data-salesperson="{{ '1' if user.is_salesperson else '0' }}"
                                     data-organization-id="{{ user.organization_id or '' }}"
+                                    data-organization-ids="{% if user_org_ids is defined %}{{ user_org_ids.get(user.id, [])|join(',') }}{% else %}{{ user.organization_id or '' }}{% endif %}"
                                     data-display-name="{{ (user.first_name ~ ' ' ~ user.last_name)|e }}">
                                     <td class="text-nowrap">{{ user.id }}</td>
                                     <td class="text-truncate" style="max-width:140px;" title="{{ user.first_name }} {{ user.last_name }}">{{ user.first_name }} {{ user.last_name }}</td>
@@ -495,7 +496,10 @@
             </div>
             <form id="inviteUserForm">
                 <div class="modal-body">
-                    <p class="text-muted small mb-3">Se enviará un correo con un enlace para unirse a <strong>la empresa activa</strong> de tu sesión (selector de organización).</p>
+                    <p class="text-muted small mb-3">
+                        Empresa activa de tu sesión. Si el correo <strong>ya tiene cuenta</strong>, se vincula al instante (sin registro ni mail).
+                        Si no existe, se envía invitación por correo.
+                    </p>
                     <div id="inviteUserAlert" class="alert d-none" role="alert"></div>
                     <div class="mb-3">
                         <label for="invite_email" class="form-label">Correo del invitado</label>
@@ -603,27 +607,27 @@
                     </div>
                     {% if can_pa and saas_organizations %}
                     <hr>
-                    <div class="row">
-                        <div class="col-12 col-md-8 mb-3">
-                            <label for="edit_add_organization_id" class="form-label">Agregar a compañía</label>
-                            <select class="form-select" id="edit_add_organization_id" name="add_organization_id">
-                                <option value="">No agregar</option>
-                                {% for org in saas_organizations %}
-                                <option value="{{ org.id }}">{{ org.id }} — {{ org.name }}</option>
-                                {% endfor %}
-                            </select>
-                            <small class="text-muted d-block mt-1">
-                                Compañía principal actual: <span id="edit_current_organization_label">—</span>.
-                            </small>
-                        </div>
-                        <div class="col-12 col-md-4 mb-3 d-flex align-items-end">
+                    <div class="mb-2">
+                        <label class="form-label mb-1">Compañías a las que pertenece</label>
+                        <p class="small text-muted mb-2">Misma cuenta; marca las empresas sin registrar de nuevo.</p>
+                        <div class="border rounded p-2" style="max-height:220px;overflow:auto;">
+                            {% for org in saas_organizations %}
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="edit_set_primary_organization" name="set_primary_organization">
-                                <label class="form-check-label" for="edit_set_primary_organization">
-                                    Dejar como principal
-                                </label>
+                                <input class="form-check-input edit-org-membership" type="checkbox"
+                                       name="organization_ids" value="{{ org.id }}"
+                                       id="edit_org_{{ org.id }}">
+                                <label class="form-check-label" for="edit_org_{{ org.id }}">{{ org.name }}</label>
                             </div>
+                            {% endfor %}
                         </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_primary_organization_id" class="form-label">Compañía principal</label>
+                        <select class="form-select" id="edit_primary_organization_id" name="primary_organization_id">
+                            {% for org in saas_organizations %}
+                            <option value="{{ org.id }}">{{ org.name }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     {% endif %}
                     <div class="row">
@@ -703,12 +707,16 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('edit_is_advisor').checked = tr.dataset.advisor === '1';
             var edSp = document.getElementById('edit_is_salesperson');
             if (edSp) edSp.checked = tr.dataset.salesperson === '1';
-            var addOrg = document.getElementById('edit_add_organization_id');
-            if (addOrg) addOrg.value = '';
-            var setPrimary = document.getElementById('edit_set_primary_organization');
-            if (setPrimary) setPrimary.checked = false;
-            var currentOrgLbl = document.getElementById('edit_current_organization_label');
-            if (currentOrgLbl) currentOrgLbl.textContent = tr.dataset.organizationId || '—';
+            var memberIds = (tr.dataset.organizationIds || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+            var primaryId = String(tr.dataset.organizationId || '');
+            document.querySelectorAll('.edit-org-membership').forEach(function(cb) {
+                cb.checked = memberIds.indexOf(String(cb.value)) !== -1;
+            });
+            var primarySel = document.getElementById('edit_primary_organization_id');
+            if (primarySel) {
+                if (primaryId) primarySel.value = primaryId;
+                else if (memberIds.length) primarySel.value = memberIds[0];
+            }
             document.getElementById('editUserForm').action = '/admin/users/' + id + '/update';
             new bootstrap.Modal(document.getElementById('editUserModal')).show();
         });
@@ -848,10 +856,19 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(function(res) {
                 inviteSubmit.disabled = false;
                 if (res.ok && res.data && res.data.success) {
-                    var msg = 'Invitación creada.';
-                    if (res.data.email_sent) msg += ' Correo enviado.';
-                    else if (res.data.email_error) msg += ' No se pudo enviar el correo: ' + res.data.email_error;
-                    else msg += ' Revisa la configuración SMTP si el correo no llega.';
+                    var msg = res.data.message || '';
+                    if (!msg) {
+                        if (res.data.linked) msg = 'Usuario existente vinculado a esta organización.';
+                        else if (res.data.already_member) msg = 'Ese usuario ya pertenece a esta organización.';
+                        else {
+                            msg = 'Invitación creada.';
+                            if (res.data.email_sent) msg += ' Correo enviado.';
+                            else if (res.data.email_error) msg += ' No se pudo enviar el correo: ' + res.data.email_error;
+                            else msg += ' Revisa la configuración SMTP si el correo no llega.';
+                        }
+                    } else if (res.data.email_error && !res.data.linked) {
+                        msg += ' (correo: ' + res.data.email_error + ')';
+                    }
                     inviteAlert.className = 'alert alert-success';
                     inviteAlert.textContent = msg;
                     inviteForm.reset();

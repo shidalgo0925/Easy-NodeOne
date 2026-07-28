@@ -2,7 +2,7 @@
 
 MODULE = {
     'id': 'epayroll',
-    'name': 'EPayroll',
+    'name': 'ePlanilla',
     'saas_codes': ('epayroll',),
     'nav_area_id': 'epayroll',
     'depends_on': ('contacts',),
@@ -14,6 +14,6 @@ MODULE = {
     'zone_endpoints': ('epayroll.epayroll_home',),
     'notes': (
         'App nativa Carril 2 — solo Core (contactos, org, licenciamiento).',
-        'Scaffold inicial; módulos de planilla y reportes en iteraciones de producto.',
+        'En prueba en plataforma; planilla y reportes en iteraciones de producto.',
     ),
 }

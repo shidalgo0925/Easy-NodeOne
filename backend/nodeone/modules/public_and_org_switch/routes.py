@@ -20,7 +20,14 @@ def register_public_and_org_switch_routes(app):
     @login_required
     def set_organization():
         """Cambiar organizacion activa (sesion). JSON: { organization_id: int | ORG_HOME }."""
-        if single_tenant_default_only() and not getattr(current_user, 'is_admin', False):
+        from nodeone.services.user_organization import user_can_switch_organization
+
+        # Identidad única; org = contexto. Single-tenant solo bloquea a quien tiene 1 empresa.
+        if (
+            single_tenant_default_only()
+            and not getattr(current_user, 'is_admin', False)
+            and not user_can_switch_organization(current_user)
+        ):
             return jsonify({'error': 'Modo solo organización por defecto; cambio de empresa deshabilitado.'}), 403
         if not request.is_json:
             return jsonify({'error': 'Se requiere JSON'}), 400

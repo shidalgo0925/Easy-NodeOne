@@ -58,7 +58,13 @@ def register_admin_users_roles_routes(app):
     from flask_login import current_user
     from saas_features import require_saas_module
 
-    from nodeone.services.user_organization import ensure_membership, user_has_active_membership, user_in_org_clause
+    from nodeone.services.user_organization import (
+        active_organization_ids_for_user,
+        ensure_membership,
+        sync_user_organization_memberships,
+        user_has_active_membership,
+        user_in_org_clause,
+    )
 
     _require_rbac_matrix = require_saas_module('rbac_matrix')
     _require_memberships = require_saas_module('memberships')
@@ -186,7 +192,9 @@ def register_admin_users_roles_routes(app):
     
         # Obtener membresías activas para cada usuario (para mostrar en la tabla)
         user_memberships = {}
+        user_org_ids = {}
         for user in users:
+            user_org_ids[user.id] = sorted(active_organization_ids_for_user(user))
             active_membership = user.get_active_membership()
             if active_membership:
                 # Determinar tipo de membresía y fecha de expiración
@@ -221,6 +229,7 @@ def register_admin_users_roles_routes(app):
             unique_tags=unique_tags,
             valid_countries=VALID_COUNTRIES,
             user_memberships=user_memberships,
+            user_org_ids=user_org_ids,
             can_filter_users_by_org=is_platform_admin,
             saas_organizations=saas_organizations,
             users_organization_filter=users_organization_filter,
@@ -379,24 +388,32 @@ def register_admin_users_roles_routes(app):
             if user.advisor_profile:
                 db.session.delete(user.advisor_profile)
 
-        # Plataforma admin: permitir agregar membresía a otra compañía desde mantenimiento.
+        # Plataforma admin: compañías a las que pertenece (misma cuenta, sin re-registro).
         if can_manage_platform_superuser_fields(current_user):
-            add_org_id = request.form.get('add_organization_id', type=int)
-            if add_org_id and add_org_id > 0:
-                from utils.organization import platform_visible_organization_ids
+            from utils.organization import platform_visible_organization_ids
 
-                allow = platform_visible_organization_ids()
-                if allow is not None and int(add_org_id) not in allow:
-                    flash('Organización no permitida para tu cuenta de administración.', 'error')
-                    return redirect(url_for('admin_users'))
-                if not SaasOrganization.query.filter_by(id=add_org_id, is_active=True).first():
-                    flash('La organización seleccionada no existe o está inactiva.', 'error')
-                    return redirect(url_for('admin_users'))
-                ensure_membership(user.id, int(add_org_id))
-                if bool(request.form.get('set_primary_organization')):
-                    user.organization_id = int(add_org_id)
-                    if hasattr(user, 'last_selected_organization_id'):
-                        user.last_selected_organization_id = int(add_org_id)
+            allow = platform_visible_organization_ids()
+            raw_orgs = request.form.getlist('organization_ids')
+            selected: list[int] = []
+            for raw in raw_orgs:
+                try:
+                    oid = int(raw)
+                except (TypeError, ValueError):
+                    continue
+                if oid < 1:
+                    continue
+                if allow is not None and oid not in allow:
+                    continue
+                if not SaasOrganization.query.filter_by(id=oid, is_active=True).first():
+                    continue
+                selected.append(oid)
+            primary = request.form.get('primary_organization_id', type=int)
+            if selected:
+                sync_user_organization_memberships(
+                    user.id,
+                    selected,
+                    primary_organization_id=primary,
+                )
 
         db.session.commit()
         flash('Usuario actualizado correctamente.', 'success')

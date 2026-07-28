@@ -10,6 +10,7 @@ def register_org_invite_routes(app):
         accept_invite_for_user,
         create_invite_record,
         get_valid_invite_by_token,
+        link_existing_user_to_organization,
         normalize_invite_email,
         send_invite_email,
     )
@@ -63,6 +64,49 @@ def register_org_invite_routes(app):
         role = (data.get('role') or 'user').strip() or 'user'
         if not email:
             return jsonify({'success': False, 'error': 'Falta email'}), 400
+
+        # Cuenta ya existente: vincular a la org activa sin registro ni correo.
+        try:
+            linked = link_existing_user_to_organization(
+                scope_oid,
+                email,
+                int(getattr(current_user, 'id', 0) or 0) or None,
+                role=role,
+            )
+            if linked['status'] == 'already_member':
+                return jsonify(
+                    {
+                        'success': True,
+                        'linked': False,
+                        'already_member': True,
+                        'email_sent': False,
+                        'user_id': linked['user_id'],
+                        'message': 'Ese usuario ya pertenece a esta organización.',
+                    }
+                )
+            if linked['status'] == 'linked':
+                db.session.commit()
+                return jsonify(
+                    {
+                        'success': True,
+                        'linked': True,
+                        'already_member': False,
+                        'email_sent': False,
+                        'invite_id': linked['invite_id'],
+                        'user_id': linked['user_id'],
+                        'message': (
+                            'Usuario existente vinculado a esta organización. '
+                            'Al iniciar sesión podrá usar «Cambiar empresa».'
+                        ),
+                    }
+                )
+        except ValueError as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'error': str(e)}), 400
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'error': str(e)}), 500
+
         try:
             inv = create_invite_record(
                 scope_oid,
@@ -80,9 +124,12 @@ def register_org_invite_routes(app):
         ok_mail, err_mail = send_invite_email(inv)
         payload = {
             'success': True,
+            'linked': False,
+            'already_member': False,
             'invite_id': inv.id,
             'email_sent': ok_mail,
             'email_error': err_mail,
+            'message': 'Invitación creada para un correo sin cuenta aún.',
         }
         if current_app.debug or current_app.config.get('ORG_INVITE_API_INCLUDE_TOKEN'):
             payload['token'] = inv.token

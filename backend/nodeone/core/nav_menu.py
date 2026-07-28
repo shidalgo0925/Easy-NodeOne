@@ -1282,7 +1282,7 @@ APP_AREAS: tuple[NavArea, ...] = (
     ),
     NavArea(
         id='epayroll',
-        label='EPayroll',
+        label='ePlanilla',
         icon='fas fa-money-check-alt',
         visible=_v_epayroll,
         zone_blueprints=('epayroll',),

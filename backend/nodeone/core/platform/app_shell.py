@@ -114,14 +114,14 @@ def _apps_return_payload(*, hide: bool = False) -> dict[str, Any]:
         }
     from flask import url_for
 
-    # Host producto: salir al Portal canónico (Mis Productos vive solo allí).
+    # Host producto: Mis Productos en el mismo host (misma sesión; no app.easytech).
     if is_product_surface_shell():
         try:
-            from nodeone.core.platform.portal_urls import portal_products_url
+            from nodeone.core.platform.portal_urls import portal_products_href
 
-            return_url = portal_products_url()
+            return_url = portal_products_href()
         except Exception:
-            return_url = 'https://app.easytech.services/portal/products'
+            return_url = '/portal/products'
         return {
             'platform_apps_return_url': return_url,
             'platform_apps_return_label': '← Cambiar producto',

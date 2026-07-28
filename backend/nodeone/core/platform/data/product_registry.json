@@ -33,7 +33,7 @@
       "code": "portal",
       "name": "Easy Technology Services",
       "description": "Portal ETS — punto único de entrada comercial (ADR-013). No ejecuta lógica de productos verticales.",
-      "primary_domain": "app.easytech.services",
+      "primary_domain": "appprd.easynodeone.com",
       "icon": "",
       "status": "active",
       "version": "1.0",

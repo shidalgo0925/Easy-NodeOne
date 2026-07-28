@@ -178,15 +178,14 @@ def post_login_redirect_target(*, next_page: str | None, user, session) -> str:
     """URL destino tras login / selector de org (ADR-013 + ADR-017 lanzador)."""
     from flask import url_for
 
-    # next= local /portal en host producto → Portal canónico (no reabrir Mis Productos aquí)
+    # next=/portal en host producto: servir local (misma sesión), no saltar a otro dominio.
     try:
         from nodeone.core.platform.context_resolver import current_app_context
-        from nodeone.core.platform.portal_urls import absolute_portal_path
 
         if next_page and current_app_context().surface == 'product':
             path = (next_page or '').strip()
             if path.startswith('/portal'):
-                return absolute_portal_path(path.split('?', 1)[0])
+                return path.split('?', 1)[0] or '/portal/'
     except Exception:
         pass
 
@@ -276,8 +275,13 @@ def _product_host_post_login_target(app_ctx, session) -> str:
         if _has_host_product(usable):
             return _open_product_home(app_ctx, session)
 
-    # Sin entitlement de este producto → Portal de cuenta (host canónico), nunca /portal local.
-    return portal_products_url()
+    # Sin entitlement de este producto → Mis Productos en el mismo host (misma sesión).
+    try:
+        from flask import url_for
+
+        return url_for('ets_portal.products')
+    except Exception:
+        return portal_products_url()
 
 
 def _try_session_org_with_product(product_code: str, session) -> bool:

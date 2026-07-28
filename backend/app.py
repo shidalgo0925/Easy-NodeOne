@@ -939,12 +939,30 @@ def resolve_theme_tokens():
             from nodeone.services.nav_branding import _authenticated_tenant_nav_preferred
 
             if _authenticated_tenant_nav_preferred():
-                # Preset visual del tenant si existe; no forzar CSS eposone sobre colores de org.
+                # Preset visual del tenant (admin); no forzar CSS eposone sobre colores de org.
                 try:
                     s_preset = (OrganizationSettings.get_settings_for_session().preset or '').strip()
                 except Exception:
                     s_preset = ''
                 out['brand_preset'] = s_preset or 'custom'
+                # Nombre/logo de plantillas: tenant, no BrandContext del producto.
+                try:
+                    from nodeone.services.nav_branding import get_nav_brand_name
+
+                    tn = (get_nav_brand_name() or '').strip()
+                    if tn:
+                        out['product_display_name'] = tn
+                except Exception:
+                    pass
+                try:
+                    from nodeone.services.nav_branding import nav_theme_logo_relpath
+
+                    tlogo = nav_theme_logo_relpath()
+                    if tlogo:
+                        out['brand_logo_url'] = tlogo
+                        out['theme_logo_url'] = tlogo
+                except Exception:
+                    pass
             else:
                 out['brand_preset'] = app_ctx.brand_preset or app_ctx.product_code or 'en1'
         except Exception:

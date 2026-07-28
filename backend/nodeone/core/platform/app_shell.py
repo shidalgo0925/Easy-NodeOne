@@ -140,7 +140,11 @@ def _apps_return_payload(*, hide: bool = False) -> dict[str, Any]:
 
 
 def _app_identity_payload(app_id: str) -> dict[str, Any]:
-    """Identidad visual por app (chrome / CSS)."""
+    """Identidad visual por app (chrome / CSS).
+
+    En Host producto con sesión, el chrome usa la marca del tenant (admin /
+    organization_settings), no el wordmark comercial EPosOne.
+    """
     accents = {
         'eposone': {
             'platform_shell_app_accent': 'eposone',
@@ -154,6 +158,21 @@ def _app_identity_payload(app_id: str) -> dict[str, Any]:
         'platform_shell_app_tagline': None,
     }
     base.update(accents.get(app_id, {}))
+    try:
+        from nodeone.services.nav_branding import (
+            _authenticated_tenant_nav_preferred,
+            get_nav_brand_name,
+        )
+
+        if _authenticated_tenant_nav_preferred():
+            tenant_name = (get_nav_brand_name() or '').strip()
+            if tenant_name:
+                base['platform_shell_app_product_name'] = tenant_name
+            # Tagline comercial del producto no aplica al chrome del tenant.
+            base['platform_shell_app_tagline'] = None
+            # Accent CSS sigue al producto; colores vienen de organization_settings.
+    except Exception:
+        pass
     return base
 
 

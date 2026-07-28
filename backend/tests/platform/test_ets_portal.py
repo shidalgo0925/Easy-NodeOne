@@ -121,6 +121,31 @@ class TestPortalService(unittest.TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp.location, 'https://app.easytech.services/portal/products')
 
+    def test_product_host_before_request_redirects_without_auth(self):
+        from flask import Flask
+
+        from nodeone.core.platform.context_resolver import ContextResolver
+        from nodeone.modules.ets_portal.routes import (
+            _redirect_product_host_portal_before_auth,
+            register_ets_portal_blueprint,
+        )
+
+        app = Flask(__name__)
+        register_ets_portal_blueprint(app)
+        bundled = ContextResolver.resolve('eposone.easytech.services')
+        with app.test_request_context(
+            '/portal/products',
+            base_url='https://eposone.easytech.services',
+            environ_overrides={'HTTP_HOST': 'eposone.easytech.services'},
+        ):
+            with patch(
+                'nodeone.modules.ets_portal.routes.current_app_context',
+                return_value=bundled,
+            ):
+                resp = _redirect_product_host_portal_before_auth()
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.location, 'https://app.easytech.services/portal/products')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -29,6 +29,17 @@ def _require_portal_surface():
         return redirect('/')
 
 
+@ets_portal_bp.before_request
+def _redirect_product_host_portal_before_auth():
+    """Antes de ``login_required``: en host producto nunca servir /portal (ni login local con next=/portal)."""
+    try:
+        if current_app_context().surface == 'product':
+            return redirect(absolute_portal_path(request.path or '/portal/'), code=302)
+    except Exception:
+        return None
+    return None
+
+
 @ets_portal_bp.route('/')
 @login_required
 def home():

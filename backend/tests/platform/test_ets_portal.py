@@ -92,14 +92,14 @@ class TestPortalService(unittest.TestCase):
             portal_products_url,
         )
 
-        self.assertEqual(portal_account_domain(), 'app.easytech.services')
-        self.assertEqual(portal_products_url(), 'https://app.easytech.services/portal/products')
+        self.assertEqual(portal_account_domain(), 'appprd.easynodeone.com')
+        self.assertEqual(portal_products_url(), 'https://appprd.easynodeone.com/portal/products')
         self.assertEqual(
             absolute_portal_path('/portal/products'),
-            'https://app.easytech.services/portal/products',
+            'https://appprd.easynodeone.com/portal/products',
         )
 
-    def test_product_host_portal_routes_redirect_canonical(self):
+    def test_product_host_allows_portal_surface(self):
         from flask import Flask
 
         from nodeone.core.platform.context_resolver import ContextResolver
@@ -117,34 +117,7 @@ class TestPortalService(unittest.TestCase):
                 return_value=bundled,
             ):
                 resp = _require_portal_surface()
-        self.assertIsNotNone(resp)
-        self.assertEqual(resp.status_code, 302)
-        self.assertEqual(resp.location, 'https://app.easytech.services/portal/products')
-
-    def test_product_host_before_request_redirects_without_auth(self):
-        from flask import Flask
-
-        from nodeone.core.platform.context_resolver import ContextResolver
-        from nodeone.modules.ets_portal.routes import (
-            _redirect_product_host_portal_before_auth,
-            register_ets_portal_blueprint,
-        )
-
-        app = Flask(__name__)
-        register_ets_portal_blueprint(app)
-        bundled = ContextResolver.resolve('eposone.easytech.services')
-        with app.test_request_context(
-            '/portal/products',
-            base_url='https://eposone.easytech.services',
-            environ_overrides={'HTTP_HOST': 'eposone.easytech.services'},
-        ):
-            with patch(
-                'nodeone.modules.ets_portal.routes.current_app_context',
-                return_value=bundled,
-            ):
-                resp = _redirect_product_host_portal_before_auth()
-        self.assertEqual(resp.status_code, 302)
-        self.assertEqual(resp.location, 'https://app.easytech.services/portal/products')
+        self.assertIsNone(resp)
 
 
 if __name__ == '__main__':

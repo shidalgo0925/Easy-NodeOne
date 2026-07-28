@@ -349,7 +349,11 @@ def _login_unauthorized_api_json():
             ), 401
     except Exception:
         pass
-    return redirect(url_for(login_manager.login_view, next=request.url))
+    # next relativo: request.url absoluto rompe safe_next_path y el post-login.
+    next_path = request.full_path if request.query_string else request.path
+    if next_path.endswith('?'):
+        next_path = next_path[:-1]
+    return redirect(url_for(login_manager.login_view, next=next_path))
 
 # OAuth (login social): Google, Facebook, LinkedIn
 # State OAuth en SQLite (compartido entre workers Gunicorn). El usuario del servicio debe poder

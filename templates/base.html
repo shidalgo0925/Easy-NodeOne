@@ -345,7 +345,7 @@
                         </a>
                     </li>
                     <li class="nav-item me-2 d-flex align-items-center dropdown">
-                        <a class="nav-link nav-icon-link dropdown-toggle" href="#" id="settingsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Configuración">
+                        <a class="nav-link nav-icon-link dropdown-toggle" href="#" id="settingsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Empresa y cuenta">
                             <i class="fas fa-cog"></i>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="settingsDropdown">
@@ -357,7 +357,7 @@
                             {% endif %}
                             {% if show_tenant_admin_menu %}
                             <li><hr class="dropdown-divider"></li>
-                            <li><h6 class="dropdown-header text-muted mb-0 small">Configuración tenant</h6></li>
+                            <li><h6 class="dropdown-header text-muted mb-0 small">Empresa</h6></li>
                             {% if has_view_endpoint('admin_configuration_taxes') and ((nav_can('system.settings.view')) or current_user.is_admin) %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_configuration_taxes') }}"><i class="fas fa-percent me-2"></i> Impuestos</a></li>
                             {% endif %}
@@ -380,7 +380,9 @@
                             <li><a class="dropdown-item" href="{{ url_for('admin_ecalendar_settings_page') }}"><i class="fas fa-calendar-check me-2"></i> Agenda ECalendar</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('admin_ecalendar_appointments_page') }}"><i class="fas fa-list me-2"></i> Gestionar citas ECalendar</a></li>
                             {% endif %}
+                            {% if show_platform_admin_nav and current_user.is_admin and has_view_endpoint('admin_product_guide') %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_product_guide') }}"><i class="fas fa-book-open me-2"></i> Guía de productos</a></li>
+                            {% endif %}
                             {% endif %}
                             {% if saas_module_enabled('rbac_matrix') and nav_can('roles.view') and has_view_endpoint('admin_roles_matrix') %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_roles_matrix') }}"><i class="fas fa-th me-2"></i> Permisos</a></li>

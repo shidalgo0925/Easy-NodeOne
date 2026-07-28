@@ -7,7 +7,6 @@ import re
 def register_admin_platform_org_routes(app):
     from flask import abort, current_app, flash, redirect, render_template, request, send_from_directory, url_for
     from app import (
-        admin_required,
         db,
         platform_admin_required,
         SaasModule,
@@ -212,7 +211,7 @@ def register_admin_platform_org_routes(app):
             current_app.logger.exception('ensure_saas_organization_timezone_column en admin_platform_org')
 
     @app.route('/admin/guide-img/<filename>')
-    @admin_required
+    @platform_admin_required
     def admin_guide_product_image(filename):
         if not filename or not re.match(r'^[a-zA-Z0-9._-]+$', filename):
             abort(404)
@@ -222,12 +221,12 @@ def register_admin_platform_org_routes(app):
             abort(404)
 
     @app.route('/admin/product-guide')
-    @admin_required
+    @platform_admin_required
     def admin_product_guide():
         return render_template('admin/product_guide.html', product_lines=_product_guide_product_lines(), saas_products=_product_guide_saas_items())
 
     @app.route('/admin/platform-setup')
-    @admin_required
+    @platform_admin_required
     def admin_platform_setup():
         preview = [{'name': m.name, 'is_core': bool(m.is_core)} for m in SaasModule.query.order_by(SaasModule.is_core.desc(), SaasModule.name).limit(12).all()]
         return render_template('admin/platform_setup.html', w=_platform_setup_wizard_state(), saas_modules_preview=preview)

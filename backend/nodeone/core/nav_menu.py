@@ -619,25 +619,25 @@ _PLATAFORMA_SAAS_ITEMS: tuple[NavAreaItem, ...] = (
         active_endpoints=('admin_organizations_list', 'admin_organization_new', 'admin_organization_edit'),
     ),
     NavAreaItem(
+        'catalogo',
+        'Catálogo SaaS',
+        'fas fa-list',
+        'admin_saas_catalog_list',
+        active_endpoints=('admin_saas_catalog_list', 'admin_saas_catalog_new', 'admin_saas_catalog_edit'),
+    ),
+    NavAreaItem(
         'modulos',
         'Módulos SaaS',
         'fas fa-puzzle-piece',
         'admin_saas_modules_page',
         active_endpoints=('admin_saas_modules_page',),
     ),
-    NavAreaItem(
-        'catalogo',
-        'Catálogo',
-        'fas fa-list',
-        'admin_saas_catalog_list',
-        active_endpoints=('admin_saas_catalog_list', 'admin_saas_catalog_new', 'admin_saas_catalog_edit'),
-    ),
 )
 
 _PLATAFORMA_SISTEMA_ITEMS: tuple[NavAreaItem, ...] = (
     NavAreaItem(
         'usuarios',
-        'Usuarios',
+        'Usuarios globales',
         'fas fa-users-cog',
         'admin_users',
         visible=lambda c: c.nav_can('users.view'),
@@ -901,7 +901,7 @@ _FINANZAS_COBRO_ITEMS: tuple[NavAreaItem, ...] = (
 _CONFIG_ORG_ITEMS: tuple[NavAreaItem, ...] = (
     NavAreaItem(
         'branding',
-        'Empresa',
+        'Perfil',
         'fas fa-building',
         'admin_company_setup',
         visible=_v_config,
@@ -1662,8 +1662,9 @@ APP_AREAS: tuple[NavArea, ...] = (
         visible=_v_plataforma,
         zone_endpoints=_PLATFORM_EPS,
         items=(
+            # ADR-019: SaaS = catálogo/orgs (ETS); Sistema = ops plataforma (no admin de empresa).
             _nav_menu_dropdown('saas', 'SaaS', 'fas fa-cloud', _PLATAFORMA_SAAS_ITEMS),
-            _nav_menu_dropdown('administracion', 'Administración', 'fas fa-cogs', _PLATAFORMA_SISTEMA_ITEMS),
+            _nav_menu_dropdown('sistema', 'Sistema', 'fas fa-server', _PLATAFORMA_SISTEMA_ITEMS),
             NavAreaItem(
                 'guia',
                 'Guía',
@@ -1699,14 +1700,15 @@ APP_AREAS: tuple[NavArea, ...] = (
         ),
     ),
     NavArea(
+        # id estable `config` (zones/tests); label visible ADR-019 = Empresa.
         id='config',
-        label='Configuración',
-        icon='fas fa-cog',
+        label='Empresa',
+        icon='fas fa-building',
         visible=lambda c: c.show_tenant_admin_menu and _v_configuracion(c),
         show_in_sidebar=False,
         zone_endpoints=_CONFIG_EPS,
         items=(
-            _nav_menu_dropdown('organizacion', 'Organización', 'fas fa-building', _CONFIG_ORG_ITEMS),
+            _nav_menu_dropdown('organizacion', 'Perfil', 'fas fa-building', _CONFIG_ORG_ITEMS),
             _nav_menu_dropdown('fiscal', 'Fiscal', 'fas fa-percent', _CONFIG_FISCAL_ITEMS),
             _nav_menu_dropdown('acceso', 'Acceso', 'fas fa-users-cog', _CONFIG_ACCESO_ITEMS),
         ),

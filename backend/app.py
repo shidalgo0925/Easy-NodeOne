@@ -173,6 +173,13 @@ if os.environ.get('NODEONE_SESSION_COOKIE_SECURE', '').strip().lower() in ('1', 
     app.config['SESSION_COOKIE_SECURE'] = True
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+# ETS: cookie compartida eposone.* ↔ app.easytech.services (host-aware; no rompe appprd).
+try:
+    from nodeone.core.platform.session_cookies import register_host_aware_session_cookies
+
+    register_host_aware_session_cookies(app)
+except Exception as _cookie_exc:
+    print(f'⚠️ session cookies host-aware: {_cookie_exc}')
 _db_uri = (os.environ.get('SQLALCHEMY_DATABASE_URI') or os.environ.get('DATABASE_URL') or '').strip()
 if _db_uri:
     if _db_uri.startswith('postgres://'):

@@ -28,8 +28,13 @@ def _v_platform_sa(ctx: NavContext) -> bool:
 
 
 def _v_platform_lab(ctx: NavContext) -> bool:
-    """Lab QA: solo platform admin (User.is_admin), no admin tenant."""
-    return _v_platform_sa(ctx)
+    """Lab QA: solo SA + entorno development (nunca cliente / prod)."""
+    import os
+
+    if not _v_platform_sa(ctx):
+        return False
+    env = (os.environ.get('FLASK_ENV') or os.environ.get('ENV') or '').strip().lower()
+    return env in ('development', 'dev', 'local')
 
 
 def _v_feature(feature: str):
@@ -77,11 +82,6 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
     device_prefixes = (
         '/admin/eposone/section/terminals',
         '/admin/eposone/section/shifts',
-    )
-    platform_prefixes = (
-        '/admin/organizations',
-        '/admin/saas',
-        '/admin/configuration',
     )
 
     return AppNavTree(
@@ -267,32 +267,6 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                     ),
                 ),
                 active_path_prefixes=device_prefixes,
-            ),
-            AppNavItem(
-                'plataforma-ets',
-                'Plataforma',
-                'fas fa-cloud',
-                children=(
-                    AppNavItem(
-                        'orgs-global',
-                        'Organizaciones',
-                        'fas fa-sitemap',
-                        url=safe_url_for('admin_organizations_list'),
-                        visible=_v_platform_sa,
-                        active_endpoints=('admin_organizations_list',),
-                        active_path_prefixes=('/admin/organizations',),
-                    ),
-                    AppNavItem(
-                        'saas-modules',
-                        'Módulos SaaS',
-                        'fas fa-cubes',
-                        url=safe_url_for('admin_saas_modules_page'),
-                        visible=_v_platform_sa,
-                        active_endpoints=('admin_saas_modules_page',),
-                        active_path_prefixes=('/admin/saas',),
-                    ),
-                ),
-                active_path_prefixes=platform_prefixes,
             ),
             AppNavItem(
                 'lab-wipe',

@@ -504,21 +504,50 @@ def ensure_session_organization():
             if _skip_org_coerce:
                 pass
             elif single_tenant_default_only():
-                if getattr(current_user, 'is_admin', False):
+                from nodeone.services.user_organization import (
+                    user_can_switch_organization,
+                    user_has_active_membership,
+                )
+
+                _multi_ctx = bool(
+                    getattr(current_user, 'is_admin', False)
+                    or user_can_switch_organization(current_user)
+                )
+                if _multi_ctx:
                     if session.get('organization_id') in (None, ''):
-                        session['organization_id'] = default_organization_id()
+                        session['organization_id'] = (
+                            default_organization_id()
+                            if getattr(current_user, 'is_admin', False)
+                            else _usable_session_organization_id_for_user(current_user)
+                        )
                     else:
                         try:
                             sid = int(session['organization_id'])
                         except (TypeError, ValueError):
-                            session['organization_id'] = default_organization_id()
+                            session['organization_id'] = _usable_session_organization_id_for_user(
+                                current_user
+                            )
                         else:
                             if sid < 1:
-                                session['organization_id'] = default_organization_id()
+                                session['organization_id'] = _usable_session_organization_id_for_user(
+                                    current_user
+                                )
                             else:
                                 o = SaasOrganization.query.get(sid)
-                                if o is None or not getattr(o, 'is_active', True):
-                                    session['organization_id'] = default_organization_id()
+                                ok = (
+                                    o is not None
+                                    and getattr(o, 'is_active', True)
+                                    and (
+                                        getattr(current_user, 'is_admin', False)
+                                        or user_has_active_membership(current_user, sid)
+                                    )
+                                )
+                                if not ok:
+                                    session['organization_id'] = (
+                                        default_organization_id()
+                                        if getattr(current_user, 'is_admin', False)
+                                        else _usable_session_organization_id_for_user(current_user)
+                                    )
                 else:
                     session['organization_id'] = int(
                         getattr(current_user, 'organization_id', None) or default_organization_id()
@@ -549,9 +578,17 @@ def ensure_session_organization():
                 if session.get('require_org_selection'):
                     pass
                 elif single_tenant_default_only():
-                    if getattr(current_user, 'is_admin', False):
+                    from nodeone.services.user_organization import user_can_switch_organization
+
+                    if getattr(current_user, 'is_admin', False) or user_can_switch_organization(
+                        current_user
+                    ):
                         if session.get('organization_id') in (None, ''):
-                            session['organization_id'] = default_organization_id()
+                            session['organization_id'] = (
+                                default_organization_id()
+                                if getattr(current_user, 'is_admin', False)
+                                else _usable_session_organization_id_for_user(current_user)
+                            )
                     else:
                         session['organization_id'] = int(
                             getattr(current_user, 'organization_id', None) or default_organization_id()

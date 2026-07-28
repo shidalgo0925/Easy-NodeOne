@@ -147,6 +147,48 @@ def seed_eposone_platform_runtime(db, organization_ids: list[int], printfn=None)
 
 
 def seed_epayroll_platform_runtime(db, organization_ids: list[int], printfn=None) -> None:
-    """Marca EPayroll como plataforma y habilita módulo SaaS epayroll (opt-in)."""
+    """Marca ePlanilla como plataforma, habilita SaaS y suscripción trial (Portal)."""
+    from datetime import datetime, timedelta
+
     seed_app_platform_runtime(db, 'epayroll', organization_ids, printfn=printfn)
     _ensure_saas_module_for_orgs(db, 'epayroll', organization_ids, printfn=printfn)
+
+    if not organization_ids:
+        return
+
+    try:
+        from nodeone.core.platform.entitlement_service import EntitlementService
+        from nodeone.core.platform.subscription_registry import SubscriptionError, SubscriptionRegistry
+    except Exception as e:
+        if printfn:
+            printfn(f'! epayroll trial seed skipped (imports): {e}')
+        return
+
+    trial_ends = datetime.utcnow() + timedelta(days=90)
+    for oid in organization_ids:
+        try:
+            SubscriptionRegistry.create_trial(
+                int(oid),
+                'epayroll',
+                trial_ends,
+                metadata={'seed': 'platform_trial', 'product': 'eplanilla'},
+            )
+            if printfn:
+                printfn(f'+ ets subscription trial: org={oid} epayroll')
+        except SubscriptionError as e:
+            if getattr(e, 'code', '') == 'duplicate_active':
+                if printfn:
+                    printfn(f'= ets subscription already entitled: org={oid} epayroll')
+            else:
+                if printfn:
+                    printfn(f'! ets subscription org={oid} epayroll: {e}')
+        except Exception as e:
+            if printfn:
+                printfn(f'! ets subscription org={oid} epayroll: {e}')
+        try:
+            EntitlementService.ensure_for_subscription(int(oid), 'epayroll')
+            if printfn:
+                printfn(f'+ entitlement: org={oid} epayroll')
+        except Exception as e:
+            if printfn:
+                printfn(f'! entitlement org={oid} epayroll: {e}')

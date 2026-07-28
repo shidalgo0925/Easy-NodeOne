@@ -73,7 +73,7 @@ APPLICATIONS: tuple[ApplicationDescriptor, ...] = (
     ),
     ApplicationDescriptor(
         id='epayroll',
-        name='EPayroll',
+        name='ePlanilla',
         saas_codes=('epayroll',),
         depends_on=('contacts',),
         native_platform=True,

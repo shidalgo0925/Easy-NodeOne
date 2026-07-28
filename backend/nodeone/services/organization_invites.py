@@ -91,6 +91,52 @@ def accept_invite_for_user(invite, user) -> None:
     db.session.add(invite)
 
 
+def find_user_by_email(email: str | None):
+    """Usuario existente por email (case-insensitive) o None."""
+    from sqlalchemy import func
+
+    from models.users import User
+
+    em = normalize_invite_email(email)
+    if not em or '@' not in em:
+        return None
+    return User.query.filter(func.lower(User.email) == em).first()
+
+
+def link_existing_user_to_organization(
+    organization_id: int,
+    email: str,
+    invited_by_user_id: int | None,
+    role: str = 'user',
+) -> dict:
+    """
+    Si el email ya tiene cuenta: vincula a la org sin registro ni correo.
+    Returns keys: status ('linked'|'already_member'|'not_found'), user_id, invite_id.
+    """
+    from nodeone.core.db import db
+    from nodeone.services.user_organization import user_has_active_membership
+
+    oid = int(organization_id)
+    em = normalize_invite_email(email)
+    user = find_user_by_email(em)
+    if user is None:
+        return {'status': 'not_found', 'user_id': None, 'invite_id': None}
+
+    uid = int(user.id)
+    if user_has_active_membership(user, oid):
+        return {'status': 'already_member', 'user_id': uid, 'invite_id': None}
+
+    inv = create_invite_record(
+        oid,
+        em,
+        invited_by_user_id,
+        role=role or 'user',
+    )
+    accept_invite_for_user(inv, user)
+    db.session.flush()
+    return {'status': 'linked', 'user_id': uid, 'invite_id': int(inv.id)}
+
+
 def send_invite_email(invite) -> tuple[bool, str | None]:
     """Envía correo con enlace /accept-invite/<token>."""
     import os

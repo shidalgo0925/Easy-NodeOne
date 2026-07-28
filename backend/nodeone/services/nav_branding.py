@@ -60,8 +60,36 @@ def brand_context_logo_relpath():
         return None
 
 
+def _authenticated_tenant_nav_preferred() -> bool:
+    """
+    En Host de producto (p. ej. eposone.*), con sesión autenticada preferir branding
+    del tenant (organization_settings / SaasOrganization), como en EN1.
+    Landing anónima y Portal ETS siguen con BrandContext del producto.
+    """
+    try:
+        import app as M
+        from flask_login import current_user
+
+        from nodeone.core.platform.context_resolver import current_app_context
+        from nodeone.core.platform.product_context import SURFACE_PRODUCT
+
+        if not M.has_request_context():
+            return False
+        if not getattr(current_user, 'is_authenticated', False):
+            return False
+        return current_app_context().surface == SURFACE_PRODUCT
+    except Exception:
+        return False
+
+
 def get_nav_logo():
     import app as M
+
+    # Tenant logueado en host de producto: logo de la empresa activa (no el wordmark EPosOne).
+    if _authenticated_tenant_nav_preferred():
+        rel = nav_theme_logo_relpath()
+        if rel:
+            return rel
 
     brand_logo = brand_context_logo_relpath()
     if brand_logo:
@@ -78,6 +106,23 @@ def get_nav_logo():
 
 def get_nav_logo_cache_key():
     import app as M
+
+    if _authenticated_tenant_nav_preferred():
+        rel = nav_theme_logo_relpath()
+        if rel:
+            p = os.path.join(os.path.dirname(M.__file__), '..', 'static', rel)
+            if os.path.exists(p):
+                try:
+                    oid = 0
+                    try:
+                        gco = M.get_current_organization_id()
+                        oid = int(gco) if gco is not None else 0
+                    except Exception:
+                        pass
+                    return int(os.path.getmtime(p)) + oid * 1_000_000_000
+                except OSError:
+                    pass
+            return 0
 
     brand_logo = brand_context_logo_relpath()
     if brand_logo:
@@ -126,11 +171,36 @@ def get_nav_brand_name():
 
     Forzar siempre la marca del producto (APP_BRAND_NAME): NODEONE_NAV_FORCE_PRODUCT_NAME=1
 
-    ADR-011/013: en superficie portal/product el nombre es BrandContext
-    (Easy Technology Services / EPosOne / …).
+    ADR-011/013: Portal ETS y landing anónima de producto usan BrandContext.
+    Con sesión en Host de producto, se prioriza el nombre del tenant (igual que EN1).
     Activación amplia de marca por Host: NODEONE_NAV_USE_BRAND_CONTEXT=1.
     """
     import app as M
+
+    def _name_for_org_id(oid):
+        if oid is None:
+            return None
+        try:
+            oid = int(oid)
+        except (TypeError, ValueError):
+            return None
+        if oid < 1:
+            return None
+        org = M.SaasOrganization.query.get(oid)
+        if org is None or not (org.name or '').strip():
+            return None
+        return (org.name or '').strip()
+
+    # Host producto + sesión: nombre de la empresa activa (p. ej. MEXICAN FOOD).
+    if _authenticated_tenant_nav_preferred():
+        try:
+            from utils.organization import resolve_current_organization
+
+            n = _name_for_org_id(resolve_current_organization())
+            if n:
+                return n
+        except Exception:
+            pass
 
     try:
         from nodeone.core.platform.context_resolver import current_app_context
@@ -147,7 +217,10 @@ def get_nav_brand_name():
             'yes',
             'on',
         )
-        if ctx.surface in (SURFACE_PORTAL, SURFACE_PRODUCT) and ctx.display_name:
+        # Portal siempre producto; producto anónimo (landing) también.
+        if ctx.surface == SURFACE_PORTAL and ctx.display_name:
+            return ctx.display_name
+        if ctx.surface == SURFACE_PRODUCT and ctx.display_name:
             return ctx.display_name
         if use_brand and ctx.surface != SURFACE_PLATFORM and ctx.display_name:
             return ctx.display_name
@@ -156,20 +229,6 @@ def get_nav_brand_name():
 
     if os.environ.get('NODEONE_NAV_FORCE_PRODUCT_NAME', '').strip().lower() in ('1', 'true', 'yes', 'on'):
         return (M.app.config.get('APP_BRAND_NAME') or 'Easy NodeOne').strip() or 'Easy NodeOne'
-
-    def _name_for_org_id(oid):
-        if oid is None:
-            return None
-        try:
-            oid = int(oid)
-        except (TypeError, ValueError):
-            return None
-        if oid < 1:
-            return None
-        org = M.SaasOrganization.query.get(oid)
-        if org is None or not (org.name or '').strip():
-            return None
-        return (org.name or '').strip()
 
     try:
         if M.has_request_context():

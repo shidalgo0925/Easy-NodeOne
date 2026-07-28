@@ -205,6 +205,7 @@ def finalize_post_login_organization(user, req):
         return 'pick', None
 
     # Admin multi-org: en Host de producto preferir org con suscripción de ese producto.
+    # Orden: last_selected (si tiene el producto) → org con más catálogo → primera match.
     try:
         from nodeone.core.platform.context_resolver import current_app_context
 
@@ -213,16 +214,39 @@ def finalize_post_login_organization(user, req):
         if getattr(app_ctx, 'surface', None) == 'product' and host_code:
             from nodeone.modules.ets_portal.portal_service import PortalService
 
-            for org in orgs:
-                oid = int(org.id)
+            def _org_has_product(oid: int) -> bool:
                 usable = PortalService.list_usable_products_for_tenant(
                     oid, scope_organization_id=oid
                 )
-                if any((p.get('product_code') or '').strip().lower() == host_code for p in usable):
-                    M.session['organization_id'] = oid
-                    M.session.pop('require_org_selection', None)
-                    save_last_selected_organization(user, oid)
-                    return 'ok', None
+                return any(
+                    (p.get('product_code') or '').strip().lower() == host_code for p in usable
+                )
+
+            candidates = [int(o.id) for o in orgs if _org_has_product(int(o.id))]
+            if candidates:
+                chosen = None
+                try:
+                    last_pref = int(getattr(user, 'last_selected_organization_id', None) or 0)
+                except (TypeError, ValueError):
+                    last_pref = 0
+                if last_pref in candidates:
+                    chosen = last_pref
+                else:
+                    # Preferir la org con más productos en catálogo (evita caer en org “vacía”).
+                    from models.core_master import CoreProduct
+
+                    best_n = -1
+                    for oid in candidates:
+                        n = CoreProduct.query.filter_by(organization_id=oid).count()
+                        if n > best_n:
+                            best_n = n
+                            chosen = oid
+                    if chosen is None:
+                        chosen = candidates[0]
+                M.session['organization_id'] = int(chosen)
+                M.session.pop('require_org_selection', None)
+                save_last_selected_organization(user, int(chosen))
+                return 'ok', None
     except Exception:
         pass
 

@@ -85,6 +85,42 @@ class TestPortalService(unittest.TestCase):
                 dest = post_login_redirect_target(next_page=None, user=U(), session={})
         self.assertTrue(dest.endswith('/portal/') or dest == '/portal/')
 
+    def test_portal_urls_canonical(self):
+        from nodeone.core.platform.portal_urls import (
+            absolute_portal_path,
+            portal_account_domain,
+            portal_products_url,
+        )
+
+        self.assertEqual(portal_account_domain(), 'app.easytech.services')
+        self.assertEqual(portal_products_url(), 'https://app.easytech.services/portal/products')
+        self.assertEqual(
+            absolute_portal_path('/portal/products'),
+            'https://app.easytech.services/portal/products',
+        )
+
+    def test_product_host_portal_routes_redirect_canonical(self):
+        from flask import Flask
+
+        from nodeone.core.platform.context_resolver import ContextResolver
+        from nodeone.modules.ets_portal.routes import _require_portal_surface
+
+        app = Flask(__name__)
+        bundled = ContextResolver.resolve('eposone.easytech.services')
+        with app.test_request_context(
+            '/portal/products',
+            base_url='https://eposone.easytech.services',
+            environ_overrides={'HTTP_HOST': 'eposone.easytech.services'},
+        ):
+            with patch(
+                'nodeone.modules.ets_portal.routes.current_app_context',
+                return_value=bundled,
+            ):
+                resp = _require_portal_surface()
+        self.assertIsNotNone(resp)
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.location, 'https://app.easytech.services/portal/products')
+
 
 if __name__ == '__main__':
     unittest.main()

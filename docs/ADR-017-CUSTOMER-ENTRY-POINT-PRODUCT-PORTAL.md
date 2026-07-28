@@ -105,7 +105,7 @@ Los productos **cuelgan** del Portal. El Portal **no** ejecuta lógica operativa
 
 Tras login válido, el sistema **no** fuerza siempre “Mis Productos”.
 
-### Caso A — Un solo producto con entitlement usable
+### Caso A — Entrada por host de producto (con entitlement de ese producto)
 
 ```text
 eposone.easytech.services
@@ -116,12 +116,19 @@ eposone.easytech.services
  Dashboard EPosOne
 ```
 
-No pasa por Mis Productos.
+No pasa por Mis Productos. **Aunque el tenant tenga N productos**, si el host es EPosOne y hay entitlement EPosOne → dashboard. Cambiar de producto = volver al Portal de cuenta.
 
-### Caso B — Varios productos (o entrada por Portal de cuenta)
+### Caso B — Sin entitlement del producto del host (o entrada por Portal de cuenta)
 
 ```text
-Login
+Login (host producto sin derecho)
+  │
+  ▼
+302 → https://app.easytech.services/portal/products
+```
+
+```text
+Login (host portal)
   │
   ▼
 Portal → Mis Productos → seleccionar → abrir producto
@@ -136,13 +143,54 @@ Siempre Portal de cuenta (Mis Productos / suscripciones), aunque el cliente teng
 ```text
 productos_usables = subscriptions ACTIVE|GRACE ∩ entitlements válidos ∩ RBAC
 
-si len(productos_usables) == 1 y host_origen es ese producto:
-    → abrir dashboard del producto
-si no:
-    → Mis Productos (Portal)
+si host_origen es producto P y P ∈ productos_usables:
+    → abrir dashboard de P
+si host_origen es producto P y P ∉ productos_usables:
+    → Portal de cuenta canónico (app.easytech.services/portal/products)
+si host_origen es portal:
+    → Mis Productos
 ```
 
-Comportamiento alineado a suites SaaS multiproducto modernas.
+### Regla de superficie (enmienda 2026-07-28)
+
+> **EN1 es el propietario del catálogo de productos.**  
+> Los productos (EPosOne, EM1, Planilla, Relatic, etc.) no administran el catálogo ni conocen otros productos en su UX. Cada producto solo administra su dominio funcional. La selección y navegación entre productos pertenece exclusivamente al Portal EN1.
+
+### Regla de responsabilidad de licenciamiento (explícita)
+
+> **Un producto puede conocer únicamente su propio estado de licenciamiento (entitlement), pero nunca el catálogo completo de productos del cliente.**  
+> Si necesita cambiar de producto o consultar otros productos contratados, debe **delegar** esa responsabilidad al Portal EN1.
+
+| Quién | Puede | No puede |
+|-------|--------|----------|
+| **Producto** (p. ej. EPosOne) | Leer *su* entitlement (plan, cupos, features, `effective_state`) | Listar / navegar otros productos del tenant; servir Mis Productos; marketplace |
+| **Portal EN1** | Catálogo contratado, Mis Productos, abrir producto, cuenta | Ejecutar dominio operativo del producto (POS, nómina, …) |
+| **EN1 Core** | Subscriptions + Entitlements (fuente de verdad) | — |
+
+Consecuencias UX:
+
+- Mis Productos **no** se renderiza en `eposone.*` (ni en ningún host `surface=product`).
+- `/portal/*` en host producto → **302** al Portal canónico.
+- En el chrome del producto, «← Cambiar producto» apunta a `https://app.easytech.services/portal/products` (nunca un hub local).
+- Cliente con **solo** EPosOne: login en `eposone.*` → Dashboard; **no** ve Mis Productos.
+
+### Tres superficies (separación que escala)
+
+```text
+Landing  = vende el producto          (eposone.easytech.services/)
+Portal   = administra cuenta y productos  (app.easytech.services/portal)
+Producto = ejecuta solo su dominio    (/admin/eposone/…)
+```
+
+Flujos:
+
+```text
+Publicidad → eposone.* → Login → ¿entitlement EPosOne?
+  Sí → Dashboard EPosOne
+  No → Portal EN1 / Mis Productos
+
+Dentro de EPosOne → Cambiar producto → Portal EN1 → Mis Productos → Abrir otro
+```
 
 ---
 
@@ -172,8 +220,8 @@ Host → BrandContext → ProductContext → Experiencia
 
 | Host | `product_code` | Experiencia pública (anon) | Post-auth |
 |------|----------------|----------------------------|-----------|
-| `eposone.easytech.services` | `eposone` | Landing EPosOne | Lanzador → EPosOne o Portal |
-| `epayroll.easytech.services` | `epayroll` | Landing EPayRoll | Lanzador → EPayRoll o Portal |
+| `eposone.easytech.services` | `eposone` | Landing EPosOne | Dashboard EPosOne (si entitlement); si no → Portal canónico |
+| `epayroll.easytech.services` | `epayroll` | Landing EPayRoll | Dashboard EPayRoll (si entitlement); si no → Portal canónico |
 | `app.easytech.services` | `portal` | Login / marketing portal | Mis Productos |
 | `appprd.easynodeone.com` | `en1` | Infra / ops | No es puerta comercial |
 
@@ -227,6 +275,8 @@ Orden de implementación sugerido: **Hito 1 (EPosOne primero)** → 2 → 4 (val
 | **2026-07-27** | **Hito 1 implementado (Dev):** `GET /` en Host `surface=product` → landing EN1 (`product_landing/`, EPosOne completo). Infra (`appdev`/`appprd`) sigue yendo a login. |
 | **2026-07-27** | **Hito 2 + Hito 4 (Dev):** auth con piel Portal ETS en Host portal; lanzador inteligente 1→producto / N→Mis Productos; `/portal/*` permitido en Host product. |
 | **2026-07-27** | **Producción comercial EPosOne:** landing en `eposone.easytech.services` (planes Starter/Business/Enterprise). Release Management: [ADR-018](ADR-018-RELEASE-MANAGEMENT.md) · paquete [`releases/EN1_RELEASE_v1.0.0.md`](releases/EN1_RELEASE_v1.0.0.md). |
+| **2026-07-28** | **Enmienda superficie:** Host producto no sirve Mis Productos; `/portal/*` en producto → 302 Portal canónico; post-login con entitlement del host → dashboard aunque haya N productos. |
+| **2026-07-28** | **Regla de responsabilidad:** producto solo conoce su entitlement; catálogo / cambio de producto solo en Portal EN1. Chrome: «Cambiar producto». |
 
 ---
 
@@ -237,7 +287,8 @@ Orden de implementación sugerido: **Hito 1 (EPosOne primero)** → 2 → 4 (val
 | Landing EPosOne en EN1 (no WordPress) | **Hecho** — Host producto |
 | Hero, beneficios, módulos, planes, FAQ, demo, Entrar | **Hecho** |
 | Auth EN1 (sin segundo sistema) | **Hecho** |
-| Lanzador 1 producto → dashboard / N → Portal | **Hecho** |
+| Lanzador: host producto + entitlement → dashboard (N ok) / sin derecho → Portal canónico | **Hecho** (2026-07-28) |
+| `/portal/*` solo en Host portal (producto → 302) | **Hecho** (2026-07-28) |
 | `appprd` = infra (no marketing) | **Política** — endurecer DNS/marketing pendiente ops |
 | Hito 3 Portal Comercial completo | **Pendiente** |
 | Release oficial v1.0.0 | **Publicado** (`v1.0.0` = `d20bee4`) — QA operativa humana pendiente en checklist del paquete |

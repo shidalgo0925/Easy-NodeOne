@@ -215,8 +215,9 @@ class TestMergeNativeAppNav(unittest.TestCase):
             self.assertTrue(out.get('nav_use_context_bar'))
             self.assertEqual(out.get('nav_area_children'), [])
             self.assertTrue(out.get('platform_shell_show_apps_return'))
-            self.assertEqual(out.get('platform_apps_return_label'), '← Mis productos')
-            self.assertTrue(out.get('platform_apps_return_url'))
+            self.assertEqual(out.get('platform_apps_return_label'), '← Cambiar producto')
+            self.assertTrue(str(out.get('platform_apps_return_url') or '').startswith('https://'))
+            self.assertIn('/portal/products', str(out.get('platform_apps_return_url') or ''))
             self.assertEqual(out.get('platform_shell_app_accent'), 'eposone')
             self.assertEqual(out.get('platform_shell_app_product_name'), 'EPosOne')
             self.assertEqual(out.get('platform_shell_app_tagline'), 'Punto de venta')
@@ -232,8 +233,10 @@ class TestMergeNativeAppNav(unittest.TestCase):
         ):
             ret = _apps_return_payload()
             ident = _app_identity_payload('eposone')
-        self.assertEqual(ret['platform_apps_return_label'], '← Mis productos')
+        self.assertEqual(ret['platform_apps_return_label'], '← Cambiar producto')
         self.assertNotIn('Salir', ret['platform_apps_return_label'])
+        self.assertTrue(str(ret['platform_apps_return_url']).startswith('https://'))
+        self.assertIn('/portal/products', str(ret['platform_apps_return_url']))
         self.assertEqual(ident['platform_shell_app_accent'], 'eposone')
         self.assertEqual(ident['platform_shell_app_product_name'], 'EPosOne')
 

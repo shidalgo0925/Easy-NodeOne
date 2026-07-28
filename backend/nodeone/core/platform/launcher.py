@@ -183,8 +183,8 @@ def post_login_redirect_target(*, next_page: str | None, user, session) -> str:
 
     # ADR-013 / ADR-017:
     # - Host portal → siempre Portal (Caso C)
-    # - Host product + 1 usable matching → dashboard producto (Caso A)
-    # - Host product + 0/N → Mis Productos (Caso B)
+    # - Host product + entitlement de ese producto → dashboard (aunque tenga N)
+    # - Host product sin ese producto → Portal de cuenta canónico (no /portal local)
     try:
         from nodeone.core.platform.context_resolver import current_app_context
 
@@ -224,8 +224,12 @@ def post_login_redirect_target(*, next_page: str | None, user, session) -> str:
 
 
 def _product_host_post_login_target(app_ctx, session) -> str:
-    """ADR-017 Hito 4 — lanzador inteligente en Host de producto."""
-    from flask import url_for
+    """ADR-017 — Host producto: abrir ese producto si hay entitlement; si no, Portal canónico.
+
+    Mis Productos no se sirve en el host del producto (ni con 1 ni con N productos).
+    Con entitlement del producto del host → dashboard. Sin él → Portal EN1.
+    """
+    from nodeone.core.platform.portal_urls import portal_products_url
 
     host_code = (app_ctx.product_code or '').strip().lower()
     # Preferir last_selected / org con catálogo aunque la sesión actual ya tenga el producto
@@ -241,27 +245,27 @@ def _product_host_post_login_target(app_ctx, session) -> str:
     except Exception:
         usable = []
 
-    if len(usable) == 1 and (usable[0].get('product_code') or '').strip().lower() == host_code:
+    def _has_host_product(rows: list[dict]) -> bool:
+        return any(
+            (p.get('product_code') or '').strip().lower() == host_code for p in rows
+        )
+
+    if host_code and _has_host_product(usable):
         return _open_product_home(app_ctx, session)
 
-    # Sesión en otra org (p. ej. last_selected) sin suscripción de este producto:
-    # intentar anclar a una org operable que sí lo tenga.
-    if host_code and not any(
-        (p.get('product_code') or '').strip().lower() == host_code for p in usable
-    ):
-        if _try_session_org_with_product(host_code, session):
-            try:
-                usable = PortalService.list_usable_products_for_current_tenant()
-            except Exception:
-                usable = []
-            if any((p.get('product_code') or '').strip().lower() == host_code for p in usable):
-                return _open_product_home(app_ctx, session)
+    # Sesión en otra org sin este producto: anclar a una org operable.
+    if host_code and _try_session_org_with_product(host_code, session):
+        try:
+            from nodeone.modules.ets_portal.portal_service import PortalService
 
-    # 0 o N productos, o el único no coincide con este host → Mis Productos
-    try:
-        return url_for('ets_portal.products')
-    except Exception:
-        return url_for('ets_portal.home')
+            usable = PortalService.list_usable_products_for_current_tenant()
+        except Exception:
+            usable = []
+        if _has_host_product(usable):
+            return _open_product_home(app_ctx, session)
+
+    # Sin entitlement de este producto → Portal de cuenta (host canónico), nunca /portal local.
+    return portal_products_url()
 
 
 def _try_session_org_with_product(product_code: str, session) -> bool:

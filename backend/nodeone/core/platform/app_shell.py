@@ -105,7 +105,7 @@ def sync_active_app_from_request(session, user) -> str | None:
 
 
 def _apps_return_payload(*, hide: bool = False) -> dict[str, Any]:
-    """Retorno al launcher / Mis productos (cambio de contexto de producto, no otra app)."""
+    """Retorno al Portal de cuenta EN1 (cambio de producto), no hub local del producto."""
     if hide:
         return {
             'platform_apps_return_url': None,
@@ -114,18 +114,17 @@ def _apps_return_payload(*, hide: bool = False) -> dict[str, Any]:
         }
     from flask import url_for
 
-    # Host producto: Mis productos (Portal) = cambio de contexto EN1, no aislamiento.
+    # Host producto: salir al Portal canónico (Mis Productos vive solo allí).
     if is_product_surface_shell():
         try:
-            return_url = url_for('ets_portal.products')
+            from nodeone.core.platform.portal_urls import portal_products_url
+
+            return_url = portal_products_url()
         except Exception:
-            try:
-                return_url = url_for('platform_launcher.apps_home')
-            except Exception:
-                return_url = '/portal/products'
+            return_url = 'https://app.easytech.services/portal/products'
         return {
             'platform_apps_return_url': return_url,
-            'platform_apps_return_label': '← Mis productos',
+            'platform_apps_return_label': '← Cambiar producto',
             'platform_shell_show_apps_return': True,
         }
 

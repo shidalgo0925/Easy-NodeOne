@@ -272,26 +272,22 @@ def _service_ids_with_open_contract(user, organization_id: int) -> set[int]:
 
 
 def _should_show_service_in_store(service, *, user, membership_type: str, open_contract_ids: set[int]) -> bool:
-    """Tienda = catálogo menos lo ya contratado, incluido en plan o derecho básico."""
+    """Regla universal de vitrina (todos los tenants: sales, citas, mixtos).
+
+    Muestra el catálogo activo. Solo oculta:
+    - compra / contrato abierto del usuario;
+    - beneficio **explícitamente** incluido en el plan del usuario (``pricing.is_included``).
+
+    No ocultar por ``base_price == 0``, ni por ``membership_type == basic``, ni por el
+    flujo comercial inferido ``SERVICE_INCLUDED`` (ese flag solo define CTA, no vitrina).
+    """
     if int(service.id) in open_contract_ids:
         return False
     if user is None or not getattr(user, 'is_authenticated', False):
         return True
 
-    from nodeone.services.commercial_flow import (
-        COMMERCIAL_FLOW_SERVICE_CONSULTATIVE,
-        COMMERCIAL_FLOW_SERVICE_INCLUDED,
-        resolve_commercial_flow_type,
-    )
-
-    pricing = service.pricing_for_membership(membership_type)
-    flow = resolve_commercial_flow_type(service, pricing)
-    # Productos CONSULTIVO (p. ej. catálogo Galenus bajo cotización) sí van a la vitrina
-    if flow == COMMERCIAL_FLOW_SERVICE_CONSULTATIVE:
-        return True
-    if flow == COMMERCIAL_FLOW_SERVICE_INCLUDED:
-        return False
-    if (getattr(service, 'membership_type', None) or '').strip().lower() == 'basic':
+    pricing = service.pricing_for_membership(membership_type) or {}
+    if bool(pricing.get('is_included')):
         return False
     return True
 

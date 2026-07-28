@@ -93,11 +93,17 @@ def _authenticated_tenant_nav_preferred() -> bool:
 def get_nav_logo():
     import app as M
 
-    # Tenant logueado en host de producto: logo de la empresa activa (no el wordmark EPosOne).
+    # Tenant logueado en host de producto: logo de admin (organization_settings), no EPosOne.
     if _authenticated_tenant_nav_preferred():
         rel = nav_theme_logo_relpath()
         if rel:
             return rel
+        # Sin logo de org: fallback de sistema / plataforma (nunca BrandContext del producto).
+        if M.single_tenant_default_only() and os.environ.get('NODEONE_NAV_USE_PLATFORM_LOGO', '1').strip().lower() not in (
+            '0', 'false', 'no', 'off',
+        ):
+            return platform_nav_logo_relpath()
+        return M.get_system_logo()
 
     brand_logo = brand_context_logo_relpath()
     if brand_logo:
@@ -117,6 +123,16 @@ def get_nav_logo_cache_key():
 
     if _authenticated_tenant_nav_preferred():
         rel = nav_theme_logo_relpath()
+        if not rel:
+            if M.single_tenant_default_only() and os.environ.get('NODEONE_NAV_USE_PLATFORM_LOGO', '1').strip().lower() not in (
+                '0', 'false', 'no', 'off',
+            ):
+                rel = platform_nav_logo_relpath()
+            else:
+                try:
+                    rel = M.get_system_logo()
+                except Exception:
+                    rel = None
         if rel:
             p = os.path.join(os.path.dirname(M.__file__), '..', 'static', rel)
             if os.path.exists(p):
@@ -217,6 +233,7 @@ def get_nav_brand_name():
             SURFACE_PORTAL,
             SURFACE_PRODUCT,
         )
+        from flask_login import current_user
 
         ctx = current_app_context()
         use_brand = os.environ.get('NODEONE_NAV_USE_BRAND_CONTEXT', '').strip().lower() in (
@@ -225,12 +242,13 @@ def get_nav_brand_name():
             'yes',
             'on',
         )
-        # Portal siempre producto; producto anónimo (landing) también.
+        # Portal / landing anónima: marca del producto. Con sesión en producto ya se resolvió arriba.
+        anon = not getattr(current_user, 'is_authenticated', False)
         if ctx.surface == SURFACE_PORTAL and ctx.display_name:
             return ctx.display_name
-        if ctx.surface == SURFACE_PRODUCT and ctx.display_name:
+        if anon and ctx.surface == SURFACE_PRODUCT and ctx.display_name:
             return ctx.display_name
-        if use_brand and ctx.surface != SURFACE_PLATFORM and ctx.display_name:
+        if use_brand and anon and ctx.surface != SURFACE_PLATFORM and ctx.display_name:
             return ctx.display_name
     except Exception:
         pass

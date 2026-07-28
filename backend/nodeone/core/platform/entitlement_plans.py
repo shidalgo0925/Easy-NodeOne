@@ -20,6 +20,8 @@ _EPOSONE_PLANS: dict[str, dict[str, Any]] = {
         'features': {
             'offline': True,
             'kds': False,
+            'delivery': False,
+            'promotions': False,
             'api': False,
             'dashboard': 'basic',
             'fiscal': False,
@@ -36,6 +38,27 @@ _EPOSONE_PLANS: dict[str, dict[str, Any]] = {
         'features': {
             'offline': True,
             'kds': True,
+            'delivery': True,
+            'promotions': True,
+            'api': False,
+            'dashboard': 'full',
+            'fiscal': True,
+            'advanced_reports': True,
+        },
+    },
+    # Alias comercial landing (USD Business) → misma plantilla que professional.
+    'business': {
+        'resource_limits': {
+            'pos': 3,
+            'registers': 10,
+            'tablets': 10,
+            'cashiers': 30,
+        },
+        'features': {
+            'offline': True,
+            'kds': True,
+            'delivery': True,
+            'promotions': True,
             'api': False,
             'dashboard': 'full',
             'fiscal': True,
@@ -52,6 +75,8 @@ _EPOSONE_PLANS: dict[str, dict[str, Any]] = {
         'features': {
             'offline': True,
             'kds': True,
+            'delivery': True,
+            'promotions': True,
             'api': True,
             'dashboard': 'full',
             'fiscal': True,

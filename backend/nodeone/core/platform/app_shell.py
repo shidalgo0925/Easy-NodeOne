@@ -210,12 +210,14 @@ def merge_app_shell_nav_context(out: dict[str, Any], user, session) -> dict[str,
         out.setdefault('platform_app_shell_active', False)
         return out
 
-    # Surface product: siempre shell del producto (ignora zonas Core EN1).
+    # Surface product: shell del producto. EP1 — plataforma solo para SA (no por host).
     if product_primary:
         out.update(
             build_app_shell_nav_payload(product_primary, ctx, hide_apps_return=True)
         )
-        out['show_platform_admin_nav'] = False
+        from nodeone.core.platform.nav_effective_access import is_system_administrator
+
+        out['show_platform_admin_nav'] = is_system_administrator(user)
         return out
 
     # Módulos Core (Contactos, Ventas, Finanzas…) no usan shell de app.
@@ -304,5 +306,8 @@ def merge_native_app_nav_context(out: dict[str, Any], user, session) -> dict[str
     out.update(_apps_return_payload(hide=bool(product_primary)))
     out.update(_app_identity_payload(tree.nav_area_id))
     if product_primary:
-        out['show_platform_admin_nav'] = False
+        from nodeone.core.platform.nav_effective_access import is_system_administrator
+
+        # EP1: SA conserva acceso plataforma; tenant nunca ve multi-tenant global.
+        out['show_platform_admin_nav'] = is_system_administrator(user)
     return out

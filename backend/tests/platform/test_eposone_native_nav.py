@@ -103,7 +103,18 @@ class TestEposoneNavTree(unittest.TestCase):
         admin_labels = {c.label for c in admin.children}
         self.assertEqual(
             admin_labels,
-            {'Empresa', 'Sucursales', 'Puntos de venta', 'Cajas', 'Cajeros'},
+            {
+                'Empresa',
+                'Branding',
+                'Sucursales',
+                'Puntos de venta',
+                'Cajas',
+                'Cajeros',
+                'Usuarios',
+                'Métodos de pago',
+                'Impuestos',
+                'Licencia',
+            },
         )
         epos_ops = next(d for d in tree.domains if d.id == 'eposone-ops')
         epos_labels = {c.label for c in epos_ops.children}
@@ -111,13 +122,41 @@ class TestEposoneNavTree(unittest.TestCase):
             epos_labels,
             {'Instalar dispositivo', 'Dispositivos', 'Turnos'},
         )
+        # Tenant: sin bloque Plataforma (solo SA)
+        self.assertNotIn('Plataforma', labels)
         mas = next(d for d in tree.domains if d.id == 'mas')
         mas_labels = {c.label for c in mas.children}
         self.assertIn('Cocina (KDS)', mas_labels)
-        self.assertIn('Licencias', mas_labels)
+        self.assertNotIn('Licencias', mas_labels)
         self.assertNotIn('Centro de configuración', mas_labels)
         self.assertNotIn('Sistema', labels)
         self.assertNotIn('Comercial', labels)
+
+    def test_sa_sees_plataforma_block(self):
+        from nodeone.core.nav_menu import build_nav_context
+        from nodeone.core.platform.app_nav import serialize_nav_sidebar
+        from nodeone.modules.eposone.nav import build_nav_tree
+
+        ctx = build_nav_context(
+            nav_can=lambda _p: True,
+            saas_module_enabled=lambda code: code in {'eposone', 'sales'},
+            saas_module_enabled_chain=lambda *_c: True,
+            has_view_endpoint=lambda _e: True,
+            show_academic_admin_nav=False,
+            office365_module_enabled=False,
+            show_platform_admin_nav=True,
+            is_platform_admin=True,
+            is_advisor=False,
+            show_tenant_admin_menu=True,
+        )
+        with self.app.test_request_context('/admin/eposone/dashboard'):
+            rows = serialize_nav_sidebar(build_nav_tree(ctx), ctx)
+        labels = [r['label'] for r in rows]
+        self.assertIn('Plataforma', labels)
+        plat = next(r for r in rows if r['id'] == 'plataforma-ets')
+        child_labels = {c['label'] for c in plat['children']}
+        self.assertIn('Organizaciones', child_labels)
+        self.assertIn('Módulos SaaS', child_labels)
 
     def test_clientes_not_contactos(self):
         from nodeone.modules.eposone.nav import build_nav_tree

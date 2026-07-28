@@ -129,12 +129,12 @@ def _apps_return_payload(*, hide: bool = False) -> dict[str, Any]:
         }
 
     try:
-        return_url = url_for('platform_launcher.apps_home')
+        return_url = url_for('platform_launcher.apps_exit')
     except Exception:
-        return_url = '/platform/apps'
+        return_url = '/platform/apps/exit'
     return {
         'platform_apps_return_url': return_url,
-        'platform_apps_return_label': '← Mis aplicaciones',
+        'platform_apps_return_label': '← EN1',
         'platform_shell_show_apps_return': True,
     }
 

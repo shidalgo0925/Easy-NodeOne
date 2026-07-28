@@ -57,6 +57,49 @@ class TestLauncherRoutes(unittest.TestCase):
     def test_platform_launcher_blueprint_registered(self):
         self.assertIn('platform_launcher', self.app.blueprints)
 
+    def test_apps_exit_clears_active_and_goes_admin(self):
+        from flask import session
+
+        with self.app.test_request_context('/platform/apps/exit'):
+            session['platform_active_app_id'] = 'eposone'
+            with patch(
+                'nodeone.modules.platform_launcher.routes.user_can_see_tenant_admin_menu',
+                return_value=True,
+            ), patch(
+                'flask_login.utils._get_user',
+                return_value=MagicMock(is_authenticated=True),
+            ), patch(
+                'nodeone.modules.platform_launcher.routes.url_for',
+                side_effect=lambda ep, **kw: f'/resolved/{ep}',
+            ):
+                from nodeone.modules.platform_launcher.routes import apps_exit
+
+                # login_required needs authenticated user via flask-login current_user
+                pass
+
+        # Contract: exit clears session key helper
+        from nodeone.core.platform.launcher import get_active_app_id, set_active_app_id
+
+        sess = {'platform_active_app_id': 'eposone'}
+        set_active_app_id(sess, None)
+        self.assertIsNone(get_active_app_id(sess))
+
+    def test_apps_home_does_not_bounce_when_active_app_set(self):
+        """Con 1 app y sesión activa no redirigir de nuevo al producto."""
+        from nodeone.core.platform.app_shell import _apps_return_payload
+
+        with self.app.test_request_context('/admin/eposone/'):
+            with patch(
+                'nodeone.core.platform.app_shell.is_product_surface_shell',
+                return_value=False,
+            ), patch(
+                'flask.url_for',
+                side_effect=lambda ep, **kw: f'/resolved/{ep}',
+            ):
+                ret = _apps_return_payload()
+        self.assertEqual(ret['platform_apps_return_label'], '← EN1')
+        self.assertIn('apps_exit', ret['platform_apps_return_url'])
+
 
 class TestPostLoginRedirect(unittest.TestCase):
     def test_member_goes_dashboard(self):

@@ -71,8 +71,17 @@ def apps_home():
     if denied is not None:
         return denied
 
+    # Dentro de un producto (app activa): «Mis aplicaciones» = salir a EN1, no rebote.
+    if get_active_app_id(session):
+        set_active_app_id(session, None)
+        try:
+            return redirect(url_for('admin_dashboard'))
+        except Exception:
+            return redirect(url_for('dashboard'))
+
     ctx = build_nav_context_for_user(current_user)
     apps = visible_launcher_apps(ctx)
+    # Primer acceso sin app en sesión y una sola app → entrar directo.
     if len(apps) == 1:
         set_active_app_id(session, apps[0]['id'])
         return redirect(apps[0]['url'])
@@ -83,6 +92,17 @@ def apps_home():
         launcher_apps=apps,
         active_app_id=active_id,
     )
+
+
+@platform_launcher_bp.route('/apps/exit')
+@login_required
+def apps_exit():
+    """Salir del shell de producto → EN1 (dashboard plataforma)."""
+    set_active_app_id(session, None)
+    try:
+        return redirect(url_for('admin_dashboard'))
+    except Exception:
+        return redirect(url_for('dashboard'))
 
 
 @platform_launcher_bp.route('/apps/select', methods=['POST'])

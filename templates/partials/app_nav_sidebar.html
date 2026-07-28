@@ -2,9 +2,9 @@
 {# UX-T1: retorno siempre visible → Mis aplicaciones (no «Salir de EN1»). #}
 {% if platform_shell_show_apps_return and platform_apps_return_url %}
 <li class="nav-item sidebar-nav-app sidebar-nav-app--platform-return">
-    <a class="nav-link app-nav-return-link" href="{{ platform_apps_return_url }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Volver al launcher de la plataforma">
+    <a class="nav-link app-nav-return-link" href="{{ platform_apps_return_url }}" data-bs-toggle="tooltip" data-bs-placement="right" title="Volver a EN1">
         <i class="menu-icon fas fa-th-large"></i>
-        <span class="menu-title-text">{{ platform_apps_return_label or '← Mis aplicaciones' }}</span>
+        <span class="menu-title-text">{{ platform_apps_return_label or '← EN1' }}</span>
     </a>
 </li>
 {% endif %}

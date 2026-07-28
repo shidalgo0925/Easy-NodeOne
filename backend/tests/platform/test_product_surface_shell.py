@@ -82,10 +82,9 @@ class TestProductSurfaceShell(unittest.TestCase):
         self.assertEqual(dest, '/resolved/eposone.eposone_home')
         self.assertEqual(session.get('platform_active_app_id'), 'eposone')
 
-    def test_post_login_without_host_product_goes_to_canonical_portal(self):
+    def test_post_login_without_host_product_goes_to_local_portal(self):
         from nodeone.core.platform.context_resolver import ContextResolver
         from nodeone.core.platform.launcher import post_login_redirect_target
-        from nodeone.core.platform.portal_urls import portal_products_url
 
         bundled = ContextResolver.resolve('eposone.easytech.services')
         usable = [{'product_code': 'epayroll', 'is_entitled': True}]
@@ -98,11 +97,12 @@ class TestProductSurfaceShell(unittest.TestCase):
         ), patch(
             'nodeone.core.platform.launcher._try_session_org_with_product',
             return_value=False,
+        ), patch(
+            'flask.url_for',
+            side_effect=lambda ep, **kw: '/portal/products' if ep == 'ets_portal.products' else f'/resolved/{ep}',
         ):
             dest = post_login_redirect_target(next_page=None, user=MagicMock(), session={})
-        self.assertEqual(dest, portal_products_url())
-        self.assertTrue(dest.startswith('https://'))
-        self.assertIn('/portal/products', dest)
+        self.assertEqual(dest, '/portal/products')
 
 
 if __name__ == '__main__':

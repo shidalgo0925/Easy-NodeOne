@@ -228,8 +228,11 @@ a.text-primary,
     box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--en1-accent) 15%, transparent);
 }
 
-/* Sidebar */
+/* Sidebar — branding tenant (en1 / eposone / custom = organization_settings).
+   Sin esto, preset «Personalizado» en product host dejaba el mosaico azul hardcodeado. */
 html[data-brand='en1'] aside.left-panel.sidebar-erp,
+html[data-brand='eposone'] aside.left-panel.sidebar-erp,
+html[data-brand='custom'] aside.left-panel.sidebar-erp,
 aside.left-panel.sidebar-erp {
     background: var(--en1-sidebar) !important;
     border-right-color: color-mix(in srgb, var(--en1-sidebar) 85%, #fff) !important;
@@ -237,23 +240,41 @@ aside.left-panel.sidebar-erp {
 
 html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active,
 html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.active:not(.nav-group-toggle),
-html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.active > a.nav-link {
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.active > a.nav-link,
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active,
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.active:not(.nav-group-toggle),
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.active > a.nav-link,
+html[data-brand='custom'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active,
+html[data-brand='custom'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.active:not(.nav-group-toggle),
+html[data-brand='custom'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.active > a.nav-link {
     background: color-mix(in srgb, var(--en1-accent) 14%, transparent) !important;
     border-left: 4px solid var(--en1-accent) !important;
     padding-left: calc(0.75rem - 4px);
 }
 
-/* Iconos sidebar — gris; activo naranja */
+/* Iconos sidebar — acento tenant; activo = primario */
 html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a .menu-icon:not(.menu-arrow),
 html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.nav-group-toggle > .menu-icon:not(.menu-arrow),
 html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > a .menu-icon:not(.menu-arrow),
-html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > .nav-link.nav-group-toggle > .menu-icon:not(.menu-arrow) {
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > .nav-link.nav-group-toggle > .menu-icon:not(.menu-arrow),
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a .menu-icon:not(.menu-arrow),
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.nav-group-toggle > .menu-icon:not(.menu-arrow),
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > a .menu-icon:not(.menu-arrow),
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > .nav-link.nav-group-toggle > .menu-icon:not(.menu-arrow),
+html[data-brand='custom'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a .menu-icon:not(.menu-arrow),
+html[data-brand='custom'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.nav-group-toggle > .menu-icon:not(.menu-arrow),
+html[data-brand='custom'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > a .menu-icon:not(.menu-arrow),
+html[data-brand='custom'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > .nav-link.nav-group-toggle > .menu-icon:not(.menu-arrow) {
     background: var(--en1-icon) !important;
     color: #fff !important;
 }
 
 html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active .menu-icon,
-html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.active > a .menu-icon {
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.active > a .menu-icon,
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active .menu-icon,
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.active > a .menu-icon,
+html[data-brand='custom'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active .menu-icon,
+html[data-brand='custom'] aside.left-panel.sidebar-erp .navbar .navbar-nav li.active > a .menu-icon {
     background: var(--en1-accent) !important;
 }
 
@@ -468,23 +489,43 @@ html[data-theme='dark'] body {
     color: var(--en1-ink);
 }
 
-/* Sidebar launcher / miembro — sin arcoíris en marca EN1 */
+/* Sidebar launcher / miembro — sin arcoíris (en1 / eposone / custom) */
 html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--comercial > .sidebar-nav-launcher-group-toggle > .menu-icon,
 html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--operaciones > .sidebar-nav-launcher-group-toggle > .menu-icon,
 html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--finanzas > .sidebar-nav-launcher-group-toggle > .menu-icon,
 html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--inteligencia > .sidebar-nav-launcher-group-toggle > .menu-icon,
 html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--sistema > .sidebar-nav-launcher-group-toggle > .menu-icon,
-html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-member .menu-icon:not(.menu-arrow) {
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-member .menu-icon:not(.menu-arrow),
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--comercial > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--operaciones > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--finanzas > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--inteligencia > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--sistema > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .sidebar-nav-member .menu-icon:not(.menu-arrow),
+html[data-brand='custom'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--comercial > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='custom'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--operaciones > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='custom'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--finanzas > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='custom'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--inteligencia > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='custom'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group--sistema > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='custom'] aside.left-panel.sidebar-erp .sidebar-nav-member .menu-icon:not(.menu-arrow) {
     background: var(--en1-icon) !important;
 }
 
 html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group.show > .sidebar-nav-launcher-group-toggle > .menu-icon,
-html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-member > a.nav-link.active .menu-icon:not(.menu-arrow) {
+html[data-brand='en1'] aside.left-panel.sidebar-erp .sidebar-nav-member > a.nav-link.active .menu-icon:not(.menu-arrow),
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group.show > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .sidebar-nav-member > a.nav-link.active .menu-icon:not(.menu-arrow),
+html[data-brand='custom'] aside.left-panel.sidebar-erp .sidebar-nav-launcher-group.show > .sidebar-nav-launcher-group-toggle > .menu-icon,
+html[data-brand='custom'] aside.left-panel.sidebar-erp .sidebar-nav-member > a.nav-link.active .menu-icon:not(.menu-arrow) {
     background: var(--en1-accent) !important;
 }
 
 html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active,
-html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.active:not(.nav-group-toggle) {
+html[data-brand='en1'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.active:not(.nav-group-toggle),
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active,
+html[data-brand='eposone'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.active:not(.nav-group-toggle),
+html[data-brand='custom'] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active,
+html[data-brand='custom'] aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.active:not(.nav-group-toggle) {
     border-left-color: var(--en1-accent) !important;
 }
 

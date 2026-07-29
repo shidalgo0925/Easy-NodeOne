@@ -108,10 +108,15 @@ aside.left-panel.sidebar-erp .navbar .navbar-nav .nav-link.nav-group-toggle > .m
     float: none !important;
 }
 
-/* Apps administración: mosaico azul (FA blanco), unificado */
+/* Apps / menú nativo: color de marca (organization_settings), no mosaico azul fijo */
 aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > a .menu-icon:not(.menu-arrow),
 aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > .nav-link.nav-group-toggle > .menu-icon:not(.menu-arrow) {
-    background: linear-gradient(145deg, #38bdf8 0%, #2563eb 38%, #6366f1 72%, #1e3a8a 100%);
+    background: linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--color-primary, #2563eb) 78%, #fff) 0%,
+        var(--color-primary, #2563eb) 42%,
+        var(--color-primary-dark, #1e3a8a) 100%
+    );
     color: #fefce8 !important;
     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
 }
@@ -128,7 +133,9 @@ aside.left-panel.sidebar-erp .navbar .navbar-nav li:not(.sidebar-nav-member):not
 
 aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.active .menu-icon,
 aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active .menu-icon {
-    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.65), 0 3px 10px rgba(0, 0, 0, 0.35);
+    box-shadow:
+        0 0 0 2px color-mix(in srgb, var(--color-primary, #2563eb) 55%, transparent),
+        0 3px 10px rgba(0, 0, 0, 0.35);
 }
 
 aside.left-panel.sidebar-erp .menu-arrow {

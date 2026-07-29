@@ -49,6 +49,28 @@ class TestCommercialPlans(unittest.TestCase):
         self.assertTrue(business['features']['kds'])
         self.assertEqual(business['resource_limits']['registers'], 5)
 
+    def test_count_usage_rollbacks_after_sql_failure(self):
+        """Regression Mi plan: fallo al contar cajeros no debe abortar la txn de la request."""
+        from sqlalchemy.exc import ProgrammingError
+        from unittest.mock import MagicMock
+
+        from app import app, db
+        from nodeone.core.platform.commercial_plans import _count_usage
+        from sqlalchemy import text
+
+        boom = ProgrammingError('SELECT', {}, Exception('relation missing'))
+        with app.app_context():
+            db.session.rollback()
+            with patch(
+                'models.eposone_cashier.EposoneCashierCredential.query',
+                new_callable=MagicMock,
+            ) as q:
+                q.filter_by.return_value.count.side_effect = boom
+                usage = _count_usage(1)
+            self.assertIn('cashiers', usage)
+            # Sesión usable tras el best-effort
+            self.assertEqual(db.session.execute(text('SELECT 1')).scalar(), 1)
+
 
 class TestNavShowsLockedFeatures(unittest.TestCase):
     @classmethod

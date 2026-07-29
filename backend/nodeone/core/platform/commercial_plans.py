@@ -387,7 +387,11 @@ def feature_nav_state_for_org(
 
 
 def _count_usage(organization_id: int) -> dict[str, int]:
-    """Consumo actual del tenant (best-effort)."""
+    """Consumo actual del tenant (best-effort).
+
+    Cualquier fallo SQL debe hacer ``rollback``: si no, la transacción queda
+    abortada y ``render_template`` (context processors) revienta — p. ej. Mi plan.
+    """
     usage = {
         'branches': 0,
         'pos': 0,
@@ -397,6 +401,15 @@ def _count_usage(organization_id: int) -> dict[str, int]:
         'products': 0,
         'customers': 0,
     }
+
+    def _rollback_quiet() -> None:
+        try:
+            from nodeone.core.db import db
+
+            db.session.rollback()
+        except Exception:
+            pass
+
     try:
         from nodeone.core.master.constants import (
             ORG_UNIT_TYPE_BRANCH,
@@ -413,7 +426,7 @@ def _count_usage(organization_id: int) -> dict[str, int]:
             OrgUnitService.list_units(int(organization_id), unit_type=ORG_UNIT_TYPE_REGISTER)
         )
     except Exception:
-        pass
+        _rollback_quiet()
     try:
         from models.core_master import CoreProduct
 
@@ -421,28 +434,15 @@ def _count_usage(organization_id: int) -> dict[str, int]:
             CoreProduct.query.filter_by(organization_id=int(organization_id)).count()
         )
     except Exception:
-        pass
+        _rollback_quiet()
     try:
-        from nodeone.modules.eposone.models_cashier import EposoneCashier
+        from models.eposone_cashier import EposoneCashierCredential
 
         usage['cashiers'] = int(
-            EposoneCashier.query.filter_by(organization_id=int(organization_id)).count()
+            EposoneCashierCredential.query.filter_by(organization_id=int(organization_id)).count()
         )
     except Exception:
-        try:
-            from sqlalchemy import text
-
-            from nodeone.core.db import db
-
-            row = db.session.execute(
-                text(
-                    'SELECT COUNT(*) FROM eposone_cashier WHERE organization_id = :oid'
-                ),
-                {'oid': int(organization_id)},
-            ).scalar()
-            usage['cashiers'] = int(row or 0)
-        except Exception:
-            pass
+        _rollback_quiet()
     try:
         from models.contact import Contact
 
@@ -450,15 +450,15 @@ def _count_usage(organization_id: int) -> dict[str, int]:
             Contact.query.filter_by(organization_id=int(organization_id)).count()
         )
     except Exception:
-        pass
+        _rollback_quiet()
     try:
-        from nodeone.modules.eposone.models_device import EposoneDevice
+        from models.commercial_core import CorePosTerminal
 
         usage['tablets'] = int(
-            EposoneDevice.query.filter_by(organization_id=int(organization_id)).count()
+            CorePosTerminal.query.filter_by(organization_id=int(organization_id)).count()
         )
     except Exception:
-        pass
+        _rollback_quiet()
     return usage
 
 

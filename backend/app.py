@@ -1899,6 +1899,7 @@ def inject_admin_nav_context():
     out = {
         'show_tenant_admin_menu': False,
         'show_platform_admin_nav': False,
+        'is_platform_admin': False,
         'saas_organizations_nav': [],
         'multi_tenant_catalog_enabled': _enable_multi_tenant_catalog(),
         'catalog_admin_context_org_name': None,
@@ -1926,6 +1927,7 @@ def inject_admin_nav_context():
             out['nav_can'] = _nav_can_permission
             return out
         is_flag_admin = bool(getattr(current_user, 'is_admin', False))
+        out['is_platform_admin'] = is_flag_admin
         rbac_admin = False
         if not is_flag_admin:
             try:
@@ -1934,7 +1936,8 @@ def inject_admin_nav_context():
                 rbac_admin = False
         can_admin_ui = is_flag_admin or rbac_admin
         out['show_tenant_admin_menu'] = can_admin_ui
-        # Selector de empresa: con catálogo multi-tenant (RBAC o admin) o siempre si is_admin.
+        # Selector de empresa / lista de orgs en chrome.
+        # NO confundir con UI SaaS: esa solo con is_platform_admin (ADR-019).
         # Si ENABLE_MULTI_TENANT_CATALOG=0, antes no se mostraba ninguna org extra aunque existieran en BD.
         show_org_switcher = (can_admin_ui and _enable_multi_tenant_catalog()) or is_flag_admin
         if show_org_switcher:

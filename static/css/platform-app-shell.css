@@ -213,3 +213,25 @@ body[data-platform-app-accent="eposone"] .sidebar-erp .nav-link.active:hover {
     color: var(--app-shell-accent);
 }
 
+/* Íconos del menú nativo EPosOne: primario del tenant (no azul de producto) */
+body[data-platform-app-accent="eposone"][data-app-nav-native="1"] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > a .menu-icon:not(.menu-arrow),
+body[data-platform-app-accent="eposone"][data-app-nav-native="1"] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > .nav-link.nav-group-toggle > .menu-icon:not(.menu-arrow),
+body[data-platform-app-accent="eposone"][data-platform-app-shell="1"] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > a .menu-icon:not(.menu-arrow),
+body[data-platform-app-accent="eposone"][data-platform-app-shell="1"] aside.left-panel.sidebar-erp .navbar .navbar-nav li.sidebar-nav-app > .nav-link.nav-group-toggle > .menu-icon:not(.menu-arrow) {
+    background: linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--app-shell-accent, var(--color-primary, #2563eb)) 78%, #fff) 0%,
+        var(--app-shell-accent, var(--color-primary, #2563eb)) 42%,
+        var(--color-primary-dark, #1e3a8a) 100%
+    ) !important;
+    color: #fff !important;
+}
+
+body[data-platform-app-accent="eposone"][data-app-nav-native="1"] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active .menu-icon,
+body[data-platform-app-accent="eposone"][data-platform-app-shell="1"] aside.left-panel.sidebar-erp .navbar .navbar-nav li > a.nav-link.active .menu-icon {
+    background: var(--app-shell-accent, var(--color-primary, #2563eb)) !important;
+    box-shadow:
+        0 0 0 2px color-mix(in srgb, var(--app-shell-accent, var(--color-primary, #2563eb)) 55%, transparent),
+        0 3px 10px rgba(0, 0, 0, 0.35);
+}
+

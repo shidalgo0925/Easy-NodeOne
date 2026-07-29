@@ -63,8 +63,21 @@ class TestAdr019AdminHierarchyNav(unittest.TestCase):
             is_advisor=False,
             show_tenant_admin_menu=True,
         )
-        self.assertTrue(_v_plataforma(sa))
-        self.assertFalse(_v_plataforma(tenant))
+    def test_plataforma_hidden_when_org_switcher_without_sa(self):
+        """Tenant con selector de org (show_platform_admin_nav) no ve Plataforma/SaaS."""
+        tenant_with_switcher = build_nav_context(
+            nav_can=lambda _p: True,
+            saas_module_enabled=lambda _c: True,
+            saas_module_enabled_chain=lambda *_a: True,
+            has_view_endpoint=lambda _e: True,
+            show_academic_admin_nav=False,
+            office365_module_enabled=False,
+            show_platform_admin_nav=True,
+            is_platform_admin=False,
+            is_advisor=False,
+            show_tenant_admin_menu=True,
+        )
+        self.assertFalse(_v_plataforma(tenant_with_switcher))
 
 
 if __name__ == '__main__':

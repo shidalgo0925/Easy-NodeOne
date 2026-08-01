@@ -98,3 +98,15 @@ def devices_bootstrap():
     except DeviceProvisioningError as exc:
         return jsonify({'error': exc.code}), int(exc.http_status)
     return jsonify(payload)
+
+
+@eposone_devices_v1_bp.route('/installation/ready', methods=['POST'])
+def devices_installation_ready():
+    """Installation Lifecycle C3 — ACK observabilidad (no gate 403)."""
+    try:
+        row = DeviceProvisioningService.authenticate_bearer(request.headers.get('Authorization'))
+        body = request.get_json(silent=True) or {}
+        result = DeviceProvisioningService.ack_installation_ready(row, body)
+    except DeviceProvisioningError as exc:
+        return jsonify({'error': exc.code}), int(exc.http_status)
+    return jsonify(result), 200

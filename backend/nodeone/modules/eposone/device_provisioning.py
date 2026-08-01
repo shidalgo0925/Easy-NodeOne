@@ -30,6 +30,7 @@ EVENT_REPROVISIONED = 'eposone.device.reprovisioned'
 EVENT_AUTH_FAILED = 'eposone.device.auth_failed'
 EVENT_PROVISION_FAILED = 'eposone.device.provision_failed'
 EVENT_CODE_ISSUED = 'eposone.provisioning_code.issued'
+EVENT_INSTALLATION_READY = 'eposone.installation.ready'
 
 DEFAULT_TIMEZONE = 'America/Panama'
 STATUS_ACTIVE = 'active'
@@ -83,7 +84,11 @@ def _deploy_environment_label() -> str:
     return 'unknown'
 
 
-def build_installation_block(*, now: datetime | None = None) -> dict[str, Any]:
+def build_installation_block(
+    *,
+    now: datetime | None = None,
+    ready_acked_at: datetime | None = None,
+) -> dict[str, Any]:
     """
     ADR-021 / Installation Lifecycle Contract v1 — bloque aditivo bootstrap.
 
@@ -110,6 +115,8 @@ def build_installation_block(*, now: datetime | None = None) -> dict[str, Any]:
             'environment': _deploy_environment_label(),
             'server_time': _iso(when),
         },
+        # Observabilidad ACK (C3) — no es gate de operación.
+        'ready_acked_at': _iso(ready_acked_at),
     }
 
 
@@ -699,7 +706,10 @@ class DeviceProvisioningService:
             'config_version': int(full_config.get('config_version') or 1),
             'catalog_version': int(catalog_version),
             # Installation Lifecycle Contract v1 — aditivo; APKs viejas lo ignoran.
-            'installation': build_installation_block(now=generated_at),
+            'installation': build_installation_block(
+                now=generated_at,
+                ready_acked_at=getattr(row, 'installation_ready_at', None),
+            ),
         }
         if 'config' in include_set:
             payload['config'] = config_out
@@ -750,6 +760,73 @@ class DeviceProvisioningService:
             'pos_ref': row.pos_ref,
             'register_ref': row.register_ref,
             'app_version': row.app_version,
+            'installation_ready_at': _iso(getattr(row, 'installation_ready_at', None)),
+            'client_install_id': getattr(row, 'client_install_id', None),
+        }
+
+    @staticmethod
+    def ack_installation_ready(
+        row: CorePosTerminal,
+        body: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Installation Lifecycle C3 — ACK observabilidad (no habilita ni bloquea POS en EN1).
+
+        Idempotente: re-ACK actualiza ready_at / checklist / app_version.
+        """
+        import json
+
+        from app import db
+
+        payload = body or {}
+        client_install_id = str(payload.get('client_install_id') or '').strip() or None
+        app_version = str(payload.get('app_version') or '').strip() or None
+        checklist = payload.get('checklist')
+        if checklist is not None and not isinstance(checklist, dict):
+            raise DeviceProvisioningError('invalid_checklist', http_status=400)
+
+        ready_at = datetime.utcnow()
+        raw_ready = payload.get('ready_at')
+        if raw_ready is not None and str(raw_ready).strip():
+            try:
+                from datetime import timezone
+
+                text = str(raw_ready).strip().replace('Z', '+00:00')
+                parsed = datetime.fromisoformat(text)
+                if parsed.tzinfo is not None:
+                    ready_at = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+                else:
+                    ready_at = parsed
+            except (TypeError, ValueError):
+                raise DeviceProvisioningError('invalid_ready_at', http_status=400) from None
+
+        row.installation_ready_at = ready_at
+        if client_install_id is not None:
+            row.client_install_id = client_install_id[:128]
+        if app_version is not None:
+            row.app_version = app_version[:64]
+        if checklist is not None:
+            row.installation_checklist_json = json.dumps(checklist, ensure_ascii=False, separators=(',', ':'))
+        row.last_seen_at = datetime.utcnow()
+        db.session.commit()
+
+        _audit_publish(
+            int(row.organization_id),
+            EVENT_INSTALLATION_READY,
+            {
+                'device_uuid': str(row.terminal_ref),
+                'register_ref': row.register_ref,
+                'client_install_id': row.client_install_id,
+                'app_version': row.app_version,
+                'ready_at': _iso(row.installation_ready_at),
+                'checklist_keys': sorted(checklist.keys()) if isinstance(checklist, dict) else [],
+            },
+        )
+        return {
+            'ok': True,
+            'installation_ready_at': _iso(row.installation_ready_at),
+            'client_install_id': row.client_install_id,
+            'device': DeviceProvisioningService.device_public_dict(row),
         }
 
     @staticmethod
@@ -805,6 +882,7 @@ class DeviceProvisioningService:
                 'status': str(row.status),
                 'app_version': row.app_version,
                 'last_seen_at': _iso(row.last_seen_at),
+                'installation_ready_at': _iso(getattr(row, 'installation_ready_at', None)),
             },
             'license': _license_block_for_register(oid, str(row.register_ref or '')),
         }

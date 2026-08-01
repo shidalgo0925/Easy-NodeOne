@@ -2,14 +2,14 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **PARCIAL EN1** — bloque `installation` en bootstrap (Dev) · pendiente aceptación Prog2 + gate APK · ACK/gates HTTP **no** |
+| Estado | **PARCIAL EN1** — bootstrap `installation` + ACK `/installation/ready` (Dev) · gate APK pendiente · **sin** 403 cash/orders |
 | Versión | **Installation schema_version = 1** |
 | Rector | [`ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md`](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) |
 | Precondiciones | EN1-02 (register) · Hito 2 (bootstrap) · License Engine V1 |
 | Ámbito | Modo **integrado** únicamente |
 | Standalone | **Fuera de alcance** |
-| Wire EN1 (esta entrega) | `installation` en `GET /devices/bootstrap` + hints `next`/`bootstrap_required` en register |
-| Fuera de esta entrega | ACK `/installation/ready` · 403 `installation_incomplete` · estados persistidos EN1 |
+| Wire EN1 (esta entrega) | `installation` en bootstrap · hints register · `POST /devices/installation/ready` |
+| Fuera de esta entrega | 403 `installation_incomplete` · estados UX APK |
 
 Cambios de wire = **v1.1+** + GO. Este documento fija semántica y forma candidata.
 
@@ -153,18 +153,49 @@ Hoy EN1 **no** emite `installation_incomplete` en cash/orders.
 
 ---
 
-## 7. ACK opcional (fase C — no v1 mínimo)
-
-Solo si Prog1+Prog2 lo aprueban en implementación:
+## 7. ACK observabilidad (C3 — EN1 Dev)
 
 ```http
 POST /api/v1/devices/installation/ready
 Authorization: Bearer <DeviceToken>
+Content-Type: application/json
 ```
 
-Body candidato: `{ "client_install_id", "app_version", "ready_at", "checklist": { ... } }`  
+Body:
 
-Sirve para observabilidad BO (“tablet lista”). **No** sustituye el gate local de la APK en la primera entrega.
+```json
+{
+  "client_install_id": "optional-stable-id",
+  "app_version": "2.1.0",
+  "ready_at": "2026-08-01T16:00:00Z",
+  "checklist": { "bootstrap": true, "license": true }
+}
+```
+
+| Campo | Obligatorio | Notas |
+|-------|-------------|--------|
+| `client_install_id` | No | Id local de instalación |
+| `app_version` | No | Actualiza `core_pos_terminal.app_version` |
+| `ready_at` | No | ISO-8601; default = now UTC servidor |
+| `checklist` | No | Objeto JSON libre; si viene, debe ser object |
+
+Respuesta **200**:
+
+```json
+{
+  "ok": true,
+  "installation_ready_at": "2026-08-01T16:00:00Z",
+  "client_install_id": "optional-stable-id",
+  "device": { "...": "..." }
+}
+```
+
+Errores: `unauthorized` 401 · `invalid_ready_at` 400 · `invalid_checklist` 400.
+
+Idempotente. Evento audit: `eposone.installation.ready`.  
+Bootstrap expone `installation.ready_acked_at` cuando hay ACK previo.
+
+**No** sustituye el gate local de la APK. EN1 **no** bloquea cash/orders por falta de ACK.
 
 ---
 
@@ -172,7 +203,7 @@ Sirve para observabilidad BO (“tablet lista”). **No** sustituye el gate loca
 
 | Actor | Debe |
 |-------|------|
-| **EN1** | Register + bootstrap + license serve; bloque `installation` (Dev); (futuro) ACK/gates |
+| **EN1** | Register + bootstrap + license + bloque `installation` + ACK ready (Dev); (futuro) gates 403 |
 | **APK integrada** | Estados §2; checklist §4; prohibiciones §3; no inventar licencia |
 | **APK standalone** | Ignorar este contrato |
 | **BO** | Generar código Caja (EN1-02); no “activar POS” por provisioning solo |

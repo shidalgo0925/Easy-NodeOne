@@ -165,6 +165,59 @@ class TestInstallationBlock(unittest.TestCase):
         self.assertEqual(inst['channel'], 'integrated')
         self.assertEqual(payload['config_version'], 3)
         self.assertNotIn('products', payload)
+        self.assertIn('ready_acked_at', payload['installation'])
+
+    def test_ack_installation_ready_persists(self):
+        from nodeone.modules.eposone.device_provisioning import DeviceProvisioningService
+
+        row = MagicMock()
+        row.organization_id = 9
+        row.terminal_ref = 'dev-uuid-1'
+        row.register_ref = 'reg-1'
+        row.device_label = 'Tablet'
+        row.status = 'active'
+        row.created_at = None
+        row.last_seen_at = None
+        row.branch_ref = 'br-1'
+        row.pos_ref = 'pos-1'
+        row.app_version = '1.0.0'
+        row.installation_ready_at = None
+        row.client_install_id = None
+        row.installation_checklist_json = None
+
+        with patch('app.db') as mock_db, patch(
+            'nodeone.modules.eposone.device_provisioning._audit_publish'
+        ) as audit:
+            out = DeviceProvisioningService.ack_installation_ready(
+                row,
+                {
+                    'client_install_id': 'install-abc',
+                    'app_version': '2.1.0',
+                    'ready_at': '2026-08-01T16:00:00Z',
+                    'checklist': {'bootstrap': True, 'license': True},
+                },
+            )
+
+        mock_db.session.commit.assert_called()
+        self.assertTrue(out['ok'])
+        self.assertEqual(out['client_install_id'], 'install-abc')
+        self.assertEqual(row.app_version, '2.1.0')
+        self.assertEqual(row.client_install_id, 'install-abc')
+        self.assertIsNotNone(row.installation_ready_at)
+        self.assertIn('bootstrap', row.installation_checklist_json)
+        audit.assert_called()
+        self.assertEqual(audit.call_args[0][1], 'eposone.installation.ready')
+
+    def test_ack_rejects_bad_checklist(self):
+        from nodeone.modules.eposone.device_provisioning import (
+            DeviceProvisioningError,
+            DeviceProvisioningService,
+        )
+
+        row = MagicMock()
+        with self.assertRaises(DeviceProvisioningError) as ctx:
+            DeviceProvisioningService.ack_installation_ready(row, {'checklist': ['x']})
+        self.assertEqual(ctx.exception.code, 'invalid_checklist')
 
 
 if __name__ == '__main__':

@@ -227,6 +227,10 @@ class CorePosTerminal(db.Model):
     # Hito EN1-01 — token de dispositivo (hash) + versión de config
     access_token_hash = db.Column(db.String(64), nullable=True, index=True)
     config_version = db.Column(db.Integer, nullable=False, default=1)
+    # ADR-021 / Installation Lifecycle — ACK observabilidad (no gate HTTP)
+    installation_ready_at = db.Column(db.DateTime, nullable=True)
+    client_install_id = db.Column(db.String(128), nullable=True)
+    installation_checklist_json = db.Column(db.Text, nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint('organization_id', 'terminal_ref', name='uq_core_pos_terminal_ref'),

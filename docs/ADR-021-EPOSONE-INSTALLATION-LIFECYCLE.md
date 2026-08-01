@@ -162,11 +162,12 @@ Para el futuro contrato Installation v1 (solo lista de intención):
 |------|-----|-------|
 | **A — Docs ADR** | ADR-021 + addendum EN1-02 + nota Hito 2 | Prog1 — **hecho** |
 | **B — Contrato Installation v1** | Estados, checklist, bloque `installation`, errores | Prog1 — borrador · Prog2 revisión abierta |
-| **C1 — Wire EN1 (mínimo)** | Bloque `installation` en bootstrap + hints register | Prog1 — **Dev** (esta entrega) |
+| **C1 — Wire EN1 (mínimo)** | Bloque `installation` en bootstrap + hints register | Prog1 — **hecho** |
 | **C2 — Gate APK** | Estados §2 + prohibiciones §3 | Prog2 |
-| **C3 — ACK / gates HTTP** | Opcional; breaking si 403 | Tras GO explícito |
+| **C3a — ACK EN1** | `POST /devices/installation/ready` (observabilidad) | Prog1 — **Dev** (esta entrega) |
+| **C3b — Gates HTTP 403** | `installation_incomplete` en cash/orders | Tras GO explícito |
 
-Prohibido C3 sin GO. C1 es aditivo (no breaking).
+Prohibido C3b sin GO. C1/C3a son aditivos (no breaking).
 
 ---
 

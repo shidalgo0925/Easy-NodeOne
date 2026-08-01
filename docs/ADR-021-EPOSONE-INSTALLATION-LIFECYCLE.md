@@ -6,9 +6,10 @@
 | Título | Installation Lifecycle — bootstrap obligatorio antes de operar (modo integrado) |
 | Estado | **Propuesto** — 1 ago 2026 · pendiente aprobación Prog1 + Prog2 |
 | Ámbito | EN1 (Prog1) · EPosOne APK (Prog2) · modo **integrado** únicamente |
-| Relacionados | [EN1-02 Provisioning](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md) · [Hito 2 Bootstrap](EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md) · [ADR-007 Licencia](ADR-007-EPOSONE-COMMERCIAL-LICENSING-OFFLINE.md) · [License Engine V1](EN1_EPOSONE_LICENSE_ENGINE_V1_CONTRACT.md) · [ADR-003 Sync](ADR-003-EPOSONE-SYNC.md) · [ADR-006 Op/Admin](ADR-006-EPOSONE-OPERATION-VS-ADMIN.md) |
-| No implementa | Endpoints, columnas, gates HTTP ni cambios de wire — solo decisión arquitectónica |
+| Relacionados | [EN1-02 Provisioning](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md) · [Hito 2 Bootstrap](EN1_EPOSONE_HITO2_DEVICE_BOOTSTRAP_SYNC_DOWN.md) · [**Contrato Installation v1**](EN1_EPOSONE_INSTALLATION_LIFECYCLE_CONTRACT_V1.md) · [ADR-007 Licencia](ADR-007-EPOSONE-COMMERCIAL-LICENSING-OFFLINE.md) · [License Engine V1](EN1_EPOSONE_LICENSE_ENGINE_V1_CONTRACT.md) · [ADR-003 Sync](ADR-003-EPOSONE-SYNC.md) · [ADR-006 Op/Admin](ADR-006-EPOSONE-OPERATION-VS-ADMIN.md) |
+| No implementa | Endpoints, columnas, gates HTTP — ver contrato Installation v1 (propuesto) |
 | Standalone | **Fuera de alcance** — wizard local sin EN1; sin cambios |
+| Contrato wire | [`EN1_EPOSONE_INSTALLATION_LIFECYCLE_CONTRACT_V1.md`](EN1_EPOSONE_INSTALLATION_LIFECYCLE_CONTRACT_V1.md) — **PROPUESTO** |
 
 ---
 
@@ -49,8 +50,8 @@ Falta formalizar la **orquestación**: cuándo una instalación está *ready* y 
 3. **Hasta bootstrap OK, la APK integrada no opera:** no abrir caja, no turno, no vender, no imprimir, no cobrar.  
 4. **Licenciado ≠ install-ready.** Una Caja puede tener licencia ACTIVE y el dispositivo aún no estar listo (bootstrap incompleto).  
 5. **Standalone no cambia:** wizard local; sin dependencia de EN1; sin este ADR.  
-6. **EN1-02 no se infla** con catálogo/licencia/versión: se añade un addendum de semántica y un contrato futuro de Installation Lifecycle.  
-7. **Compatibilidad:** wire actual de `register` / `config` / `bootstrap` se mantiene hasta un contrato Installation v1 aprobado + GO de implementación.
+6. **EN1-02 no se infla** con catálogo/licencia/versión: addendum de semántica + [Contrato Installation v1](EN1_EPOSONE_INSTALLATION_LIFECYCLE_CONTRACT_V1.md) (propuesto).  
+7. **Compatibilidad:** wire actual de `register` / `config` / `bootstrap` se mantiene hasta el contrato Installation v1 **aceptado** + GO de implementación (fase C).
 
 ```text
                     ┌──────────────────────────┐
@@ -77,7 +78,7 @@ Falta formalizar la **orquestación**: cuándo una instalación está *ready* y 
 | **Provisioning** | ¿Qué tablet pertenece a esta Caja? | EN1-02 |
 | **Bootstrap / Sync Down** | ¿Qué configuración/datos necesita para operar? | Hito 2 (+ 2.5 cajeros, policies) |
 | **Licencia** | ¿Puede operar *comercialmente* esta Caja? | ADR-007 + License Engine V1 |
-| **Installation Lifecycle** | ¿Completó el onboarding integrado? | **Este ADR** (contrato wire = futuro) |
+| **Installation Lifecycle** | ¿Completó el onboarding integrado? | **Este ADR** · wire: [Contrato Installation v1](EN1_EPOSONE_INSTALLATION_LIFECYCLE_CONTRACT_V1.md) (**propuesto**) |
 
 ---
 
@@ -159,11 +160,11 @@ Para el futuro contrato Installation v1 (solo lista de intención):
 
 | Fase | Qué | Quién |
 |------|-----|-------|
-| **A — Docs (ahora)** | Este ADR + addendum EN1-02 + nota Hito 2 | Prog1 |
-| **B — Contrato Installation v1** | Estados, checklist, campos, errores | Prog1 + Prog2 |
+| **A — Docs ADR** | ADR-021 + addendum EN1-02 + nota Hito 2 | Prog1 — **hecho** |
+| **B — Contrato Installation v1** | Estados, checklist, bloque `installation`, errores | Prog1 — **borrador** [`EN1_EPOSONE_INSTALLATION_LIFECYCLE_CONTRACT_V1.md`](EN1_EPOSONE_INSTALLATION_LIFECYCLE_CONTRACT_V1.md) · falta aceptación Prog2 |
 | **C — GO implementación** | Wire EN1/APK, ACK opcional, gates | Tras aprobación B |
 
-Prohibido implementar C sin B aprobado.
+Prohibido implementar C sin B aceptado.
 
 ---
 

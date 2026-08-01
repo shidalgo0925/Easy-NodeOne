@@ -6,7 +6,7 @@
 | **Post-demo Mexican Food** | Design Partner #1 · presentación comercial 28 jul · instalación **jueves 30 jul** · freeze features nuevas · SoT: [`EN1_EPOSONE_POST_DEMO_MEXICAN_FOOD_PRIORITIES.md`](EN1_EPOSONE_POST_DEMO_MEXICAN_FOOD_PRIORITIES.md) |
 | **P0 inmediato** | Caja/turnos · sync 100% · estados recibos · informes/cierres (mismas cifras EN1↔EPosOne) |
 | **P1 comercial** | Licenciamiento + pago EN1 + correo creación de cuenta |
-| **ADR-019 / ADR-020 / ADR-021** | [ADR-019](ADR-019-ADMINISTRATIVE-HIERARCHY.md) · [ADR-020 Order Events](ADR-020-ORDER-EVENT-OWNERSHIP.md) · [ADR-021 Installation Lifecycle](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) (**propuesto** — bootstrap obligatorio antes de operar) |
+| **ADR-019 / ADR-020 / ADR-021** | [ADR-019](ADR-019-ADMINISTRATIVE-HIERARCHY.md) · [ADR-020 Order Events](ADR-020-ORDER-EVENT-OWNERSHIP.md) · [ADR-021 Installation Lifecycle](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) (**propuesto**) · contrato [Installation v1](EN1_EPOSONE_INSTALLATION_LIFECYCLE_CONTRACT_V1.md) (**propuesto**) |
 | **ADR-011 / 012 / 013** | **Aprobados** · BrandContext Fase 1 en Dev · Arquitectura ETS · Portal `app.easytech.services` · [`ADR-011`](ADR-011-PORTAL-ETS-PUNTO-ENTRADA.md) · [`ADR-012`](ADR-012-ETS-ECOSYSTEM-ARCHITECTURE.md) · [`ADR-013`](ADR-013-PORTAL-ETS-PUNTO-ENTRADA.md) |
 | **License Engine V1** | **En develop** — contrato bootstrap [`EN1_EPOSONE_LICENSE_ENGINE_V1_CONTRACT.md`](EN1_EPOSONE_LICENSE_ENGINE_V1_CONTRACT.md) · Trial 15d · features/limits · suspend/reactivate |
 | **ADR-014 Subscription Registry** | **V1 en Dev** — tenant↔producto · [`ADR-014-SUBSCRIPTION-REGISTRY.md`](ADR-014-SUBSCRIPTION-REGISTRY.md) |

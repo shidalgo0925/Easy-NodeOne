@@ -380,8 +380,9 @@ def ensure_eposone_order_schema(db, engine, printfn=None) -> None:
             )
 
     # Unicidad activa de line_ref por pedido (evita duplicados por race/sync).
-    if 'eposone_order_item' in set(inspect(engine).get_table_names()):
-        if is_pg:
+    if 'eposone_order_item' in set(inspect(engine).get_table_names()) and is_pg:
+        idx_names = {ix['name'] for ix in inspect(engine).get_indexes('eposone_order_item')}
+        if 'uq_eposone_order_item_active_line_ref' not in idx_names:
             _exec(
                 engine,
                 """
@@ -398,5 +399,3 @@ def ensure_eposone_order_schema(db, engine, printfn=None) -> None:
                 """,
             )
             log('eposone_order_item: dedupe + uq active line_ref')
-        else:
-            log('eposone_order_item: uq line_ref omitido en sqlite (usar query+lock)')

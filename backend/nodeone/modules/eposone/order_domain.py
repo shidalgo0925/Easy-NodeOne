@@ -435,16 +435,12 @@ class OrderDomainService:
             if not product_ref:
                 raise OrderDomainError('product_ref_required', http_status=400)
             # Idempotencia sync/reconnect: mismo line_ref no duplica la línea.
-            # Consulta BD (no solo relationship) + índice único parcial de respaldo.
             existing_line = (
                 EposoneOrderItem.query.filter_by(order_id=int(order.id), line_ref=line_ref)
                 .filter(EposoneOrderItem.line_status != 'cancelled')
                 .first()
             )
-            if existing_line is not None:
-                # No-op de ítem; el event_id nuevo igual se audita abajo.
-                pass
-            else:
+            if existing_line is None:
                 qty = float(payload.get('qty') or 1)
                 unit_price = float(payload.get('unit_price') or 0)
                 discount = float(payload.get('discount') or 0)
@@ -483,8 +479,11 @@ class OrderDomainService:
                 except IntegrityError:
                     # Carrera residual o índice único: otra fila ya tiene este line_ref.
                     db.session.expire(order, ['items'])
+                    db.session.refresh(order)
+                    _recalc(order)
                 else:
                     _recalc(order)
+            # Si ya existía la línea: no-op de ítem; el event_id nuevo se audita abajo.
         elif event_type == 'producto.eliminado':
             line_ref = str(payload.get('line_ref') or '').strip()
             item = next((i for i in order.items if i.line_ref == line_ref), None)

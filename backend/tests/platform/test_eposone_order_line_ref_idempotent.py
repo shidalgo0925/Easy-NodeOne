@@ -12,19 +12,27 @@ backend_dir = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(backend_dir))
 
 
+def _device():
+    return SimpleNamespace(
+        organization_id=9,
+        terminal_ref='dev-1',
+        pos_ref='ptv-01',
+        register_ref='CAJA_01',
+        branch_ref=None,
+    )
+
+
 class TestProductoAgregadoLineRefIdempotent(unittest.TestCase):
     @patch('nodeone.modules.eposone.order_domain.OrderDomainService._append_event')
     @patch('nodeone.modules.eposone.order_domain.OrderDomainService._require_owner')
     @patch('nodeone.modules.eposone.order_domain.EposoneOrderEvent')
     @patch('nodeone.modules.eposone.order_domain.EposoneOrderItem')
-    @patch('nodeone.modules.eposone.order_domain.EposoneOrder')
     @patch('nodeone.modules.eposone.order_domain.OrderDomainService.get_order')
     @patch('app.db')
     def test_second_event_same_line_ref_does_not_insert(
         self,
         mock_db,
         mock_get,
-        mock_order_cls,
         mock_item_cls,
         mock_event_cls,
         _owner,
@@ -32,29 +40,18 @@ class TestProductoAgregadoLineRefIdempotent(unittest.TestCase):
     ):
         from nodeone.modules.eposone.order_domain import OrderDomainService
 
-        device = SimpleNamespace(
-            organization_id=9,
-            terminal_ref='dev-1',
-            pos_ref='ptv-01',
-            register_ref='CAJA_01',
-            branch_ref=None,
-        )
         order = MagicMock()
         order.id = 106
         order.organization_id = 9
         order.user_ref = 'Cajero1'
-        order.items = []
         mock_get.return_value = order
         mock_event_cls.query.filter_by.return_value.first.return_value = None
-        existing = MagicMock()
-        existing.line_ref = 'L2'
-        existing.line_status = 'pending'
         mock_item_cls.query.filter_by.return_value.filter.return_value.first.return_value = (
-            existing
+            MagicMock()
         )
 
         OrderDomainService.apply_event(
-            device,
+            _device(),
             106,
             {
                 'type': 'producto.agregado',
@@ -71,8 +68,8 @@ class TestProductoAgregadoLineRefIdempotent(unittest.TestCase):
 
         mock_item_cls.assert_not_called()
         mock_append.assert_called_once()
-        # No flush de ítem nuevo
         mock_db.session.begin_nested.assert_not_called()
+        mock_db.session.execute.assert_called_once()
 
 
 class TestProductoAgregadoInsertsWhenAbsent(unittest.TestCase):
@@ -81,14 +78,12 @@ class TestProductoAgregadoInsertsWhenAbsent(unittest.TestCase):
     @patch('nodeone.modules.eposone.order_domain.OrderDomainService._require_owner')
     @patch('nodeone.modules.eposone.order_domain.EposoneOrderEvent')
     @patch('nodeone.modules.eposone.order_domain.EposoneOrderItem')
-    @patch('nodeone.modules.eposone.order_domain.EposoneOrder')
     @patch('nodeone.modules.eposone.order_domain.OrderDomainService.get_order')
     @patch('app.db')
     def test_inserts_when_line_ref_absent(
         self,
         mock_db,
         mock_get,
-        mock_order_cls,
         mock_item_cls,
         mock_event_cls,
         _owner,
@@ -97,13 +92,6 @@ class TestProductoAgregadoInsertsWhenAbsent(unittest.TestCase):
     ):
         from nodeone.modules.eposone.order_domain import OrderDomainService
 
-        device = SimpleNamespace(
-            organization_id=9,
-            terminal_ref='dev-1',
-            pos_ref='ptv-01',
-            register_ref='CAJA_01',
-            branch_ref=None,
-        )
         order = MagicMock()
         order.id = 200
         order.organization_id = 9
@@ -118,7 +106,7 @@ class TestProductoAgregadoInsertsWhenAbsent(unittest.TestCase):
         nested.__exit__ = MagicMock(return_value=False)
 
         OrderDomainService.apply_event(
-            device,
+            _device(),
             200,
             {
                 'type': 'producto.agregado',
@@ -138,6 +126,8 @@ class TestProductoAgregadoInsertsWhenAbsent(unittest.TestCase):
         mock_recalc.assert_called_once_with(order)
         mock_append.assert_called_once()
         mock_db.session.begin_nested.assert_called()
+        mock_db.session.execute.assert_called_once()
+
 
 if __name__ == '__main__':
     unittest.main()

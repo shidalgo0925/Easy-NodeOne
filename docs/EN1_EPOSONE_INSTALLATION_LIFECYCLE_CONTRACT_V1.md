@@ -2,13 +2,14 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **PROPUESTO** — 1 ago 2026 · pendiente aprobación Prog1 + Prog2 |
-| Versión | **Installation schema_version = 1** (cuando se implemente) |
+| Estado | **PARCIAL EN1** — bloque `installation` en bootstrap (Dev) · pendiente aceptación Prog2 + gate APK · ACK/gates HTTP **no** |
+| Versión | **Installation schema_version = 1** |
 | Rector | [`ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md`](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) |
 | Precondiciones | EN1-02 (register) · Hito 2 (bootstrap) · License Engine V1 |
 | Ámbito | Modo **integrado** únicamente |
 | Standalone | **Fuera de alcance** |
-| Implementación | **Prohibida** hasta este contrato = ACEPTADO + GO explícito |
+| Wire EN1 (esta entrega) | `installation` en `GET /devices/bootstrap` + hints `next`/`bootstrap_required` en register |
+| Fuera de esta entrega | ACK `/installation/ready` · 403 `installation_incomplete` · estados persistidos EN1 |
 
 Cambios de wire = **v1.1+** + GO. Este documento fija semántica y forma candidata.
 
@@ -93,9 +94,10 @@ Fallo en 2–7 → `failed` o `blocked` (si es licencia/versión), nunca `ready`
 
 ---
 
-## 5. Bloque propuesto `installation` (bootstrap)
+## 5. Bloque `installation` (bootstrap)
 
-**Aditivo** al JSON actual de bootstrap. Clientes viejos ignoran el objeto.
+**Aditivo** al JSON de bootstrap. Clientes viejos ignoran el objeto.  
+**EN1 Dev:** servido desde `build_installation_block()` en `device_provisioning.py`.
 
 ```json
 {
@@ -127,13 +129,13 @@ Fallo en 2–7 → `failed` o `blocked` (si es licencia/versión), nunca `ready`
 | `schema_version` | Sí | Entero; APK rechaza si no soporta |
 | `bootstrap_required` | Sí | En integrado: siempre `true` hasta política futura |
 | `channel` | Sí | `integrated` (este contrato) |
-| `min_app_version` | No | Semver string o `null` = sin gate |
+| `min_app_version` | No | Env `EPOSONE_MIN_APP_VERSION` o `null` = sin gate |
 | `min_bootstrap_schema` | No | Default 1 |
 | `capabilities` | No | Hint de features de canal; no sustituye `license.features` |
 | `sync_policy` | No | Orquestación sync; detalle fino en ADR-003 / Hito 2 |
-| `deployment` | No | Metadatos; no gate |
+| `deployment` | No | `environment` desde `EPOSONE_DEPLOY_ENV` / `EASYNODEONE_DEPLOY_ENV` / `EASYNODEONE_SILO` / `FLASK_ENV`; no gate |
 
-**Register:** no requiere este bloque. Opcional futuro: `{ "next": "bootstrap", "bootstrap_required": true }` en respuesta 201 — compat, no breaking.
+**Register (EN1 Dev):** respuesta aditiva `{ "next": "bootstrap", "bootstrap_required": true }` — no breaking.
 
 ---
 
@@ -170,7 +172,7 @@ Sirve para observabilidad BO (“tablet lista”). **No** sustituye el gate loca
 
 | Actor | Debe |
 |-------|------|
-| **EN1** | Register + bootstrap + license serve; (futuro) bloque `installation`; (futuro) ACK/gates |
+| **EN1** | Register + bootstrap + license serve; bloque `installation` (Dev); (futuro) ACK/gates |
 | **APK integrada** | Estados §2; checklist §4; prohibiciones §3; no inventar licencia |
 | **APK standalone** | Ignorar este contrato |
 | **BO** | Generar código Caja (EN1-02); no “activar POS” por provisioning solo |

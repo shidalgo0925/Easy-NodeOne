@@ -69,6 +69,50 @@ def _iso(dt: datetime | None) -> str | None:
     return dt.replace(microsecond=0).isoformat() + 'Z'
 
 
+def _deploy_environment_label() -> str:
+    """Metadato no-gate para bloque installation.deployment."""
+    for key in (
+        'EPOSONE_DEPLOY_ENV',
+        'EASYNODEONE_DEPLOY_ENV',
+        'EASYNODEONE_SILO',
+        'FLASK_ENV',
+    ):
+        val = (os.environ.get(key) or '').strip().lower()
+        if val:
+            return val
+    return 'unknown'
+
+
+def build_installation_block(*, now: datetime | None = None) -> dict[str, Any]:
+    """
+    ADR-021 / Installation Lifecycle Contract v1 — bloque aditivo bootstrap.
+
+    Clientes viejos ignoran el objeto. No implica persistencia de estados APK.
+    """
+    min_app = (os.environ.get('EPOSONE_MIN_APP_VERSION') or '').strip() or None
+    when = now or datetime.utcnow()
+    return {
+        'schema_version': 1,
+        'bootstrap_required': True,
+        'channel': 'integrated',
+        'min_app_version': min_app,
+        'min_bootstrap_schema': 1,
+        'capabilities': {
+            'cash_shifts': True,
+            'orders': True,
+            'offline': True,
+        },
+        'sync_policy': {
+            'mode': 'bootstrap_then_incremental',
+            'catalog_full_on_mismatch': True,
+        },
+        'deployment': {
+            'environment': _deploy_environment_label(),
+            'server_time': _iso(when),
+        },
+    }
+
+
 def _new_access_token() -> str:
     return secrets.token_urlsafe(32)
 
@@ -499,11 +543,14 @@ class DeviceProvisioningService:
         )
 
         config = DeviceProvisioningService.build_config(row, org=org)
+        # Installation Lifecycle v1 — hint aditivo (EN1-02 addendum); no breaking.
         return {
             'access_token': access_token,
             'token_type': 'Bearer',
             'device': DeviceProvisioningService.device_public_dict(row),
             'config': config,
+            'next': 'bootstrap',
+            'bootstrap_required': True,
         }
 
     @staticmethod
@@ -645,11 +692,14 @@ class DeviceProvisioningService:
                     }
                 )
 
+        generated_at = datetime.utcnow()
         payload: dict[str, Any] = {
             'schema_version': 1,
-            'generated_at': _iso(datetime.utcnow()),
+            'generated_at': _iso(generated_at),
             'config_version': int(full_config.get('config_version') or 1),
             'catalog_version': int(catalog_version),
+            # Installation Lifecycle Contract v1 — aditivo; APKs viejas lo ignoran.
+            'installation': build_installation_block(now=generated_at),
         }
         if 'config' in include_set:
             payload['config'] = config_out

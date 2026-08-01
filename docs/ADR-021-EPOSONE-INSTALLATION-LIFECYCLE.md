@@ -161,10 +161,12 @@ Para el futuro contrato Installation v1 (solo lista de intención):
 | Fase | Qué | Quién |
 |------|-----|-------|
 | **A — Docs ADR** | ADR-021 + addendum EN1-02 + nota Hito 2 | Prog1 — **hecho** |
-| **B — Contrato Installation v1** | Estados, checklist, bloque `installation`, errores | Prog1 — **borrador** [`EN1_EPOSONE_INSTALLATION_LIFECYCLE_CONTRACT_V1.md`](EN1_EPOSONE_INSTALLATION_LIFECYCLE_CONTRACT_V1.md) · falta aceptación Prog2 |
-| **C — GO implementación** | Wire EN1/APK, ACK opcional, gates | Tras aprobación B |
+| **B — Contrato Installation v1** | Estados, checklist, bloque `installation`, errores | Prog1 — borrador · Prog2 revisión abierta |
+| **C1 — Wire EN1 (mínimo)** | Bloque `installation` en bootstrap + hints register | Prog1 — **Dev** (esta entrega) |
+| **C2 — Gate APK** | Estados §2 + prohibiciones §3 | Prog2 |
+| **C3 — ACK / gates HTTP** | Opcional; breaking si 403 | Tras GO explícito |
 
-Prohibido implementar C sin B aceptado.
+Prohibido C3 sin GO. C1 es aditivo (no breaking).
 
 ---
 

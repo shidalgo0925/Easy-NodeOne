@@ -7,7 +7,7 @@
 | Estado | **Aprobado (GO)** — 27 jul 2026 |
 | Ámbito | EN1 Platform · EPosOne · Membership · Educación · ePayroll · cualquier producto futuro |
 | Relacionados | [ADR-005](ADR-005-EPOSONE-LICENSING-POS.md) · [ADR-007](ADR-007-EPOSONE-COMMERCIAL-LICENSING-OFFLINE.md) · [ADR-008](ADR-008-EPOSONE-COMMERCIAL-ENGINE.md) · [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) |
-| Precedencia | Reemplaza la **unidad comercial** de ADR-005 (POS) y ADR-007 (Caja). Preserva íntegramente ADR-007 en offline/sync/heartbeat/provisioning. Extiende ADR-014 sin romperlo. |
+| Precedencia | Reemplaza la **unidad comercial** de ADR-005 (POS) y ADR-007 (Caja). Preserva íntegramente ADR-007 en offline/sync/heartbeat/provisioning. Extiende ADR-014 sin romperlo. Narrativa de activo raíz / multiproducto: ver [ADR-022](ADR-022-EN1-MULTIPRODUCT-COMMERCIAL-MODEL.md) (**propuesto**). |
 | Alcance | Decisión arquitectónica y modelo conceptual. **No** implementa facturación, Marketplace ni renovación automática con cobro. |
 
 ---

@@ -112,4 +112,17 @@ curl -sS 'https://appdev.easynodeone.com/api/v1/devices/config' \
 
 ## Fuera de alcance
 
-Sync catálogo/ventas · licencias · FE · CRM · IA.
+Sync catálogo/ventas · licencias (contrato y serve: Hito 2 / License Engine; este doc no los define) · FE · CRM · IA.
+
+---
+
+## Addendum — Installation Lifecycle (ADR-021)
+
+| Campo | Valor |
+|-------|--------|
+| Fecha | 1 ago 2026 |
+| ADR | [`ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md`](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) |
+
+**Semántica (sin cambio de wire):** EN1-02 solo vincula dispositivo ↔ Caja y emite Device Token. En modo **integrado**, tras `register` la APK **debe** completar el primer `GET /api/v1/devices/bootstrap` con éxito antes de operar (caja, turno, venta, cobro, impresión). Register **no** habilita el POS.
+
+Standalone / wizard local: fuera de alcance de este addendum.

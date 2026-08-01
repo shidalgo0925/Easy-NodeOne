@@ -170,6 +170,8 @@ Tablet limpia (sin depender del seed Istmo):
 3. Imágenes visibles donde haya `image_url`.  
 4. Venta en APK usa SKUs EN1 (`ib-*` u otros de la org).  
 
+**Nota ADR-021:** en modo integrado, el paso 4 solo es válido si el bootstrap del paso 2 terminó correctamente. Hasta entonces: no caja, no turno, no venta, no cobro, no impresión. Ver [`ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md`](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md).
+
 ---
 
 ## Aprobación / estado

@@ -109,7 +109,9 @@ class PortalService:
             if definition is None:
                 continue
             domain = (definition.primary_domain or '').strip()
-            open_url = f'https://{domain}' if domain else ''
+            open_url = cls.open_url_for_product(code) or (
+                f'https://{domain}' if domain else ''
+            )
             product = item.get('product') or {}
             icon_path = (
                 (product.get('icon') or '').strip()
@@ -143,10 +145,35 @@ class PortalService:
 
     @classmethod
     def open_url_for_product(cls, product_code: str) -> str | None:
-        """URL de apertura vía ProductRegistry.primary_domain (sin hardcode)."""
-        definition = ProductRegistry.get(product_code)
+        """URL de apertura del producto.
+
+        En silos EN1 (appdev/appstg/appprd) abrir en el **mismo host** para no
+        saltar a eposone.easytech.services / otra BD. Fuera de eso, primary_domain.
+        """
+        code = (product_code or '').strip().lower()
+        definition = ProductRegistry.get(code)
         if definition is None:
             return None
+
+        try:
+            from flask import has_request_context, request, url_for
+
+            if has_request_context():
+                host = (request.host or '').split(':')[0].strip().lower()
+                if host.endswith('.easynodeone.com') or host in ('127.0.0.1', 'localhost'):
+                    if code == 'eposone':
+                        try:
+                            return url_for('eposone.eposone_home')
+                        except Exception:
+                            return '/admin/eposone'
+                    if code == 'epayroll':
+                        try:
+                            return url_for('epayroll.epayroll_home')
+                        except Exception:
+                            return '/admin/epayroll'
+        except Exception:
+            pass
+
         domain = (definition.primary_domain or '').strip()
         if not domain:
             return None

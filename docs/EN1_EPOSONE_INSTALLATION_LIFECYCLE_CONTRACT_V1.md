@@ -2,14 +2,14 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **PARCIAL EN1** — bootstrap `installation` + ACK `/installation/ready` (Dev) · gate APK pendiente · **sin** 403 cash/orders |
+| Estado | **PARCIAL EN1** — C1+C3a+C3b (flag) · gate APK (C2) pendiente |
 | Versión | **Installation schema_version = 1** |
 | Rector | [`ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md`](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) |
 | Precondiciones | EN1-02 (register) · Hito 2 (bootstrap) · License Engine V1 |
 | Ámbito | Modo **integrado** únicamente |
 | Standalone | **Fuera de alcance** |
-| Wire EN1 (esta entrega) | `installation` en bootstrap · hints register · `POST /devices/installation/ready` |
-| Fuera de esta entrega | 403 `installation_incomplete` · estados UX APK |
+| Wire EN1 | bootstrap `installation` · register hints · ACK ready · 403 cash/orders si `EPOSONE_ENFORCE_INSTALLATION_READY=1` |
+| Fuera de esta entrega | Gate UX APK (C2) · enforcement ON por defecto en silos |
 
 Cambios de wire = **v1.1+** + GO. Este documento fija semántica y forma candidata.
 
@@ -147,9 +147,11 @@ Fallo en 2–7 → `failed` o `blocked` (si es licencia/versión), nunca `ready`
 | `bootstrap_failed` | HTTP ≠ 200 o payload inválido | `failed`; reintento |
 | `app_version_unsupported` | `min_app_version` no cumplida | `blocked`; pedir update |
 | `license_inactive` | License Engine no operable | `blocked` (distinto de install incomplete) |
-| `installation_incomplete` | (Futuro EN1) cash/orders sin ready ACK | 403 — solo tras GO enforcement |
+| `installation_incomplete` | Enforcement ON y device sin ACK `installation/ready` | 403 en cash/orders Bearer · ACK o bootstrap+ready |
 
-Hoy EN1 **no** emite `installation_incomplete` en cash/orders.
+**Enforcement EN1:** env `EPOSONE_ENFORCE_INSTALLATION_READY` ∈ `{1,true,yes,on}`.  
+Default **off** (piloto / APKs sin ACK). Bootstrap anuncia `installation.enforcement.installation_ready_required`.  
+BO (`en1-backoffice`) nunca recibe este 403. Register/config/bootstrap/ACK no se bloquean.
 
 ---
 
@@ -203,7 +205,7 @@ Bootstrap expone `installation.ready_acked_at` cuando hay ACK previo.
 
 | Actor | Debe |
 |-------|------|
-| **EN1** | Register + bootstrap + license + bloque `installation` + ACK ready (Dev); (futuro) gates 403 |
+| **EN1** | Register + bootstrap + license + bloque `installation` + ACK + 403 opcional (flag) |
 | **APK integrada** | Estados §2; checklist §4; prohibiciones §3; no inventar licencia |
 | **APK standalone** | Ignorar este contrato |
 | **BO** | Generar código Caja (EN1-02); no “activar POS” por provisioning solo |

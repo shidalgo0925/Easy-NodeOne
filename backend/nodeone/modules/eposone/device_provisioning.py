@@ -84,6 +84,12 @@ def _deploy_environment_label() -> str:
     return 'unknown'
 
 
+def installation_enforcement_enabled() -> bool:
+    """C3b — 403 installation_incomplete en cash/orders. Default off (piloto)."""
+    raw = (os.environ.get('EPOSONE_ENFORCE_INSTALLATION_READY') or '').strip().lower()
+    return raw in {'1', 'true', 'yes', 'on'}
+
+
 def build_installation_block(
     *,
     now: datetime | None = None,
@@ -96,6 +102,7 @@ def build_installation_block(
     """
     min_app = (os.environ.get('EPOSONE_MIN_APP_VERSION') or '').strip() or None
     when = now or datetime.utcnow()
+    enforce = installation_enforcement_enabled()
     return {
         'schema_version': 1,
         'bootstrap_required': True,
@@ -115,8 +122,11 @@ def build_installation_block(
             'environment': _deploy_environment_label(),
             'server_time': _iso(when),
         },
-        # Observabilidad ACK (C3) — no es gate de operación.
+        # Observabilidad ACK (C3a) — no es gate de operación por sí solo.
         'ready_acked_at': _iso(ready_acked_at),
+        'enforcement': {
+            'installation_ready_required': enforce,
+        },
     }
 
 
@@ -559,6 +569,24 @@ class DeviceProvisioningService:
             'next': 'bootstrap',
             'bootstrap_required': True,
         }
+
+    @staticmethod
+    def require_installation_ready(row: CorePosTerminal) -> None:
+        """
+        C3b — si EPOSONE_ENFORCE_INSTALLATION_READY está activo, exige ACK previo.
+
+        No aplica a terminal sintético BO (`en1-backoffice`).
+        Error: installation_incomplete 403.
+        """
+        if not installation_enforcement_enabled():
+            return
+        from nodeone.modules.eposone.bo_actor import BACKOFFICE_TERMINAL_REF
+
+        if str(getattr(row, 'terminal_ref', '') or '') == BACKOFFICE_TERMINAL_REF:
+            return
+        if getattr(row, 'installation_ready_at', None) is not None:
+            return
+        raise DeviceProvisioningError('installation_incomplete', http_status=403)
 
     @staticmethod
     def authenticate_bearer(authorization_header: str | None) -> CorePosTerminal:

@@ -164,10 +164,10 @@ Para el futuro contrato Installation v1 (solo lista de intención):
 | **B — Contrato Installation v1** | Estados, checklist, bloque `installation`, errores | Prog1 — borrador · Prog2 revisión abierta |
 | **C1 — Wire EN1 (mínimo)** | Bloque `installation` en bootstrap + hints register | Prog1 — **hecho** |
 | **C2 — Gate APK** | Estados §2 + prohibiciones §3 | Prog2 |
-| **C3a — ACK EN1** | `POST /devices/installation/ready` (observabilidad) | Prog1 — **Dev** (esta entrega) |
-| **C3b — Gates HTTP 403** | `installation_incomplete` en cash/orders | Tras GO explícito |
+| **C3a — ACK EN1** | `POST /devices/installation/ready` (observabilidad) | Prog1 — **hecho** |
+| **C3b — Gates HTTP 403** | `installation_incomplete` en cash/orders si flag ON | Prog1 — **código listo**; flag default **off** |
 
-Prohibido C3b sin GO. C1/C3a son aditivos (no breaking).
+C1/C3a aditivos. C3b no-breaking mientras `EPOSONE_ENFORCE_INSTALLATION_READY` esté off. Activar flag solo tras C2 (APK envía ACK).
 
 ---
 

@@ -104,6 +104,11 @@ class TestInstallationBlock(unittest.TestCase):
         )
         self.assertEqual(block['deployment']['environment'], 'dev')
         self.assertTrue(str(block['deployment']['server_time']).endswith('Z'))
+        self.assertIn('ready_acked_at', block)
+        self.assertEqual(
+            block['enforcement'],
+            {'installation_ready_required': False},
+        )
 
     def test_min_app_version_from_env(self):
         from nodeone.modules.eposone.device_provisioning import build_installation_block
@@ -111,6 +116,31 @@ class TestInstallationBlock(unittest.TestCase):
         with patch.dict('os.environ', {'EPOSONE_MIN_APP_VERSION': '2.5.0'}, clear=False):
             block = build_installation_block()
         self.assertEqual(block['min_app_version'], '2.5.0')
+
+    def test_require_installation_ready_enforcement(self):
+        from nodeone.modules.eposone.device_provisioning import (
+            DeviceProvisioningError,
+            DeviceProvisioningService,
+        )
+
+        row = MagicMock()
+        row.terminal_ref = 'tablet-1'
+        row.installation_ready_at = None
+        with patch.dict('os.environ', {'EPOSONE_ENFORCE_INSTALLATION_READY': '0'}, clear=False):
+            DeviceProvisioningService.require_installation_ready(row)  # no-op
+
+        with patch.dict('os.environ', {'EPOSONE_ENFORCE_INSTALLATION_READY': '1'}, clear=False):
+            with self.assertRaises(DeviceProvisioningError) as ctx:
+                DeviceProvisioningService.require_installation_ready(row)
+            self.assertEqual(ctx.exception.code, 'installation_incomplete')
+            self.assertEqual(ctx.exception.http_status, 403)
+
+            row.installation_ready_at = object()
+            DeviceProvisioningService.require_installation_ready(row)
+
+            row.installation_ready_at = None
+            row.terminal_ref = 'en1-backoffice'
+            DeviceProvisioningService.require_installation_ready(row)
 
     def test_bootstrap_includes_installation(self):
         from nodeone.modules.eposone.device_provisioning import DeviceProvisioningService

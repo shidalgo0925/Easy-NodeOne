@@ -25,7 +25,7 @@ EPOSONE_SECTIONS: dict[str, tuple[str, str]] = {
         'Cajas',
         'Cajas del POS (Administración). La tablet se vincula después en Instalar dispositivo.',
     ),
-    'shifts': ('Turnos', 'Turnos de operadores y responsables de caja.'),
+    'shifts': ('Turnos', 'Turnos activos e historial de cierres por caja.'),
     'cashiers': ('Cajeros', 'Personal autorizado para operar turnos de caja.'),
     'promotions': ('Promociones', 'Descuentos, combos y reglas comerciales POS.'),
     'kds': ('Cocina (KDS)', 'Tickets de cocina y opciones del flujo KDS.'),

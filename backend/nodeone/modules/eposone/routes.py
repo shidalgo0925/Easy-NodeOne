@@ -310,12 +310,53 @@ def _cashier_from_form(organization_id: int):
     return cashier
 
 
-def _redirect_shifts():
-    return redirect(url_for('eposone.eposone_section', slug='shifts'))
+def _redirect_shifts(*, register_ref: str | None = None):
+    kwargs = {'slug': 'shifts'}
+    ref = (register_ref or '').strip()
+    if ref:
+        return redirect(url_for('eposone.eposone_section', register_ref=ref, **kwargs))
+    return redirect(url_for('eposone.eposone_section', **kwargs))
 
 
 def _redirect_shift_detail(shift_id: int):
     return redirect(url_for('eposone.eposone_shift_detail', shift_id=int(shift_id)))
+
+
+def _shifts_list_filters(
+    *,
+    register_ref: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> dict:
+    """Filtros del listado Turnos / historial de cierres (BO)."""
+    ref = (register_ref or '').strip() or None
+    raw_from = (date_from or '').strip()[:10] or None
+    raw_to = (date_to or '').strip()[:10] or None
+    from_bound = None
+    to_bound = None
+    if raw_from or raw_to:
+        from nodeone.core.timezone_service import TimeZoneService
+        from zoneinfo import ZoneInfo
+
+        zone = ZoneInfo('America/Panama')
+        try:
+            if raw_from:
+                from_bound, _ = TimeZoneService.day_bounds_utc_naive(raw_from, zone)
+            if raw_to:
+                _, to_bound = TimeZoneService.day_bounds_utc_naive(raw_to, zone)
+        except ValueError:
+            from_bound = None
+            to_bound = None
+            raw_from = None
+            raw_to = None
+    return {
+        'register_ref': ref,
+        'date_from': raw_from,
+        'date_to': raw_to,
+        'closed_from_utc': from_bound,
+        'closed_to_utc': to_bound,
+        'closed_limit': 100 if (ref or raw_from or raw_to) else 30,
+    }
 
 
 def _redirect_after_shift_action(shift_id: int, *, default: str = 'detail'):
@@ -591,7 +632,13 @@ def _registers_page_context(organization_id: int) -> dict:
     }
 
 
-def _shifts_page_context(organization_id: int) -> dict:
+def _shifts_page_context(
+    organization_id: int,
+    *,
+    register_ref: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> dict:
     from models.commercial_core import CoreCashShift
     from nodeone.core.commerce.authorization import CommerceAuthorizationService
     from nodeone.core.commerce.constants import CASH_SHIFT_CLOSED, CASH_SHIFT_OPEN, CASH_SHIFT_RECONCILING
@@ -599,21 +646,35 @@ def _shifts_page_context(organization_id: int) -> dict:
     from nodeone.core.services.org_unit import OrgUnitService
 
     oid = int(organization_id)
+    filters = _shifts_list_filters(
+        register_ref=register_ref, date_from=date_from, date_to=date_to
+    )
+    filter_ref = filters['register_ref']
     registers = OrgUnitService.list_units(oid, unit_type=ORG_UNIT_TYPE_REGISTER)
     registers_by_ref = {str(reg.unit_ref): reg for reg in registers}
+    filter_register_name = None
+    if filter_ref:
+        reg = registers_by_ref.get(str(filter_ref))
+        filter_register_name = str(getattr(reg, 'name', None) or filter_ref)
 
-    active_rows_db = (
-        CoreCashShift.query.filter(
-            CoreCashShift.organization_id == oid,
-            CoreCashShift.status.in_((CASH_SHIFT_OPEN, CASH_SHIFT_RECONCILING)),
-        )
-        .order_by(CoreCashShift.opened_at.desc())
-        .all()
+    active_q = CoreCashShift.query.filter(
+        CoreCashShift.organization_id == oid,
+        CoreCashShift.status.in_((CASH_SHIFT_OPEN, CASH_SHIFT_RECONCILING)),
     )
+    if filter_ref:
+        active_q = active_q.filter(CoreCashShift.register_ref == filter_ref)
+    active_rows_db = active_q.order_by(CoreCashShift.opened_at.desc()).all()
+
+    closed_q = CoreCashShift.query.filter_by(organization_id=oid, status=CASH_SHIFT_CLOSED)
+    if filter_ref:
+        closed_q = closed_q.filter(CoreCashShift.register_ref == filter_ref)
+    if filters['closed_from_utc'] is not None:
+        closed_q = closed_q.filter(CoreCashShift.closed_at >= filters['closed_from_utc'])
+    if filters['closed_to_utc'] is not None:
+        closed_q = closed_q.filter(CoreCashShift.closed_at < filters['closed_to_utc'])
     closed_rows_db = (
-        CoreCashShift.query.filter_by(organization_id=oid, status=CASH_SHIFT_CLOSED)
-        .order_by(CoreCashShift.closed_at.desc())
-        .limit(30)
+        closed_q.order_by(CoreCashShift.closed_at.desc())
+        .limit(int(filters['closed_limit']))
         .all()
     )
     active_shifts = [
@@ -630,12 +691,25 @@ def _shifts_page_context(organization_id: int) -> dict:
             supervisor_ok = True
     except Exception:
         pass
+    register_options = [
+        {
+            'ref': str(reg.unit_ref),
+            'name': str(getattr(reg, 'name', None) or reg.unit_ref),
+        }
+        for reg in registers
+    ]
     return {
         'active_shifts': active_shifts,
         'closed_shifts': closed_shifts,
         'active_total': len(active_shifts),
         'closed_total': len(closed_shifts),
         'supervisor_ok': supervisor_ok,
+        'registers': register_options,
+        'filter_register_ref': filter_ref,
+        'filter_register_name': filter_register_name,
+        'filter_date_from': filters['date_from'],
+        'filter_date_to': filters['date_to'],
+        'closed_limit': int(filters['closed_limit']),
     }
 
 
@@ -1351,10 +1425,11 @@ def eposone_shift_detail(shift_id: int):
     if oid is None:
         abort(400)
     day_raw = (request.args.get('day') or '').strip()
+    back_register_ref = (request.args.get('register_ref') or '').strip() or None
     report = build_shift_close_report(int(oid), int(shift_id), day_local=day_raw or None)
     if report is None:
         flash('Turno no encontrado.', 'warning')
-        return _redirect_shifts()
+        return _redirect_shifts(register_ref=back_register_ref)
 
     shift = report['shift']
     registers = OrgUnitService.list_units(int(oid), unit_type=ORG_UNIT_TYPE_REGISTER)
@@ -1377,6 +1452,7 @@ def eposone_shift_detail(shift_id: int):
         register_name=register_name,
         supervisor_ok=supervisor_ok,
         day_filter=report.get('day_filter') or {},
+        shifts_back_register_ref=back_register_ref,
     )
 
 
@@ -2966,9 +3042,20 @@ def eposone_section(slug: str):
             'active_total': 0,
             'closed_total': 0,
             'supervisor_ok': False,
+            'registers': [],
+            'filter_register_ref': None,
+            'filter_register_name': None,
+            'filter_date_from': None,
+            'filter_date_to': None,
+            'closed_limit': 30,
         }
         if oid is not None:
-            ctx = _shifts_page_context(int(oid))
+            ctx = _shifts_page_context(
+                int(oid),
+                register_ref=(request.args.get('register_ref') or '').strip() or None,
+                date_from=(request.args.get('from') or '').strip() or None,
+                date_to=(request.args.get('to') or '').strip() or None,
+            )
         return render_template(
             'eposone/shifts.html',
             section_slug=key,

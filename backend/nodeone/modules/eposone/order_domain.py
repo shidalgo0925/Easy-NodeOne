@@ -390,6 +390,7 @@ class OrderDomainService:
     @staticmethod
     def apply_event(device: CorePosTerminal, order_id: int, body: dict[str, Any]) -> EposoneOrder:
         from app import db
+        from sqlalchemy.exc import IntegrityError
 
         order = OrderDomainService.get_order(device, order_id)
         event_type = str(body.get('type') or '').strip()
@@ -406,6 +407,19 @@ class OrderDomainService:
         if preexisting is not None:
             return order
 
+        # Serializa mutaciones del mismo pedido (evita race: 2 workers → 2 filas mismo line_ref).
+        # Lock solo la fila order (FOR UPDATE + joinedload de items falla en PG).
+        from sqlalchemy import text
+
+        db.session.execute(
+            text(
+                'SELECT id FROM eposone_order '
+                'WHERE id = :id AND organization_id = :oid FOR UPDATE'
+            ),
+            {'id': int(order.id), 'oid': int(order.organization_id)},
+        )
+        order = OrderDomainService.get_order(device, order_id)
+
         payload = body.get('payload') if isinstance(body.get('payload'), dict) else {}
         user_ref = (body.get('actor_user_ref') or body.get('user_ref') or order.user_ref)
 
@@ -421,18 +435,12 @@ class OrderDomainService:
             if not product_ref:
                 raise OrderDomainError('product_ref_required', http_status=400)
             # Idempotencia sync/reconnect: mismo line_ref no duplica la línea.
-            existing_line = next(
-                (
-                    i
-                    for i in (order.items or [])
-                    if str(i.line_ref) == line_ref and str(i.line_status) != 'cancelled'
-                ),
-                None,
+            existing_line = (
+                EposoneOrderItem.query.filter_by(order_id=int(order.id), line_ref=line_ref)
+                .filter(EposoneOrderItem.line_status != 'cancelled')
+                .first()
             )
-            if existing_line is not None:
-                # No-op de ítem; el event_id nuevo igual se audita abajo.
-                pass
-            else:
+            if existing_line is None:
                 qty = float(payload.get('qty') or 1)
                 unit_price = float(payload.get('unit_price') or 0)
                 discount = float(payload.get('discount') or 0)
@@ -464,9 +472,18 @@ class OrderDomainService:
                     notes=payload.get('notes'),
                     line_status='pending',
                 )
-                order.items.append(item)
-                db.session.flush()
-                _recalc(order)
+                try:
+                    with db.session.begin_nested():
+                        order.items.append(item)
+                        db.session.flush()
+                except IntegrityError:
+                    # Carrera residual o índice único: otra fila ya tiene este line_ref.
+                    db.session.expire(order, ['items'])
+                    db.session.refresh(order)
+                    _recalc(order)
+                else:
+                    _recalc(order)
+            # Si ya existía la línea: no-op de ítem; el event_id nuevo se audita abajo.
         elif event_type == 'producto.eliminado':
             line_ref = str(payload.get('line_ref') or '').strip()
             item = next((i for i in order.items if i.line_ref == line_ref), None)

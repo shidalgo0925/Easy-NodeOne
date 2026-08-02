@@ -795,6 +795,9 @@ def _ensure_pos_terminal_v4_columns(engine, insp, printfn) -> None:
         ('last_seen_at', 'TIMESTAMP WITHOUT TIME ZONE', 'DATETIME'),
         ('access_token_hash', 'VARCHAR(64)', 'VARCHAR(64)'),
         ('config_version', 'INTEGER NOT NULL DEFAULT 1', 'INTEGER NOT NULL DEFAULT 1'),
+        ('installation_ready_at', 'TIMESTAMP WITHOUT TIME ZONE', 'DATETIME'),
+        ('client_install_id', 'VARCHAR(128)', 'VARCHAR(128)'),
+        ('installation_checklist_json', 'TEXT', 'TEXT'),
     ]
     added: list[str] = []
     with engine.begin() as conn:

@@ -25,7 +25,9 @@ def _device_from_request():
     """Auth: Device Bearer (preferido) o sesión BO con terminal activo de la org."""
     auth = request.headers.get('Authorization')
     if auth and auth.strip().lower().startswith('bearer '):
-        return DeviceProvisioningService.authenticate_bearer(auth)
+        device = DeviceProvisioningService.authenticate_bearer(auth)
+        DeviceProvisioningService.require_installation_ready(device)
+        return device
 
     if getattr(current_user, 'is_authenticated', False):
         from nodeone.core.platform.runtime import resolve_organization_id

@@ -10,10 +10,23 @@ import os
 
 
 def portal_account_domain() -> str:
-    """Dominio canónico del Portal de cuenta (env → Product Registry → appprd)."""
+    """Dominio canónico del Portal de cuenta (env → host silo actual → Registry → appprd).
+
+    En Dev, si el usuario está en appdev, Mis Productos debe quedarse en appdev
+    (misma BD / misma org). No mandar a appprd por defecto.
+    """
     env = (os.environ.get('NODEONE_PORTAL_ACCOUNT_DOMAIN') or '').strip().lower()
     if env:
         return env.lstrip('.')
+    try:
+        from flask import has_request_context, request
+
+        if has_request_context():
+            host = (request.host or '').split(':')[0].strip().lower()
+            if host.endswith('.easynodeone.com') or host in ('127.0.0.1', 'localhost'):
+                return host
+    except Exception:
+        pass
     try:
         from nodeone.core.platform.product_registry import ProductRegistry
 

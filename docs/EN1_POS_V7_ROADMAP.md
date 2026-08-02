@@ -2,39 +2,54 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **Activo** — R0 (Prog1 OK) + R1 + **gates E2E/2.6** · **19 jul 2026** |
+| Estado | **Activo** — **estabilización post-demo** · Design Partner Mexican Food · **28 jul 2026** |
 | Sucede a | V6 ([`EN1_PLATFORM_EPOSONE_V6_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V6_ROADMAP.md)) |
 | Rector | [`EN1_POS_CONSTITUCION_V1.md`](EN1_POS_CONSTITUCION_V1.md) |
 | Backlog | [`EN1_POS_BACKLOG_V7.md`](EN1_POS_BACKLOG_V7.md) |
+| **Prioridades inmediatas** | [`EN1_EPOSONE_POST_DEMO_MEXICAN_FOOD_PRIORITIES.md`](EN1_EPOSONE_POST_DEMO_MEXICAN_FOOD_PRIORITIES.md) ← **SoT hasta instalación jueves** |
 | E2E oficial | [`EN1_EPOSONE_E2E_CHECKLIST_V1.md`](EN1_EPOSONE_E2E_CHECKLIST_V1.md) |
 | Hito 2.6 | [`EN1_EPOSONE_HITO2_6_OBSERVABILITY.md`](EN1_EPOSONE_HITO2_6_OBSERVABILITY.md) |
 | Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
 
 ---
 
-## Estado actual (19 jul 2026)
+## Estado actual (28 jul 2026) — pivote post-demo
+
+Presentación comercial con **Mexican Food**: validación de producto frente a cliente real.  
+**No pidieron features nuevas.** Siguiente paso: **instalación en sitio jueves 30 jul**.
 
 | Bloque | Estado |
 |--------|--------|
-| **Release 0** | Docs OK · **Prog1 firmó** · faltan Analista + Prog2 + T1 |
-| **Hito 2.5 Cajeros** | Código ~95% · **cierre = E2E A–E** 🟡 |
-| **Hito 2.6 Observabilidad** | **Planificado** (doc) · UI inexistente |
-| **B-R1-01** | Avance BO Empresa/sucursal/caja |
-| **Motor V6** | Infra + stubs · **no** algoritmos hasta gates abajo |
-| Prog2 | Hito 4 / E2E tablet |
+| **Fase** | Estabilización para producción · **freeze** features nuevas |
+| **Design Partner #1** | Mexican Food (Starter) |
+| **P0 (antes jueves)** | Caja/turnos · sync 100% · estados recibos · informes/cierres |
+| **P1 comercial** | Licenciamiento + pago EN1 + correo cta |
+| **P2+** | Portal comercial · onboarding automático · features nuevas |
+| Release 0 / V6 motor | Siguen en backlog; **no** despriorizar P0 del jueves |
 
-### Gates obligatorios (Analista 19 jul — adoptados)
+### Gates inmediatos (reemplazan el orden “solo docs” hasta el jueves)
+
+```text
+1. Caja y turnos: apertura/cierre sync + mismos números EN1↔EPosOne
+2. Sincronización confiable (offline → online, sin perder ventas)
+3. Estados de pedidos/recibos (ADR-020: no delete post-confirm)
+4. Informes operativos (venta, cajero, medios, X/Z, turnos)
+5. Instalación en sitio Mexican Food (jueves)
+6. Luego P1: licenciamiento + pago EN1 + onboarding correo
+```
+
+Filtro: *¿Ayuda a que la instalación del jueves sea impecable?* Si no → siguiente ciclo.
+
+### Gates legacy (Analista 19 jul — siguen válidos, cola tras P0)
 
 ```text
 1. Firmar R0 (A + P2) + T1 propinas
-2. E2E Hito 2.5 — checklist A–E  →  cierre oficial 2.5
-3. Hito 2.6 Diagnóstico / Observabilidad (mínimo)
+2. E2E Hito 2.5 — checklist A–E
+3. Hito 2.6 Observabilidad (mínimo)
 4. Freeze contratos V6
-5. Motor Totales / Comercial (implementación)
-6. Resto cadena R1 (Venta, Recibo, FE, reportes…)
+5. Motor Totales / Comercial
+6. Resto cadena R1
 ```
-
-**No** declarar “infra terminada” ni abrir Sprint Motor V6 sin pasos 2–3.
 
 ---
 

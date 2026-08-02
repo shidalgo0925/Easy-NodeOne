@@ -378,3 +378,24 @@ def ensure_eposone_order_schema(db, engine, printfn=None) -> None:
                     ON eposone_order_payment (payment_method_id);
                 """,
             )
+
+    # Unicidad activa de line_ref por pedido (evita duplicados por race/sync).
+    if 'eposone_order_item' in set(inspect(engine).get_table_names()) and is_pg:
+        idx_names = {ix['name'] for ix in inspect(engine).get_indexes('eposone_order_item')}
+        if 'uq_eposone_order_item_active_line_ref' not in idx_names:
+            _exec(
+                engine,
+                """
+                DELETE FROM eposone_order_item a
+                USING eposone_order_item b
+                WHERE a.order_id = b.order_id
+                  AND a.line_ref = b.line_ref
+                  AND a.line_status IS DISTINCT FROM 'cancelled'
+                  AND b.line_status IS DISTINCT FROM 'cancelled'
+                  AND a.id > b.id;
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_eposone_order_item_active_line_ref
+                    ON eposone_order_item (order_id, line_ref)
+                    WHERE line_status IS DISTINCT FROM 'cancelled';
+                """,
+            )
+            log('eposone_order_item: dedupe + uq active line_ref')

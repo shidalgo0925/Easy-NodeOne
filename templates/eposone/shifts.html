@@ -11,13 +11,58 @@
         </div>
         <div class="d-flex gap-2 flex-wrap align-items-center">
             <span class="badge en1-badge--neutral">{{ active_total }} activo(s)</span>
-            <span class="badge en1-badge--neutral">{{ closed_total }} cerrado(s) recientes</span>
+            <span class="badge en1-badge--neutral">{{ closed_total }} cierre(s)</span>
             <a href="{{ url_for('eposone.eposone_section', slug='registers') }}" class="btn btn-sm btn-outline-secondary">
                 Ir a Cajas
             </a>
             <a href="{{ url_for('eposone.eposone_section', slug='cashiers') }}" class="btn btn-sm btn-outline-secondary">
                 Administrar cajeros
             </a>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-3">
+            <form method="get" action="{{ url_for('eposone.eposone_section', slug='shifts') }}" class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small text-muted mb-1" for="filter_register_ref">Caja</label>
+                    <select class="form-select form-select-sm" id="filter_register_ref" name="register_ref">
+                        <option value="">Todas las cajas</option>
+                        {% for reg in registers or [] %}
+                        <option value="{{ reg.ref }}" {% if filter_register_ref == reg.ref %}selected{% endif %}>
+                            {{ reg.name }} ({{ reg.ref }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted mb-1" for="filter_from">Cerrado desde</label>
+                    <input type="date" class="form-control form-control-sm" id="filter_from" name="from"
+                           value="{{ filter_date_from or '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted mb-1" for="filter_to">Cerrado hasta</label>
+                    <input type="date" class="form-control form-control-sm" id="filter_to" name="to"
+                           value="{{ filter_date_to or '' }}">
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-sm btn-primary flex-grow-1">Filtrar</button>
+                    <a href="{{ url_for('eposone.eposone_section', slug='shifts') }}"
+                       class="btn btn-sm btn-outline-secondary">Limpiar</a>
+                </div>
+            </form>
+            {% if filter_register_ref or filter_date_from or filter_date_to %}
+            <p class="small text-muted mb-0 mt-2">
+                Filtro activo
+                {% if filter_register_name %}· Caja <strong>{{ filter_register_name }}</strong> <code>{{ filter_register_ref }}</code>{% endif %}
+                {% if filter_date_from or filter_date_to %}
+                · fechas
+                {% if filter_date_from %}desde {{ filter_date_from }}{% endif %}
+                {% if filter_date_to %}hasta {{ filter_date_to }}{% endif %}
+                {% endif %}
+                · hasta {{ closed_limit }} cierres.
+            </p>
+            {% endif %}
         </div>
     </div>
 
@@ -119,8 +164,14 @@
     </div>
 
     <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white py-2 border-bottom">
-            <strong>Historial reciente</strong>
+        <div class="card-header bg-white py-2 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <strong>
+                Historial de cierres
+                {% if filter_register_name %}
+                · {{ filter_register_name }}
+                {% endif %}
+            </strong>
+            <span class="small text-muted">Informe por turno · Ver detalle de cierre</span>
         </div>
         <div class="card-body p-0">
             {% if closed_shifts %}
@@ -144,7 +195,10 @@
                         {% set shift = row.shift %}
                         <tr>
                             <td><code>#{{ shift.id }}</code></td>
-                            <td><code>{{ row.register_ref }}</code></td>
+                            <td>
+                                <div><code>{{ row.register_ref }}</code></div>
+                                <div class="small text-muted">{{ row.register_name }}</div>
+                            </td>
                             <td>
                                 {% if shift.cashier_name %}
                                 {{ shift.cashier_name }}
@@ -170,7 +224,7 @@
                             </td>
                             <td class="text-end">
                                 <a class="btn btn-sm btn-outline-secondary"
-                                   href="{{ url_for('eposone.eposone_shift_detail', shift_id=shift.id) }}">Ver</a>
+                                   href="{{ url_for('eposone.eposone_shift_detail', shift_id=shift.id, register_ref=filter_register_ref or row.register_ref) }}">Ver</a>
                             </td>
                         </tr>
                         {% endfor %}
@@ -178,7 +232,13 @@
                 </table>
             </div>
             {% else %}
-            <div class="p-4 text-muted small">Sin turnos cerrados recientes.</div>
+            <div class="p-4 text-muted small">
+                {% if filter_register_ref or filter_date_from or filter_date_to %}
+                Sin cierres para este filtro.
+                {% else %}
+                Sin turnos cerrados recientes.
+                {% endif %}
+            </div>
             {% endif %}
         </div>
     </div>

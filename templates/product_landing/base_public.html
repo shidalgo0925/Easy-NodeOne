@@ -49,6 +49,26 @@
 
     <footer class="pl-footer">
         <p>{{ brand_name }} · Easy Technology Services</p>
+        {% if product_code == 'eposone' %}
+        <nav class="pl-footer__legal" aria-label="Legal">
+            <a href="{{ url_for('ets_legal.legal_page', slug='terms') }}">Términos</a>
+            <a href="{{ url_for('ets_legal.legal_page', slug='privacy') }}">Privacidad</a>
+            <a href="{{ url_for('ets_legal.legal_page', slug='cookies') }}">Cookies</a>
+            <a href="{{ url_for('ets_legal.legal_page', slug='refunds') }}">Reembolsos</a>
+            <a href="{{ url_for('ets_legal.legal_page', slug='eula') }}">EULA</a>
+            <a href="{{ url_for('ets_legal.legal_page', slug='ip') }}">Propiedad intelectual</a>
+            <a href="{{ url_for('ets_legal.legal_page', slug='data-deletion') }}">Eliminación de datos</a>
+            <a href="{{ url_for('ets_legal.legal_page', slug='support') }}">Soporte</a>
+            <a href="{{ url_for('ets_legal.legal_index') }}">Centro legal</a>
+        </nav>
+        {% else %}
+        <nav class="pl-footer__legal" aria-label="Legal">
+            <a href="{{ url_for('ets_legal.legal_page', slug='terms') }}">Términos</a>
+            <a href="{{ url_for('ets_legal.legal_page', slug='privacy') }}">Privacidad</a>
+            <a href="{{ url_for('ets_legal.legal_page', slug='cookies') }}">Cookies</a>
+            <a href="{{ url_for('ets_legal.legal_index') }}">Centro legal</a>
+        </nav>
+        {% endif %}
         <p class="pl-footer__note">Puerta oficial del producto · ADR-017</p>
     </footer>
 

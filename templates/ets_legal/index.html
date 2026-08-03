@@ -1,0 +1,22 @@
+{% extends "ets_legal/base.html" %}
+{% block title %}Centro legal — Easy Technology Services{% endblock %}
+{% block legal_content %}
+<h1>Centro legal</h1>
+<p>
+  Políticas y acuerdos del ecosistema Easy Technology Services (ETS).
+  Los sitios de producto (por ejemplo EPosOne) y el sitio corporativo enlazan a estos mismos documentos
+  para evitar versiones inconsistentes.
+</p>
+<p>
+  URL canónica en EN1: <code>/legal/</code>.
+  Objetivo futuro: <code>legal.easytech.services</code> o <code>easytech.services/legal/</code>.
+</p>
+<ul class="legal-index-list">
+  {% for p in pages %}
+  <li>
+    <a href="{{ url_for('ets_legal.legal_page', slug=p.slug) }}"><strong>{{ p.title }}</strong></a>
+    <span>{{ p.summary }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% endblock %}

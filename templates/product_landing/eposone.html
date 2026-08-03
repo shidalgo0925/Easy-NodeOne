@@ -180,7 +180,15 @@
                     {% endfor %}
                 </ul>
                 <a class="pl-btn pl-btn--{{ 'primary' if p.featured else 'ghost' }}" href="#demo">{{ p.cta or 'Solicitar demo' }}</a>
-                {% if p.legal %}<p class="pl-plan__legal">{{ p.legal }}</p>{% endif %}
+                {% if p.legal_links %}
+                <p class="pl-plan__legal">
+                  {% for link in p.legal_links %}
+                  <a href="{{ url_for('ets_legal.legal_page', slug=link.slug) }}">{{ link.label }}</a>{% if not loop.last %} · {% endif %}
+                  {% endfor %}
+                </p>
+                {% elif p.legal %}
+                <p class="pl-plan__legal">{{ p.legal }}</p>
+                {% endif %}
             </article>
             {% endfor %}
         </div>
@@ -280,6 +288,17 @@
             </label>
             <label>Mensaje
                 <textarea name="message" required maxlength="2000" rows="4" placeholder="Contanos tamaño del local, canales de venta y qué querés ver en la demo."></textarea>
+            </label>
+            <label class="pl-demo__accept">
+                <input name="legal_accept" type="checkbox" required value="1">
+                <span>
+                  He leído y acepto los
+                  <a href="{{ url_for('ets_legal.legal_page', slug='terms') }}" target="_blank" rel="noopener">Términos y Condiciones</a>,
+                  la
+                  <a href="{{ url_for('ets_legal.legal_page', slug='privacy') }}" target="_blank" rel="noopener">Política de Privacidad</a>
+                  y el
+                  <a href="{{ url_for('ets_legal.legal_page', slug='eula') }}" target="_blank" rel="noopener">EULA</a>.
+                </span>
             </label>
             <button class="pl-btn pl-btn--primary" type="submit">Enviar solicitud</button>
             <p id="pl-demo-status" class="pl-demo__status" role="status" aria-live="polite"></p>

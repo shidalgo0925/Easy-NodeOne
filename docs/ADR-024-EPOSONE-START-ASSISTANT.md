@@ -4,7 +4,7 @@
 |-------|--------|
 | ID | **ADR-024** |
 | Título | Asistente de Inicio EPosOne (puerta comercial oficial unificada) |
-| Estado | **Aprobado para diseño** · Implementación **pendiente de GO** |
+| Estado | **Aprobado** · Diseño entregado · **Implementación Dev** (`/start`) · Local/deploy pendientes de GO |
 | Fecha | 2026-08-03 |
 | Producto | EPosOne |
 | Arquitectura | EN1 (invisible) + Portal EPosOne + Aplicación Android |
@@ -12,7 +12,7 @@
 | Responsable APK | **LOCAL** |
 | Numeración | **No** usar ADR-019 (ocupado por Jerarquía Administrativa). Este es **ADR-024**. |
 | Relacionados | [`EN1_PLATFORM_CONSTITUTION_V1.md`](EN1_PLATFORM_CONSTITUTION_V1.md) · [ADR-023 Trial/Grace](ADR-023-EPOSONE-TRIAL-SUBSCRIPTION-GRACE.md) · Centro legal `/legal/*` · Planes landing EPosOne |
-| Este GO | **GO docs** entregado · **GO diseño** entregado en [`eposone-start-assistant/DESIGN.md`](eposone-start-assistant/DESIGN.md) · Preview [`wireframes/index.html`](eposone-start-assistant/wireframes/index.html). **Prohibido aún:** implementación, Local, deploy. |
+| Este GO | **GO docs** · **GO diseño** · **GO implementación** (Dev EN1: módulo `eposone_start`, ruta `/start`). **Pendiente:** `GO Local` · `GO deploy`. |
 
 ---
 
@@ -22,9 +22,9 @@ No implementar, no crear rutas, no tocar modelos, no modificar servicios, no des
 
 | GO | Fase autorizada |
 |----|-----------------|
-| `GO docs` | Esta documentación (completada con este ADR) |
-| `GO diseño` | Wireframes / UX / copy / preview |
-| `GO implementación` | Código solo en Dev EN1 |
+| `GO docs` | Esta documentación (completada) |
+| `GO diseño` | Wireframes / UX / copy / preview (completado) |
+| `GO implementación` | Código solo en Dev EN1 (**hecho**: `/start`) |
 | `GO Local` | Handoff con LOCAL |
 | `GO deploy` | Despliegue al silo indicado |
 
@@ -613,7 +613,8 @@ QR → tipo → recomendación → aceptar/cambiar → acceso → negocio → le
 | ADR-024 formal | **Entregado** (este documento) |
 | Diagrama Mermaid Capa A + B | **Incluido** (§25) |
 | Flujo, límites, handoff conceptual, precios, trial | **Incluidos** |
-| Código / `/start` / UI / DB / deploy / Local | **No iniciado** — requiere GO de fase |
+| Código / `/start` / UI (Dev) | **Hecho** (GO implementación) |
+| Deploy / Local | **Pendiente** — requiere `GO deploy` / `GO Local` |
 
 ---
 

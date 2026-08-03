@@ -1,6 +1,6 @@
 """ADR-017 Hito 1 — copy comercial por producto (Portal Público).
 
-EPosOne: alineado a https://easytech.services/eposone.html
+EPosOne: alineado a https://eposone.easytech.services/ (planes + ADR-023 trial/grace).
 """
 
 from __future__ import annotations
@@ -40,12 +40,12 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
                 'Todo en uno para retail, restaurantes y servicios: ventas, inventario, '
                 'clientes y reportes — online y offline.'
             ),
-            'offer_badge': '15 días gratis · Actualizaciones y soporte incluidos',
+            'offer_badge': '15 días gratis en planes conectados · Sin tarjeta',
             'primary_cta': {'label': 'Solicitar demostración', 'href': '#demo'},
             'secondary_cta': {'label': 'Ver planes', 'href': '#planes'},
             'tertiary_cta': {'label': 'Iniciar sesión', 'href': 'login'},
             'fine_print': (
-                'Sin compromiso · Suscripción con actualizaciones y soporte · Contacto EasyTech'
+                'Prueba completa del plan · Grace 7 días ante demoras de pago · Contacto EasyTech'
             ),
             'side_image': 'images/eposone-landing-hero-side.png',
             'side_image_alt': (
@@ -155,123 +155,166 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
             'Tome decisiones informadas con reportes',
             'Escale de una sucursal a múltiples locales',
         ],
+        'integrations_title': 'Integraciones disponibles',
         'integrations': [
-            'EasyNodeOne (EN1) — gestión administrativa y financiera',
-            'Facturación electrónica — configuración DGI Panamá (servicio opcional)',
-            'Pasarelas de pago — Yappy, Telered, Stripe',
-            'Contabilidad — Easy Odoo / ERP',
-            'E-commerce — tiendas en línea conectadas',
+            'Facturación electrónica para Panamá',
+            'Yappy',
+            'Telered',
+            'Stripe',
+            'Sistemas contables y ERP',
+            'Tiendas en línea',
+            'APIs e integraciones empresariales',
         ],
+        'integrations_footnote': (
+            'Algunas integraciones requieren configuración, validación o contratación adicional. '
+            'El módulo de facturación electrónica se habilita por separado después del proceso de '
+            'configuración y validación correspondiente.'
+        ),
         'offer_highlights': [
             {
                 'title': '15 días gratis',
-                'body': 'Prueba el POS sin compromiso · Actualizaciones incluidas',
+                'body': 'Starter, Business y Enterprise · Sin tarjeta · Funciones completas del plan',
             },
-            {'title': 'Implementación incluida', 'body': 'Configuración inicial y capacitación básica'},
-            {'title': 'Escalera clara', 'body': 'Starter → Business → Enterprise'},
+            {
+                'title': 'Grace 7 días',
+                'body': 'Ante demoras de pago · La suspensión no elimina tus datos',
+            },
+            {
+                'title': 'Misma instalación',
+                'body': 'Si te suscribes tras el trial, continúas sin reinstalar',
+            },
         ],
+        'plans_section_title': 'Planes',
         'plans_intro': (
-            'EPOS One es un punto de venta moderno para Panamá, diseñado para trabajar incluso sin Internet, '
-            'con sincronización inteligente hacia EN1, administración centralizada y un modelo de suscripción '
-            'que incluye actualizaciones, soporte y evolución continua del producto. '
-            'Starter permite comenzar con una inversión accesible, Business cubre la mayoría de los restaurantes '
-            'y comercios, y Enterprise queda orientado a operaciones con varias sucursales o requerimientos corporativos. '
-            'Montos en USD.'
+            'Prueba EPOSOne gratis durante 15 días en Starter, Business y Enterprise. '
+            'Sin tarjeta y con todas las funciones del plan seleccionado. '
+            'Standalone: activación inmediata al contratar.'
+        ),
+        'plans_intro_extra': (
+            'En planes conectados: producto completo sin tarjeta. Si te suscribes, continúas con la misma '
+            'instalación. Hay 7 días de gracia ante demoras de pago; la suspensión no elimina automáticamente '
+            'tus datos.'
         ),
         'plans': [
             {
-                'eyebrow': 'Emprendedores y pequeños comercios',
+                'eyebrow': 'Modalidad local',
+                'name': 'Standalone',
+                'price': 'USD 15.00',
+                'period': '/mes',
+                'badge': 'Activación al contratar · Sin prueba automática',
+                'blurb': 'Ideal para pequeños comercios con un solo punto de venta.',
+                'points_heading': 'Incluye',
+                'points': [
+                    '1 POS',
+                    '1 caja',
+                    'Ventas',
+                    'Pedidos',
+                    'Productos',
+                    'Clientes',
+                    'Inventario básico',
+                    'Apertura y cierre de caja',
+                    'Arqueo',
+                    'Reportes básicos',
+                    'Impresión',
+                    'Operación local',
+                    'Funciona sin conexión permanente',
+                    'Almacenamiento local',
+                    'Soporte estándar',
+                ],
+                'cta': 'Contratar Standalone',
+                'legal': 'EULA · Términos de uso',
+            },
+            {
+                'eyebrow': 'Modalidad conectada',
                 'name': 'Starter',
                 'price': 'USD 29.95',
                 'period': '/mes',
+                'badge': '15 días gratis',
                 'blurb': (
-                    'Ideal para emprendedores y pequeños comercios que necesitan un punto de venta '
-                    'profesional, sencillo y confiable.'
+                    'Para emprendedores y pequeños comercios que desean empezar con control y respaldo.'
                 ),
                 'points_heading': 'Incluye',
                 'points': [
-                    '1 sucursal',
-                    '1 caja POS',
-                    'Usuarios y cajeros ilimitados',
-                    'Gestión de productos y categorías',
-                    'Gestión de clientes',
-                    'Ventas y tickets abiertos',
-                    'Múltiples formas de pago',
-                    'Impresión de recibos',
-                    'Arqueo y cierre de caja',
-                    'Reportes básicos',
-                    'Configuración de impuestos',
-                    'Modo Offline First',
-                    'Sincronización con EN1',
-                    'Actualizaciones incluidas',
+                    '1 POS',
+                    'Caja',
+                    'Pedidos',
+                    'Productos',
+                    'Clientes',
+                    'Inventario básico',
+                    'Reportes',
+                    'Operación offline',
+                    'Sincronización',
+                    'Respaldo en la nube',
+                    'Administración web',
                     'Soporte estándar',
-                    'Prueba gratuita de 15 días',
                 ],
-                'cta': 'Solicitar plan',
+                'cta': 'Probar gratis',
+                'legal': 'Términos del servicio · EULA',
             },
             {
-                'eyebrow': 'Restaurantes, cafeterías y comercios establecidos',
+                'eyebrow': 'Más elegido · Conectada',
                 'name': 'Business',
-                'price': 'USD 49.95',
+                'price': 'USD 39.95',
                 'period': '/mes',
-                'blurb': 'Ideal para restaurantes, cafeterías y comercios con mayor volumen de ventas.',
-                'points_heading': 'Todo lo incluido en Starter, más:',
+                'badge': '15 días gratis',
+                'blurb': 'Para restaurantes, cafeterías y comercios en crecimiento.',
+                'points_heading': 'Incluye',
                 'points': [
-                    'Hasta 2 cajas POS',
+                    'Hasta 3 POS',
+                    'Todo lo incluido en Starter',
+                    'Inventario avanzado',
+                    'Gestión de clientes',
                     'Reportes avanzados',
-                    'Configuración de propinas',
-                    'Configuración avanzada de impuestos',
-                    'Mayor capacidad operativa',
-                    'Mejoras continuas del plan Business',
-                    'Actualizaciones incluidas',
-                    'Soporte estándar',
-                    'Prueba gratuita de 15 días',
+                    'Administración centralizada',
+                    'Sincronización entre dispositivos',
+                    'Acceso remoto',
+                    'Soporte prioritario',
                 ],
                 'featured': True,
-                'cta': 'Solicitar plan',
+                'cta': 'Probar gratis',
+                'legal': 'Términos del servicio · EULA',
             },
             {
-                'eyebrow': 'Múltiples sucursales o necesidades avanzadas',
+                'eyebrow': 'Multi-sucursal · Conectada',
                 'name': 'Enterprise',
                 'price': 'USD 79.95',
                 'period': '/mes',
-                'blurb': 'Ideal para empresas con múltiples sucursales o necesidades avanzadas de operación.',
-                'points_heading': 'Todo lo incluido en Business, más:',
+                'badge': '15 días gratis',
+                'blurb': 'Para empresas con múltiples sucursales o necesidades avanzadas.',
+                'points_heading': 'Incluye',
                 'points': [
+                    'Múltiples POS',
                     'Múltiples sucursales',
-                    'Varias cajas POS (según la licencia contratada)',
-                    'Administración centralizada',
-                    'Reportes consolidados por sucursal',
-                    'Gestión avanzada de usuarios y permisos',
-                    'APIs e integraciones',
-                    'Soporte prioritario',
-                    'Acceso a funcionalidades Enterprise',
-                    'Actualizaciones incluidas',
-                    'Prueba gratuita de 15 días',
-                    'Atención prioritaria',
+                    'Todo lo incluido en Business',
+                    'Dashboard corporativo',
+                    'Roles avanzados',
+                    'Reportes consolidados',
+                    'API',
+                    'Integraciones empresariales',
+                    'Soporte premium',
                 ],
                 'cta': 'Hablar con ventas',
+                'legal': 'Términos del servicio · EULA',
             },
         ],
         'plan_compare': {
-            'headers': ['Plan', 'Starter', 'Business', 'Enterprise'],
+            'title': 'Comparación de planes EPOSOne',
+            'headers': ['Capacidad', 'Standalone', 'Starter', 'Business', 'Enterprise'],
             'rows': [
-                ['Precio mensual', 'USD 29.95', 'USD 49.95', 'USD 79.95'],
-                ['Ideal para', 'Emprendedores y pequeños comercios', 'Restaurantes, cafeterías y comercios establecidos', 'Múltiples sucursales o necesidades avanzadas'],
-                ['Sucursales', '1', '1', 'Múltiples'],
-                ['Cajas POS', '1', 'Hasta 2', 'Según licencia'],
-                ['Usuarios/cajeros', 'Ilimitados', 'Ilimitados', 'Ilimitados + permisos avanzados'],
-                ['Reportes', 'Básicos', 'Avanzados', 'Consolidados por sucursal'],
-                ['Propinas', '—', 'Sí', 'Sí'],
-                ['Modo Offline First', 'Sí', 'Sí', 'Sí'],
-                ['Sincronización EN1', 'Sí', 'Sí', 'Prioritaria'],
-                ['APIs e integraciones', '—', '—', 'Sí'],
-                ['Soporte', 'Estándar', 'Estándar', 'Prioritario'],
-                ['Prueba gratuita', '15 días', '15 días', '15 días'],
+                ['Precio mensual', 'USD 15.00', 'USD 29.95', 'USD 39.95', 'USD 79.95'],
+                ['Prueba de 15 días', 'No', 'Sí', 'Sí', 'Sí'],
+                ['Dispositivos POS', '1', '1', 'Hasta 3', 'Múltiples'],
+                ['Operación offline', 'Sí', 'Sí', 'Sí', 'Sí'],
+                ['Administración web', 'No', 'Sí', 'Sí', 'Sí'],
+                ['Respaldo en la nube', 'No', 'Sí', 'Sí', 'Sí'],
+                ['Inventario', 'Básico', 'Básico', 'Avanzado', 'Avanzado'],
+                ['Multi-sucursal', 'No', 'No', 'No', 'Sí'],
+                ['API', 'No', 'No', 'No', 'Sí'],
+                ['Soporte', 'Estándar', 'Estándar', 'Prioritario', 'Premium'],
             ],
             'footnote': (
-                'CRM, Marketing e inventario avanzado fuera del POS core se contratan como módulos adicionales. '
-                'Facturación electrónica, instalación en sitio e integraciones a medida son servicios opcionales.'
+                'Las capacidades específicas pueden variar según configuración, disponibilidad técnica '
+                'y condiciones comerciales vigentes.'
             ),
         },
         'services_included': {
@@ -321,16 +364,24 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
             {
                 'q': '¿Qué incluye la prueba gratuita de 15 días?',
                 'a': (
-                    'El punto de venta (POS) con las capacidades del plan elegido. '
-                    'Servicios opcionales (instalación en sitio, facturación electrónica, migraciones, etc.) '
-                    'se cotizan aparte.'
+                    'En Starter, Business y Enterprise: el POS con todas las funciones del plan, sin tarjeta. '
+                    'Standalone no incluye prueba automática (activación al contratar). '
+                    'Si te suscribes después del trial, continúas con la misma instalación.'
+                ),
+            },
+            {
+                'q': '¿Qué pasa si no pago al terminar el trial?',
+                'a': (
+                    'Hay 7 días de gracia con el sistema operativo y avisos. '
+                    'Si no hay pago, la licencia se suspende: no permite nuevas operaciones comerciales, '
+                    'pero no elimina automáticamente tus datos.'
                 ),
             },
             {
                 'q': '¿EPosOne es aparte de Easy NodeOne?',
                 'a': (
-                    'Es un producto del ecosistema EasyTech. Corre sobre EN1: '
-                    'misma cuenta, suscripciones y entitlements.'
+                    'Es un producto del ecosistema EasyTech. Los planes conectados corren sobre EN1: '
+                    'misma cuenta, suscripciones y entitlements. Standalone opera en modalidad local.'
                 ),
             },
             {
@@ -345,8 +396,8 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
         'demo': {
             'title': 'Solicite una demostración de EPosOne',
             'subtitle': (
-                'Sin compromiso. Prueba gratuita de 15 días del punto de venta. '
-                'Actualizaciones y soporte incluidos en la suscripción.'
+                'Sin compromiso. Prueba gratuita de 15 días en planes conectados. '
+                'Producto completo del plan · Sin tarjeta.'
             ),
             'source': 'eposone-landing',
             'contacts': [
@@ -354,7 +405,7 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
                 {'label': 'Correo', 'href': 'mailto:info@easytech.services'},
             ],
         },
-        'source_url': 'https://easytech.services/eposone.html',
+        'source_url': 'https://eposone.easytech.services/',
         'tagline': tagline or 'Punto de venta inteligente',
         'description': description,
         'logo_wide': True,

@@ -132,12 +132,15 @@
             </ul>
         </div>
         <div>
-            <h2 class="pl-section__title">Integraciones EasyTech</h2>
+            <h2 class="pl-section__title">{{ landing.integrations_title or 'Integraciones EasyTech' }}</h2>
             <ul class="pl-checklist">
                 {% for i in landing.integrations %}
                 <li>{{ i }}</li>
                 {% endfor %}
             </ul>
+            {% if landing.integrations_footnote %}
+            <p class="pl-compare__note">{{ landing.integrations_footnote }}</p>
+            {% endif %}
         </div>
     </div>
 </section>
@@ -145,8 +148,11 @@
 {% if landing.plans %}
 <section class="pl-section" id="planes">
     <div class="pl-section__inner">
-        <h2 class="pl-section__title">Planes EPOS One</h2>
+        <h2 class="pl-section__title">{{ landing.plans_section_title or 'Planes EPOS One' }}</h2>
         <p class="pl-section__lead">{{ landing.plans_intro }}</p>
+        {% if landing.plans_intro_extra %}
+        <p class="pl-section__lead">{{ landing.plans_intro_extra }}</p>
+        {% endif %}
         {% if landing.offer_highlights %}
         <ul class="pl-offers">
             {% for o in landing.offer_highlights %}
@@ -165,6 +171,7 @@
                 {% if p.price %}
                 <p class="pl-plan__price"><span>{{ p.price }}</span> {{ p.period }}</p>
                 {% endif %}
+                {% if p.badge %}<p class="pl-plan__badge">{{ p.badge }}</p>{% endif %}
                 <p class="pl-plan__blurb">{{ p.blurb }}</p>
                 {% if p.points_heading %}<p class="pl-plan__points-heading">{{ p.points_heading }}</p>{% endif %}
                 <ul>
@@ -173,11 +180,15 @@
                     {% endfor %}
                 </ul>
                 <a class="pl-btn pl-btn--{{ 'primary' if p.featured else 'ghost' }}" href="#demo">{{ p.cta or 'Solicitar demo' }}</a>
+                {% if p.legal %}<p class="pl-plan__legal">{{ p.legal }}</p>{% endif %}
             </article>
             {% endfor %}
         </div>
         {% if landing.plan_compare %}
         <div class="pl-compare-wrap">
+            {% if landing.plan_compare.title %}
+            <h3 class="pl-section__title" style="font-size:1.25rem;margin-top:2rem;">{{ landing.plan_compare.title }}</h3>
+            {% endif %}
             <table class="pl-compare">
                 <thead>
                     <tr>

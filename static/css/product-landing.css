@@ -480,6 +480,23 @@ a {
   color: var(--pl-primary-dark);
 }
 
+.pl-plan__badge {
+  display: inline-block;
+  margin: 0.4rem 0 0.55rem;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--pl-accent) 35%, var(--pl-surface));
+  color: var(--pl-primary-dark);
+}
+
+.pl-plan__legal {
+  margin: 0.65rem 0 0;
+  font-size: 0.75rem;
+  color: var(--pl-muted);
+}
+
 .pl-compare-wrap {
   margin-top: 2.5rem;
   overflow-x: auto;

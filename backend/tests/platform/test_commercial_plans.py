@@ -16,10 +16,16 @@ class TestCommercialPlans(unittest.TestCase):
         from nodeone.core.platform.commercial_plans import list_commercial_plans
 
         plans = list_commercial_plans()
-        self.assertEqual([p['code'] for p in plans], ['starter', 'business', 'enterprise'])
-        self.assertEqual(plans[0]['price_monthly'], 29.95)
-        self.assertEqual(plans[1]['price_monthly'], 49.95)
-        self.assertEqual(plans[2]['price_monthly'], 79.95)
+        self.assertEqual(
+            [p['code'] for p in plans],
+            ['standalone', 'starter', 'business', 'enterprise'],
+        )
+        self.assertEqual(plans[0]['price_monthly'], 15.00)
+        self.assertEqual(plans[1]['price_monthly'], 29.95)
+        self.assertEqual(plans[2]['price_monthly'], 39.95)
+        self.assertEqual(plans[3]['price_monthly'], 79.95)
+        self.assertEqual(plans[0]['trial_days'], 0)
+        self.assertEqual(plans[1]['trial_days'], 15)
 
     def test_kds_locked_on_starter_available_on_business(self):
         from nodeone.core.platform.commercial_plans import (
@@ -32,7 +38,7 @@ class TestCommercialPlans(unittest.TestCase):
         msg = upgrade_message(current_plan_code='starter', feature='kds')
         self.assertEqual(msg['state'], 'locked')
         self.assertEqual(msg['target_plan']['code'], 'business')
-        self.assertIn('49.95', msg['body'])
+        self.assertIn('39.95', msg['body'])
 
     def test_analytics_coming_soon(self):
         from nodeone.core.platform.commercial_plans import feature_nav_state_for_plan
@@ -47,7 +53,9 @@ class TestCommercialPlans(unittest.TestCase):
         self.assertEqual(starter['resource_limits']['registers'], 1)
         business = get_plan_template('eposone', 'professional')  # alias
         self.assertTrue(business['features']['kds'])
-        self.assertEqual(business['resource_limits']['registers'], 5)
+        self.assertEqual(business['resource_limits']['registers'], 3)
+        self.assertEqual(business['resource_limits']['pos'], 3)
+        self.assertFalse(business['features']['multi_branch'])
 
     def test_count_usage_rollbacks_after_sql_failure(self):
         """Regression Mi plan: fallo al contar cajeros no debe abortar la txn de la request."""

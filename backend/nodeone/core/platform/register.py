@@ -40,6 +40,10 @@ def register_platform_core(app) -> None:
     from nodeone.modules.ets_portal.register import register_ets_portal
 
     register_ets_portal(app)
+
+    from nodeone.modules.ets_legal.register import register_ets_legal
+
+    register_ets_legal(app)
     from nodeone.core.sync.routes import register_platform_sync_blueprint
 
     register_platform_sync_blueprint(app)

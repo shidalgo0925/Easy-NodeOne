@@ -1,0 +1,26 @@
+{% extends "ets_legal/base.html" %}
+{% block title %}{{ page.title }} — ETS{% endblock %}
+{% block legal_content %}
+<h1>{{ page.title }}</h1>
+<p>Easy Technology Services (ETS) trata datos personales y datos de operación comercial necesarios para prestar EN1, EPosOne y servicios relacionados.</p>
+<h2>1. Responsable</h2>
+<p>Easy Technology Services. Contacto: <a href="mailto:info@easytech.services">info@easytech.services</a> · WhatsApp +507 6688-4938.</p>
+<h2>2. Datos que podemos tratar</h2>
+<ul>
+  <li>Identificación y contacto (nombre, correo, teléfono, empresa).</li>
+  <li>Datos de cuenta, organización y facturación.</li>
+  <li>Datos operativos del producto (p. ej. ventas, cajas, dispositivos) según el servicio contratado.</li>
+  <li>Datos técnicos (IP, logs, identificadores de dispositivo) para seguridad y soporte.</li>
+</ul>
+<h2>3. Finalidades</h2>
+<p>Prestación del servicio, autenticación, licenciamiento, soporte, facturación, seguridad, mejora del producto y cumplimiento legal.</p>
+<h2>4. Conservación</h2>
+<p>Se conservan mientras exista la relación contractual y los plazos legales aplicables. La suspensión de licencia no implica borrado automático; ver <a href="{{ url_for('ets_legal.legal_page', slug='data-deletion') }}">eliminación de cuenta y datos</a>.</p>
+<h2>5. Encargados y transferencias</h2>
+<p>Podemos usar proveedores de infraestructura, correo y pagos bajo contratos adecuados. Si hay transferencias internacionales, se aplicarán salvaguardas razonables.</p>
+<h2>6. Derechos</h2>
+<p>Puede solicitar acceso, rectificación, actualización o eliminación conforme a la ley aplicable, escribiendo a soporte.</p>
+<h2>7. Seguridad</h2>
+<p>Aplicamos medidas técnicas y organizativas razonables; ningún sistema es 100% seguro.</p>
+<p><strong>Google Play / aplicaciones móviles:</strong> esta política describe el tratamiento asociado a EPosOne y EN1.</p>
+{% endblock %}

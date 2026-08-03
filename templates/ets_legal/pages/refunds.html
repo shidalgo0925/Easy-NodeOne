@@ -1,0 +1,14 @@
+{% extends "ets_legal/base.html" %}
+{% block title %}{{ page.title }} — ETS{% endblock %}
+{% block legal_content %}
+<h1>{{ page.title }}</h1>
+<p>Esta política aplica a suscripciones de productos ETS, incluido EPosOne.</p>
+<ul>
+  <li>El <strong>período de prueba</strong> no genera cobro de los días de trial.</li>
+  <li>Los cargos periódicos inician según la oferta (p. ej. al activar suscripción de pago tras el trial).</li>
+  <li>Puede cancelar renovaciones futuras según el canal de pago; montos ya facturados del ciclo en curso solo se reembolsan si la ley o una oferta escrita lo exige.</li>
+  <li>Errores de cobro duplicado o fallos atribuibles a ETS se corrigen con crédito o reembolso del monto indebido.</li>
+  <li>Servicios profesionales opcionales (instalación en sitio, migraciones, etc.) se cotizan aparte y pueden tener condiciones propias.</li>
+</ul>
+<p>Solicitudes: <a href="{{ url_for('ets_legal.legal_page', slug='support') }}">soporte</a>.</p>
+{% endblock %}

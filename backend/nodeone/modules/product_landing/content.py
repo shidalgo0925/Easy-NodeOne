@@ -222,7 +222,11 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
                     'Soporte estándar',
                 ],
                 'cta': 'Contratar Standalone',
-                'legal': 'EULA · Términos de uso',
+                'legal_html': True,
+                'legal_links': [
+                    {'label': 'EULA', 'slug': 'eula'},
+                    {'label': 'Términos', 'slug': 'terms'},
+                ],
             },
             {
                 'eyebrow': 'Modalidad conectada',
@@ -249,7 +253,10 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
                     'Soporte estándar',
                 ],
                 'cta': 'Probar gratis',
-                'legal': 'Términos del servicio · EULA',
+                'legal_links': [
+                    {'label': 'Términos', 'slug': 'terms'},
+                    {'label': 'EULA', 'slug': 'eula'},
+                ],
             },
             {
                 'eyebrow': 'Más elegido · Conectada',
@@ -272,7 +279,10 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
                 ],
                 'featured': True,
                 'cta': 'Probar gratis',
-                'legal': 'Términos del servicio · EULA',
+                'legal_links': [
+                    {'label': 'Términos', 'slug': 'terms'},
+                    {'label': 'EULA', 'slug': 'eula'},
+                ],
             },
             {
                 'eyebrow': 'Multi-sucursal · Conectada',
@@ -294,7 +304,10 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
                     'Soporte premium',
                 ],
                 'cta': 'Hablar con ventas',
-                'legal': 'Términos del servicio · EULA',
+                'legal_links': [
+                    {'label': 'Términos', 'slug': 'terms'},
+                    {'label': 'EULA', 'slug': 'eula'},
+                ],
             },
         ],
         'plan_compare': {

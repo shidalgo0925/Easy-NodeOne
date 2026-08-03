@@ -1,0 +1,22 @@
+{% extends "ets_legal/base.html" %}
+{% block title %}{{ page.title }} — ETS{% endblock %}
+{% block legal_content %}
+<h1>{{ page.title }}</h1>
+<p>Estos Términos regulan el acceso y uso de los servicios SaaS de <strong>Easy Technology Services</strong> (ETS), incluida la plataforma Easy NodeOne (EN1) y productos como <strong>EPosOne</strong>.</p>
+<h2>1. Aceptación</h2>
+<p>Al crear una cuenta, crear una organización, iniciar un trial, contratar una suscripción o usar la aplicación, usted acepta estos Términos, la Política de Privacidad y, cuando corresponda, el EULA del producto.</p>
+<h2>2. Cuenta y organización</h2>
+<p>Usted es responsable de la veracidad de los datos de registro, de la custodia de credenciales y de la actividad realizada bajo su organización (tenant).</p>
+<h2>3. Suscripciones y trial</h2>
+<p>Los planes, precios, trial, grace period y suspensión se rigen por la oferta comercial vigente del producto y las políticas publicadas por ETS. El trial de EPosOne en planes conectados es de 15 días sin tarjeta, con producto completo del plan; la falta de pago puede derivar en grace y suspensión sin eliminación automática de datos.</p>
+<h2>4. Uso aceptable</h2>
+<p>No está permitido usar los servicios para actividades ilegales, abusar de la infraestructura, vulnerar derechos de terceros ni eludir controles de licencia.</p>
+<h2>5. Propiedad intelectual</h2>
+<p>El software, marcas y contenidos de ETS permanecen propiedad de ETS o sus licenciantes. Se otorga una licencia de uso limitada según el plan contratado y el EULA aplicable.</p>
+<h2>6. Limitación de responsabilidad</h2>
+<p>En la medida permitida por la ley aplicable, ETS no será responsable por lucro cesante ni daños indirectos derivados del uso o interrupción del servicio, sin perjuicio de las obligaciones legales imperativas.</p>
+<h2>7. Ley aplicable</h2>
+<p>Salvo norma imperativa en contrario, se aplica la legislación de la República de Panamá y los tribunales competentes de Panamá.</p>
+<h2>8. Contacto</h2>
+<p>Consultas: <a href="{{ url_for('ets_legal.legal_page', slug='support') }}">soporte</a> · <a href="mailto:info@easytech.services">info@easytech.services</a></p>
+{% endblock %}

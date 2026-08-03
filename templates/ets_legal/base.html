@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Legal — Easy Technology Services{% endblock %}</title>
+  <meta name="robots" content="index,follow">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/product-landing.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ets-legal.css') }}">
+</head>
+<body class="pl-body legal-body">
+  <header class="pl-header">
+    <div class="pl-header__inner">
+      <a class="pl-brand" href="/">{{ brand_name or 'Easy Technology Services' }}</a>
+      <nav class="pl-nav" aria-label="Legal">
+        <a href="{{ url_for('ets_legal.legal_index') }}">Centro legal</a>
+        <a href="/">Inicio</a>
+      </nav>
+    </div>
+  </header>
+  <main class="legal-main">
+    <aside class="legal-nav" aria-label="Documentos">
+      <p class="legal-nav__title">Documentos</p>
+      <ul>
+        {% for p in pages %}
+        <li><a href="{{ url_for('ets_legal.legal_page', slug=p.slug) }}"{% if page and page.slug == p.slug %} aria-current="page"{% endif %}>{{ p.nav_label }}</a></li>
+        {% endfor %}
+      </ul>
+    </aside>
+    <article class="legal-article">
+      <p class="legal-banner">Documento operativo v1 — Easy Technology Services. Sujeto a revisión legal. No sustituye asesoría jurídica profesional.</p>
+      {% block legal_content %}{% endblock %}
+      <p class="legal-updated">Última actualización: 3 de agosto de 2026 · ETS</p>
+    </article>
+  </main>
+  <footer class="pl-footer">
+    <p>Easy Technology Services · <a href="{{ url_for('ets_legal.legal_index') }}">Centro legal</a></p>
+  </footer>
+</body>
+</html>

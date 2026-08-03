@@ -9,7 +9,11 @@ from flask import Blueprint, abort, flash, jsonify, redirect, render_template, r
 from flask_login import current_user, login_required
 from functools import wraps
 
-from nodeone.services.payment_post_process import process_cart_after_payment, send_payment_to_odoo
+from nodeone.services.payment_post_process import (
+    build_cart_items_snapshot,
+    process_cart_after_payment_with_snapshot,
+    send_payment_to_odoo,
+)
 from utils.organization import resolve_current_organization
 
 payments_checkout_bp = Blueprint('payments_checkout', __name__)
@@ -333,10 +337,13 @@ def create_payment_intent():
         
         # Crear metadata para el pago
         import json
+        from nodeone.services.manual_payment_flow import is_manual_validation_method
+
         metadata = {
             'user_id': current_user.id,
             'cart_id': cart.id,
-            'items_count': cart.get_items_count()
+            'items_count': cart.get_items_count(),
+            'cart_items': build_cart_items_snapshot(cart),
         }
         
         # Crear pago con el procesador
@@ -484,7 +491,7 @@ def create_payment_intent():
         # Si el pago está aprobado (demo o OCR verificado), procesar el carrito inmediatamente
         if initial_status == 'succeeded':
             try:
-                process_cart_after_payment(cart, payment)
+                process_cart_after_payment_with_snapshot(cart, payment)
                 cart.clear()
                 M.db.session.commit()
                 print(f"✅ Pago en modo demo procesado exitosamente. Payment ID: {payment.id}")
@@ -499,7 +506,16 @@ def create_payment_intent():
                 import traceback
                 traceback.print_exc()
                 M.db.session.rollback()
-        
+        elif is_manual_validation_method(payment_method):
+            # Transferencia / manual: pedido creado → vaciar carrito (snapshot ya en metadata)
+            try:
+                cart.clear()
+                M.db.session.commit()
+                print(f"✅ Carrito vaciado tras crear pago manual {payment.id}")
+            except Exception as e:
+                print(f"⚠️ No se pudo vaciar carrito tras pago manual: {e}")
+                M.db.session.rollback()
+
         # Si OCR necesita revisión, enviar notificaciones después del commit
         if ocr_status == 'needs_review':
             try:
@@ -736,7 +752,7 @@ def payment_success():
                 cart = M.get_or_create_cart(current_user.id)
                 if cart.get_items_count() > 0:
                     try:
-                        process_cart_after_payment(cart, payment)
+                        process_cart_after_payment_with_snapshot(cart, payment)
                         cart.clear()
                         M.db.session.commit()
                         print(f"✅ Carrito procesado en payment_success para Payment ID: {payment.id}")
@@ -1151,7 +1167,7 @@ def paypal_return():
                 
                 # Procesar carrito
                 cart = M.get_or_create_cart(current_user.id)
-                process_cart_after_payment(cart, payment)
+                process_cart_after_payment_with_snapshot(cart, payment)
                 cart.clear()
                 M.db.session.commit()
                 
@@ -1388,6 +1404,15 @@ def payment_status(payment_id):
 def payments_history():
     """Historial de pagos del usuario con información completa de compras"""
     import app as M
+    from datetime import timezone as _tz
+
+    def _as_naive_utc(dt):
+        """Postgres puede devolver aware; datetime.utcnow() es naive."""
+        if dt is None:
+            return None
+        if getattr(dt, 'tzinfo', None) is not None:
+            return dt.astimezone(_tz.utc).replace(tzinfo=None)
+        return dt
 
     payments = M.Payment.query.filter_by(user_id=current_user.id).order_by(
         M.Payment.created_at.desc()
@@ -1425,9 +1450,10 @@ def payments_history():
                 M.EventRegistration.user_id == current_user.id
             ).all()
 
-        if not event_registrations and payment.paid_at:
-            time_window_start = payment.paid_at - timedelta(minutes=10)
-            time_window_end = payment.paid_at + timedelta(minutes=10)
+        paid_at_naive = _as_naive_utc(payment.paid_at)
+        if not event_registrations and paid_at_naive:
+            time_window_start = paid_at_naive - timedelta(minutes=10)
+            time_window_end = paid_at_naive + timedelta(minutes=10)
             event_registrations = M.EventRegistration.query.filter(
                 M.EventRegistration.user_id == current_user.id,
                 M.EventRegistration.payment_date >= time_window_start,
@@ -1497,6 +1523,8 @@ def payments_history():
                 metadata = json.loads(payment.payment_metadata)
                 if 'items' in metadata:
                     payment_data['purchased_items'] = metadata['items']
+                elif 'cart_items' in metadata:
+                    payment_data['purchased_items'] = metadata['cart_items']
             except Exception:
                 pass
 
@@ -1512,8 +1540,18 @@ def payments_history():
 
         payments_with_details.append(payment_data)
 
-        if payment.status in ['pending', 'awaiting_confirmation'] and payment.created_at:
-            time_elapsed = (current_time - payment.created_at).total_seconds() / 60
+        pending_like = {
+            'pending',
+            'awaiting_confirmation',
+            'pending_receipt',
+            'pending_admin_review',
+            'pending_payment',
+            'pending_validation',
+            'manual_review',
+        }
+        created_naive = _as_naive_utc(payment.created_at)
+        if payment.status in pending_like and created_naive:
+            time_elapsed = (current_time - created_naive).total_seconds() / 60
             if time_elapsed > 5:
                 hours = int(time_elapsed / 60)
                 minutes = int(time_elapsed % 60)

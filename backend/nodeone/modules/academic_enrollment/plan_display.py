@@ -37,6 +37,6 @@ def plan_card_display(plan, program) -> dict[str, str]:
         'primary': f'Un pago hoy: {currency} {total_txt} (total del programa)',
         'secondary': (
             f'Referencia: {n_int} × {currency} {inst_txt}. '
-            'No son cargos automáticos cada mes; pagás el total acordado en una sola transacción.'
+            'No son cargos automáticos cada mes; usted paga el total acordado en una sola transacción.'
         ),
     }

@@ -9,7 +9,10 @@ from flask_login import current_user, login_required
 from sqlalchemy import false as sql_false
 from sqlalchemy.exc import DBAPIError, OperationalError, ProgrammingError, StatementError
 
-from nodeone.services.payment_post_process import process_cart_after_payment, send_payment_to_odoo
+from nodeone.services.payment_post_process import (
+    process_cart_after_payment_with_snapshot,
+    send_payment_to_odoo,
+)
 
 from app import require_permission
 
@@ -204,10 +207,9 @@ def api_approve_payment(payment_id):
         M.db.session.commit()
 
         cart = M.get_or_create_cart(payment.user_id)
-        if cart.get_items_count() > 0:
-            process_cart_after_payment(cart, payment)
-            cart.clear()
-            M.db.session.commit()
+        process_cart_after_payment_with_snapshot(cart, payment)
+        cart.clear()
+        M.db.session.commit()
 
         if user:
             try:
@@ -1267,10 +1269,9 @@ def api_yappy_manual_validate(payment_id):
             M.db.session.commit()
 
             cart = M.get_or_create_cart(payment.user_id)
-            if cart.get_items_count() > 0:
-                process_cart_after_payment(cart, payment)
-                cart.clear()
-                M.db.session.commit()
+            process_cart_after_payment_with_snapshot(cart, payment)
+            cart.clear()
+            M.db.session.commit()
 
             try:
                 subscription = M.Subscription.query.filter_by(payment_id=payment.id).first()

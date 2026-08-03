@@ -451,3 +451,83 @@ def process_cart_after_payment(cart, payment):
         traceback.print_exc()
     
     return subscriptions_created
+
+
+def build_cart_items_snapshot(cart) -> list:
+    """Snapshot del carrito (incluye item_metadata) para pagos manuales que vacían el carrito."""
+    rows = []
+    for item in getattr(cart, 'items', []) or []:
+        rows.append(
+            {
+                'product_type': item.product_type,
+                'product_id': int(item.product_id),
+                'product_name': item.product_name,
+                'product_description': getattr(item, 'product_description', None),
+                'unit_price': float(item.unit_price),
+                'quantity': int(item.quantity or 1),
+                'item_metadata': getattr(item, 'item_metadata', None),
+            }
+        )
+    return rows
+
+
+def rehydrate_cart_from_payment_snapshot(cart, payment) -> int:
+    """Si el carrito está vacío, restaura ítems desde payment_metadata['cart_items']."""
+    import app as M
+    import json
+
+    if cart.get_items_count() > 0:
+        return 0
+    raw = getattr(payment, 'payment_metadata', None) or ''
+    try:
+        meta = json.loads(raw) if raw else {}
+    except Exception:
+        return 0
+    rows = meta.get('cart_items') or meta.get('items') or []
+    if not isinstance(rows, list) or not rows:
+        return 0
+    added = 0
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        ptype = (row.get('product_type') or '').strip()
+        if not ptype:
+            continue
+        try:
+            pid = int(row.get('product_id'))
+        except (TypeError, ValueError):
+            continue
+        name = (row.get('product_name') or ptype).strip() or ptype
+        desc = row.get('product_description')
+        try:
+            unit = float(row.get('unit_price') or 0)
+        except (TypeError, ValueError):
+            unit = 0.0
+        try:
+            qty = int(row.get('quantity') or 1)
+        except (TypeError, ValueError):
+            qty = 1
+        item_meta = row.get('item_metadata')
+        if isinstance(item_meta, dict):
+            item_meta = json.dumps(item_meta)
+        ci = M.CartItem(
+            cart_id=cart.id,
+            product_type=ptype,
+            product_id=pid,
+            product_name=name[:200],
+            product_description=desc,
+            unit_price=unit,
+            quantity=max(1, qty),
+            item_metadata=item_meta,
+        )
+        M.db.session.add(ci)
+        added += 1
+    if added:
+        M.db.session.flush()
+    return added
+
+
+def process_cart_after_payment_with_snapshot(cart, payment):
+    """Procesa carrito; si está vacío, intenta rehidratar desde snapshot del pago."""
+    rehydrate_cart_from_payment_snapshot(cart, payment)
+    return process_cart_after_payment(cart, payment)

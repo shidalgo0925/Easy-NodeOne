@@ -21,6 +21,8 @@ class TestProductLandingContent(unittest.TestCase):
             description='POS',
         )
         self.assertEqual(c['template'], 'product_landing/eposone.html')
+        self.assertEqual(c['hero']['primary_cta']['href'], '/start')
+        self.assertEqual(c['hero']['primary_cta']['label'], 'Empieza con EPosOne')
         self.assertEqual(c['demo']['source'], 'eposone-landing')
         self.assertGreaterEqual(len(c['pillars']), 4)
         self.assertEqual(len(c['plans']), 4)

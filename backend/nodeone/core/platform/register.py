@@ -44,6 +44,9 @@ def register_platform_core(app) -> None:
     from nodeone.modules.ets_legal.register import register_ets_legal
 
     register_ets_legal(app)
+    from nodeone.modules.eposone_start.register import register_eposone_start
+
+    register_eposone_start(app)
     from nodeone.core.sync.routes import register_platform_sync_blueprint
 
     register_platform_sync_blueprint(app)

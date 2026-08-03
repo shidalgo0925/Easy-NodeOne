@@ -9,7 +9,7 @@
 | Producto | EPosOne (política comercial); motor en **EN1** |
 | Arquitectura | EN1 + EPosOne |
 | Autor | ETS |
-| Relacionados | [`EN1_PLATFORM_CONSTITUTION_V1.md`](EN1_PLATFORM_CONSTITUTION_V1.md) · [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-016](ADR-016-COMMERCIAL-LICENSING-V2-ENTITLEMENT.md) · [ADR-017](ADR-017-CUSTOMER-ENTRY-POINT-PRODUCT-PORTAL.md) · [ADR-021](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) · [ADR-022](ADR-022-EN1-MULTIPRODUCT-COMMERCIAL-MODEL.md) |
+| Relacionados | [ADR-024 Asistente de Inicio](ADR-024-EPOSONE-START-ASSISTANT.md) ·  [`EN1_PLATFORM_CONSTITUTION_V1.md`](EN1_PLATFORM_CONSTITUTION_V1.md) · [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-016](ADR-016-COMMERCIAL-LICENSING-V2-ENTITLEMENT.md) · [ADR-017](ADR-017-CUSTOMER-ENTRY-POINT-PRODUCT-PORTAL.md) · [ADR-021](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) · [ADR-022](ADR-022-EN1-MULTIPRODUCT-COMMERCIAL-MODEL.md) |
 | Numeración | **No** es ADR-018 (ese ID es [Release Management](ADR-018-RELEASE-MANAGEMENT.md)). El borrador de producto titulado “ADR-018 Trial…” se formaliza aquí como **ADR-023**. |
 | No implementa | Checkout, pasarela, jobs de notificación, UI de avisos — solo política y modelo de estados |
 

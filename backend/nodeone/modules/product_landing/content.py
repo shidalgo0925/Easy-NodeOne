@@ -41,7 +41,7 @@ def _eposone_content(*, display_name: str, tagline: str, description: str) -> di
                 'clientes y reportes — online y offline.'
             ),
             'offer_badge': '15 días gratis en planes conectados · Sin tarjeta',
-            'primary_cta': {'label': 'Solicitar demostración', 'href': '#demo'},
+            'primary_cta': {'label': 'Empieza con EPosOne', 'href': '/start'},
             'secondary_cta': {'label': 'Ver planes', 'href': '#planes'},
             'tertiary_cta': {'label': 'Iniciar sesión', 'href': 'login'},
             'fine_print': (

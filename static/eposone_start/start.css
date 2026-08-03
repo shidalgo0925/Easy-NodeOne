@@ -1,0 +1,316 @@
+:root {
+  --ep-orange: #ff6600;
+  --ep-navy: #001a4b;
+  --ep-bg: #f7f8fc;
+  --ep-card: #ffffff;
+  --ep-muted: #64748b;
+  --ep-line: #e2e8f0;
+  --ep-ok: #059669;
+  --radius: 16px;
+  --shadow: 0 8px 30px rgba(0, 26, 75, 0.08);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(255, 102, 0, 0.18), transparent 55%),
+    radial-gradient(900px 500px at 90% 0%, rgba(0, 26, 75, 0.35), transparent 50%),
+    linear-gradient(180deg, #0b1220 0%, #111827 100%);
+  color: var(--ep-navy);
+}
+
+.ep-page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 2rem;
+}
+
+.phone {
+  width: 100%;
+  background: var(--ep-bg);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  min-height: 720px;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  padding: 0.85rem 1rem 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 800;
+  color: var(--ep-navy);
+  letter-spacing: -0.02em;
+}
+
+.brand-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.stage { padding: 0 1rem 0.75rem; }
+
+.stage-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.stage-bar span {
+  height: 4px;
+  border-radius: 99px;
+  background: #dbe3f0;
+}
+
+.stage-bar span.on { background: var(--ep-orange); }
+.stage-label { font-size: 0.72rem; color: var(--ep-muted); }
+
+.content {
+  padding: 0.5rem 1.1rem 1.25rem;
+  flex: 1;
+}
+
+.content h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.45rem;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  color: var(--ep-navy);
+}
+
+.content .lead {
+  margin: 0 0 1.1rem;
+  color: var(--ep-muted);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.muted {
+  margin: 0.5rem 0 0;
+  color: var(--ep-muted);
+  font-size: 0.9rem;
+}
+
+.grid-types {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
+.chip, .card-opt {
+  border: 1px solid var(--ep-line);
+  background: var(--ep-card);
+  border-radius: 12px;
+  padding: 0.85rem 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  font-weight: 600;
+  color: var(--ep-navy);
+  width: 100%;
+}
+
+.chip.is-selected, .card-opt.is-selected {
+  border-color: var(--ep-orange);
+  box-shadow: 0 0 0 2px rgba(255, 102, 0, 0.15);
+}
+
+.card-opt small {
+  display: block;
+  margin-top: 0.25rem;
+  font-weight: 500;
+  color: var(--ep-muted);
+  font-size: 0.75rem;
+}
+
+.plan-list { display: grid; gap: 0.55rem; }
+
+.reco {
+  background: var(--ep-card);
+  border-radius: var(--radius);
+  padding: 1rem;
+  border: 1px solid var(--ep-line);
+  box-shadow: var(--shadow);
+}
+
+.reco .eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ep-orange);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.reco .price {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0.4rem 0;
+}
+
+.badge {
+  display: inline-block;
+  background: #ecfdf5;
+  color: var(--ep-ok);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+}
+
+.field { margin: 0 0 0.75rem; }
+
+.field label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.field input {
+  width: 100%;
+  border: 1px solid var(--ep-line);
+  border-radius: 10px;
+  padding: 0.75rem 0.8rem;
+  font-size: 1rem;
+  background: #fff;
+}
+
+.field input[readonly] {
+  background: #f1f5f9;
+  color: var(--ep-muted);
+}
+
+.checks { margin: 0.75rem 0 1rem; }
+
+.checks label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  font-size: 0.82rem;
+  color: var(--ep-muted);
+  margin: 0.45rem 0;
+}
+
+.checks a { color: var(--ep-navy); }
+
+.error {
+  color: #b91c1c;
+  font-size: 0.85rem;
+  margin: 0.5rem 0 0;
+}
+
+.wow-list { list-style: none; padding: 0; margin: 1rem 0; }
+
+.wow-list li {
+  padding: 0.45rem 0;
+  font-weight: 600;
+  color: var(--ep-navy);
+}
+
+.wow-list li::before {
+  content: "✓ ";
+  color: var(--ep-ok);
+}
+
+.steps { counter-reset: s; padding: 0; margin: 0 0 1rem; list-style: none; }
+
+.steps li {
+  counter-increment: s;
+  position: relative;
+  padding: 0.55rem 0 0.55rem 2.2rem;
+  border-bottom: 1px solid var(--ep-line);
+  font-size: 0.92rem;
+}
+
+.steps li::before {
+  content: counter(s);
+  position: absolute;
+  left: 0;
+  top: 0.45rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: var(--ep-navy);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.footer-cta {
+  padding: 0.85rem 1.1rem 1.2rem;
+  display: grid;
+  gap: 0.45rem;
+  border-top: 1px solid var(--ep-line);
+  background: #fff;
+}
+
+.btn {
+  border: none;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  display: block;
+}
+
+.btn:disabled { opacity: 0.55; cursor: wait; }
+.btn-primary { background: var(--ep-orange); color: #fff; }
+.btn-secondary { background: #fff; color: var(--ep-navy); border: 1px solid var(--ep-line); }
+.btn-ghost, .btn-ghost.btn {
+  background: transparent;
+  color: var(--ep-muted);
+  font-weight: 600;
+  border: none;
+  padding: 0.4rem 0.5rem;
+  cursor: pointer;
+}
+
+.screen { display: none; flex: 1; flex-direction: column; }
+.screen.is-visible { display: flex; }
+
+.code-box {
+  margin-top: 0.75rem;
+  padding: 0.85rem;
+  border-radius: 12px;
+  background: #0f172a;
+  color: #fff;
+  font-family: ui-monospace, monospace;
+  letter-spacing: 0.12em;
+  text-align: center;
+  font-size: 1.1rem;
+}
+
+.desktop-note {
+  margin: 1rem auto 0;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  text-align: center;
+  line-height: 1.4;
+}
+
+@media (min-width: 720px) {
+  .ep-page { padding-top: 2rem; }
+}

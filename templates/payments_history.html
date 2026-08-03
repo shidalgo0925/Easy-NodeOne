@@ -135,7 +135,9 @@
                             <tbody>
                                 {% for payment in pending_payments %}
                                 {% if payment.payment_method == 'yappy' %}
-                                {% set time_elapsed = (current_time - payment.created_at).total_seconds() / 60 if payment.created_at and current_time else 0 %}
+                                {% set _ca = payment.created_at.replace(tzinfo=None) if payment.created_at and payment.created_at.tzinfo else payment.created_at %}
+                                            {% set _ct = current_time.replace(tzinfo=None) if current_time and current_time.tzinfo else current_time %}
+                                            {% set time_elapsed = (_ct - _ca).total_seconds() / 60 if _ca and _ct else 0 %}
                                 {% set minutes_elapsed = time_elapsed|int %}
                                 {% set hours_elapsed = (minutes_elapsed / 60)|int %}
                                 {% set is_long_pending = minutes_elapsed > 5 %}
@@ -311,8 +313,10 @@
                                             {% if payment.paid_at %}
                                                 <br><small class="text-muted">{{ payment.paid_at.strftime('%d/%m/%Y %H:%M') }}</small>
                                             {% endif %}
-                                        {% elif payment.status in ['pending', 'awaiting_confirmation'] %}
-                                            {% set time_elapsed = (current_time - payment.created_at).total_seconds() / 60 if payment.created_at and current_time else 0 %}
+                                        {% elif payment.status in ['pending', 'awaiting_confirmation', 'pending_receipt', 'pending_admin_review', 'pending_payment', 'pending_validation', 'manual_review'] %}
+                                            {% set _ca = payment.created_at.replace(tzinfo=None) if payment.created_at and payment.created_at.tzinfo else payment.created_at %}
+                                            {% set _ct = current_time.replace(tzinfo=None) if current_time and current_time.tzinfo else current_time %}
+                                            {% set time_elapsed = (_ct - _ca).total_seconds() / 60 if _ca and _ct else 0 %}
                                             {% set minutes_elapsed = time_elapsed|int %}
                                             {% set hours_elapsed = (minutes_elapsed / 60)|int %}
                                             {% set is_long_pending = minutes_elapsed > 5 %}
@@ -396,7 +400,9 @@
                                             </a>
                                         {% endif %}
                                         {% if payment.payment_method == 'yappy' and payment.status in ['pending', 'awaiting_confirmation'] %}
-                                            {% set time_elapsed = (current_time - payment.created_at).total_seconds() / 60 if payment.created_at and current_time else 0 %}
+                                            {% set _ca = payment.created_at.replace(tzinfo=None) if payment.created_at and payment.created_at.tzinfo else payment.created_at %}
+                                            {% set _ct = current_time.replace(tzinfo=None) if current_time and current_time.tzinfo else current_time %}
+                                            {% set time_elapsed = (_ct - _ca).total_seconds() / 60 if _ca and _ct else 0 %}
                                             {% set minutes_elapsed = time_elapsed|int %}
                                             {% if minutes_elapsed > 5 %}
                                             <button type="button" 

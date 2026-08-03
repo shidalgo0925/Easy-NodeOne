@@ -1331,7 +1331,7 @@ def payments_history():
 
     status_counts = Counter(payment.status for payment in payments)
 
-    current_time = datetime.utcnow()
+    current_time = datetime.now(_tz.utc)
     long_pending_payments = []
 
     payments_with_details = []
@@ -1461,8 +1461,9 @@ def payments_history():
             'manual_review',
         }
         created_naive = _as_naive_utc(payment.created_at)
-        if payment.status in pending_like and created_naive:
-            time_elapsed = (current_time - created_naive).total_seconds() / 60
+        current_naive = _as_naive_utc(current_time)
+        if payment.status in pending_like and created_naive and current_naive:
+            time_elapsed = (current_naive - created_naive).total_seconds() / 60
             if time_elapsed > 5:
                 hours = int(time_elapsed / 60)
                 minutes = int(time_elapsed % 60)

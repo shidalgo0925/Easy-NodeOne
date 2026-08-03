@@ -754,8 +754,6 @@ def payment_success():
                         user_id=current_user.id, payment_id=int(payment.id)
                     )
                     if pending_agenda is not None:
-                        from flask import redirect, url_for
-
                         return redirect(
                             url_for(
                                 'academic_enrollment_agenda_page',
@@ -816,10 +814,15 @@ def payment_success():
 
 
 def _yappy_manual_submit_receipt_core(payment_id: int):
-    """Lógica compartida: subir comprobante Yappy manual → pending_admin_review."""
+    """Subir comprobante (Yappy / wire / Banco General / manual) → pending_admin_review."""
     import app as M
 
     from flask import current_app
+    from nodeone.services.manual_payment_flow import (
+        is_awaiting_receipt_upload,
+        is_manual_validation_method,
+        method_requires_receipt,
+    )
     from nodeone.services.yappy_manual import (
         YAPPY_MANUAL_EMAIL_FAILURE_USER_MESSAGE,
         append_yappy_manual_audit,
@@ -827,21 +830,21 @@ def _yappy_manual_submit_receipt_core(payment_id: int):
         notify_admin_new_receipt,
         notify_client_receipt_received,
     )
-    from nodeone.services.yappy_manual_status import is_pending_receipt
     from nodeone.services.yappy_receipt_storage import save_yappy_receipt_file
 
     payment = M.Payment.query.get_or_404(payment_id)
     if payment.user_id != current_user.id:
         return jsonify({'success': False, 'error': 'No autorizado'}), 403
-    if payment.payment_method != 'yappy_manual':
-        return jsonify({'success': False, 'error': 'No es un pago Yappy manual'}), 400
+    if not is_manual_validation_method(payment.payment_method):
+        return jsonify({'success': False, 'error': 'Este método de pago no admite comprobante manual.'}), 400
 
     cfg = M.PaymentConfig.get_active_config_for_user_id(payment.user_id) if payment.user_id else None
-    requires = True if not cfg else bool(getattr(cfg, 'yappy_requires_receipt', True))
+    oid_pay = getattr(payment, 'organization_id', None) or int(resolve_current_organization())
+    requires = method_requires_receipt(int(oid_pay), payment.payment_method)
 
     st = (payment.status or '').strip()
     allow_resubmit = st == 'rejected'
-    if not is_pending_receipt(st) and not allow_resubmit:
+    if not is_awaiting_receipt_upload(st) and not allow_resubmit:
         return jsonify({'success': False, 'error': 'Este pago ya no admite comprobante en este paso.'}), 400
 
     user_ref = (request.form.get('user_reference') or request.form.get('payment_user_reference') or '').strip()[:500]
@@ -1008,6 +1011,13 @@ def payment_yappy_manual_order_status(payment_id):
 @payments_checkout_bp.route('/api/payment/yappy-manual/<int:payment_id>/submit-receipt', methods=['POST'])
 @login_required
 def api_yappy_manual_submit_receipt(payment_id):
+    return _yappy_manual_submit_receipt_core(payment_id)
+
+
+@payments_checkout_bp.route('/api/payment/manual/<int:payment_id>/submit-receipt', methods=['POST'])
+@login_required
+def api_manual_submit_receipt(payment_id):
+    """Alias para wire / Banco General / Yappy / pago manual desde payment-success."""
     return _yappy_manual_submit_receipt_core(payment_id)
 
 

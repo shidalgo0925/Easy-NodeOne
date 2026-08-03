@@ -302,7 +302,7 @@
                                 </div>
                                 <div class="card-body">
                                     <p class="small text-muted">Tu pedido <strong>#{{ payment.id }}</strong> quedará en revisión cuando envíes el comprobante.</p>
-                                    <form id="en1-manual-receipt-form" enctype="multipart/form-data" data-payment-id="{{ payment.id }}">
+                                    <form id="en1-manual-receipt-form" method="post" action="#" enctype="multipart/form-data" data-payment-id="{{ payment.id }}">
                                         <div class="mb-2">
                                             <label class="form-label small" for="en1-manual-receipt-file">Comprobante{% if manual_receipt_requires %} <span class="text-danger">*</span>{% endif %}</label>
                                             <input type="file" class="form-control form-control-sm" name="receipt" id="en1-manual-receipt-file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" {% if manual_receipt_requires %}required{% endif %}>
@@ -315,6 +315,53 @@
                                     <div id="en1-manual-receipt-msg" class="mt-2 small"></div>
                                 </div>
                             </div>
+                            <script>
+                            (function () {
+                              var form = document.getElementById('en1-manual-receipt-form');
+                              if (!form) return;
+                              var fileInput = document.getElementById('en1-manual-receipt-file');
+                              var btn = document.getElementById('en1-manual-receipt-submit');
+                              var msg = document.getElementById('en1-manual-receipt-msg');
+                              var paymentId = form.getAttribute('data-payment-id');
+                              var requires = {{ 'true' if manual_receipt_requires else 'false' }};
+                              form.addEventListener('submit', async function (e) {
+                                e.preventDefault();
+                                if (!paymentId) {
+                                  if (msg) msg.innerHTML = '<div class="alert alert-danger mb-0">Falta el identificador del pago.</div>';
+                                  return;
+                                }
+                                if (requires && (!fileInput || !fileInput.files || !fileInput.files.length)) {
+                                  if (msg) msg.innerHTML = '<div class="alert alert-danger mb-0">Seleccione un comprobante.</div>';
+                                  return;
+                                }
+                                var fd = new FormData(form);
+                                var original = btn ? btn.innerHTML : '';
+                                if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enviando…'; }
+                                if (msg) msg.innerHTML = '';
+                                try {
+                                  var res = await fetch('/api/payment/manual/' + encodeURIComponent(paymentId) + '/submit-receipt', {
+                                    method: 'POST',
+                                    body: fd,
+                                    credentials: 'same-origin'
+                                  });
+                                  var data = {};
+                                  try { data = await res.json(); } catch (_) {}
+                                  if (res.ok && data.success) {
+                                    if (msg) msg.innerHTML = '<div class="alert alert-success mb-0"><i class="fas fa-check-circle"></i> ' + (data.message || 'Comprobante enviado.') + '</div>';
+                                    setTimeout(function () {
+                                      window.location.href = '/payment-success?payment_id=' + encodeURIComponent(paymentId);
+                                    }, 1200);
+                                  } else {
+                                    if (msg) msg.innerHTML = '<div class="alert alert-danger mb-0">' + (data.error || ('Error al enviar (' + res.status + ').')) + '</div>';
+                                    if (btn) { btn.disabled = false; btn.innerHTML = original; }
+                                  }
+                                } catch (err) {
+                                  if (msg) msg.innerHTML = '<div class="alert alert-danger mb-0">Error de conexión. Intente de nuevo.</div>';
+                                  if (btn) { btn.disabled = false; btn.innerHTML = original; }
+                                }
+                              });
+                            })();
+                            </script>
                             {% elif manual_validation_payment and manual_pending_review %}
                             <div class="alert alert-info text-start mb-4">
                                 <i class="fas fa-hourglass-half"></i>

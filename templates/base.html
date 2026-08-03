@@ -325,6 +325,10 @@
                             <li><a class="dropdown-item" href="{{ url_for('security_matrix.security_matrix_index') }}"><i class="fas fa-shield-alt me-2"></i> Matriz Odoo</a></li>
                             {% endif %}
                             #}
+                            {# API Center: generación de API Keys (Odoo / terceros) #}
+                            {% if nav_can('integrations.manage') and has_view_endpoint('api_center.api_keys') %}
+                            <li><a class="dropdown-item" href="{{ url_for('api_center.api_keys') }}"><i class="fas fa-plug me-2"></i> API Center</a></li>
+                            {% endif %}
                             {% if nav_can('users.view') %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_users') }}"><i class="fas fa-users me-2"></i> Usuarios</a></li>
                             {% endif %}

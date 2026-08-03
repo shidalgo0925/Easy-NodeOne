@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Legal — Easy Technology Services{% endblock %}</title>
   <meta name="robots" content="index,follow">
+  {% set _fav = brand_favicon or 'images/logo-eposone.svg' %}
+  <link rel="icon" href="{{ url_for('static', filename=_fav) }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename=_fav) }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/product-landing.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ets-legal.css') }}">
 </head>

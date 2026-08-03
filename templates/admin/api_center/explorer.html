@@ -1,0 +1,95 @@
+{% extends "admin/api_center/_layout.html" %}
+
+{% block title %}API Explorer - API Center{% endblock %}
+
+{% block api_center_body %}
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header py-2"><strong>Solicitud</strong></div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label" for="apiSelect">API</label>
+                    <select class="form-select" id="apiSelect">
+                        {% for api in apis %}
+                        <option value="{{ api.id }}" data-path="{{ api.path }}" data-method="{{ api.method }}">
+                            {{ api.name }} ({{ api.version }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="keySelect">API Key (org)</label>
+                    <select class="form-select" id="keySelect">
+                        <option value="">— Sin asociar (sesión admin) —</option>
+                        {% for k in keys %}
+                        <option value="{{ k.id }}">{{ k.name }} ({{ k.key_prefix }}…)</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Usa la org de la key para la consulta. No necesita el secreto.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="rawKey">X-API-Key (opcional)</label>
+                    <input type="password" class="form-control font-monospace" id="rawKey" placeholder="enk_… pega aquí para autenticar como el cliente">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="vType">type</label>
+                    <select class="form-select" id="vType">
+                        {% for t in supported_types %}
+                        <option value="{{ t }}">{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="vValue">value</label>
+                    <input type="text" class="form-control" id="vValue" placeholder="correo@ejemplo.com">
+                </div>
+                <button type="button" class="btn btn-sm btn-primary" onclick="executeExplorer()">
+                    <i class="fas fa-play"></i> Ejecutar
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                <strong>Respuesta</strong>
+                <span class="small text-muted" id="metaOut"></span>
+            </div>
+            <div class="card-body">
+                <pre class="bg-light p-3 small mb-0" id="responseOut" style="min-height:12rem;white-space:pre-wrap;">{}</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function executeExplorer() {
+    const payload = {
+        api_id: document.getElementById('apiSelect').value,
+        key_id: document.getElementById('keySelect').value || null,
+        raw_key: document.getElementById('rawKey').value || '',
+        type: document.getElementById('vType').value,
+        value: document.getElementById('vValue').value
+    };
+    if (payload.key_id) payload.key_id = parseInt(payload.key_id, 10);
+    document.getElementById('responseOut').textContent = '…';
+    const res = await fetch('{{ url_for("api_center.api_explorer_execute") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        document.getElementById('metaOut').textContent = 'HTTP ' + res.status;
+        document.getElementById('responseOut').textContent = JSON.stringify(data, null, 2);
+        return;
+    }
+    document.getElementById('metaOut').textContent =
+        (data.method || 'POST') + ' ' + (data.endpoint || '') +
+        ' · HTTP ' + data.http_status +
+        ' · ' + (data.duration_ms || 0) + ' ms · ' + (data.auth_mode || '');
+    document.getElementById('responseOut').textContent = JSON.stringify(data.body, null, 2);
+}
+</script>
+{% endblock %}

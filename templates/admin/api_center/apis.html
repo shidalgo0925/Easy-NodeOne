@@ -1,0 +1,72 @@
+{% extends "admin/api_center/_layout.html" %}
+
+{% block title %}APIs Disponibles - API Center{% endblock %}
+
+{% block api_center_body %}
+<div class="row">
+    <div class="col-12">
+        {% if apis %}
+        <div class="table-responsive">
+            <table class="table table-hover table-sm align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>API</th>
+                        <th>Versión</th>
+                        <th>Estado</th>
+                        <th>Método</th>
+                        <th>Endpoint</th>
+                        <th>Auth</th>
+                        <th>Types</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for api in apis %}
+                    <tr>
+                        <td><strong>{{ api.name }}</strong></td>
+                        <td><code>{{ api.version }}</code></td>
+                        <td>
+                            {% if api.status == 'active' %}
+                            <span class="badge bg-success">Activa</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ api.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td><code>{{ api.method }}</code></td>
+                        <td><code>{{ api.path }}</code></td>
+                        <td><code>{{ api.auth }}</code></td>
+                        <td>
+                            <span class="small">{{ api.supported_types|join(', ') }}</span>
+                            {% if api.reserved_types %}
+                            <div class="text-muted small">Reservados: {{ api.reserved_types|join(', ') }}</div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% for api in apis %}
+        {% if api.id == 'membership_verification' %}
+        <div class="card mt-3">
+            <div class="card-header py-2"><strong>Ejemplo — {{ api.name }}</strong></div>
+            <div class="card-body">
+<pre class="bg-light p-3 small mb-2"><code>POST {{ api.path }}
+X-API-Key: *************
+Content-Type: application/json
+
+{"type": "email", "value": "usuario@dominio.com"}</code></pre>
+                <p class="small text-muted mb-0">
+                    Respuesta encontrada: <code>member.email</code>, <code>member.is_active_member</code>, <code>member.membership.status</code>.
+                    No encontrado: <code>{"success": true, "found": false}</code>. Sin clave: <code>401 Unauthorized</code>.
+                </p>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+        {% else %}
+        <p class="text-muted">No hay APIs publicadas en el catálogo.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

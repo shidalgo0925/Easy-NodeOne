@@ -665,6 +665,28 @@ def register_admin_membership_discounts_blueprint(app):
         print(f'Warning: No se pudo registrar admin_membership_discounts_bp: {e}')
 
 
+def register_membership_verification_module(app):
+    """API B2B membership verification + keys (Relatic EN1)."""
+    try:
+        from nodeone.modules.membership_verification.register import (
+            register_membership_verification_module as _register,
+        )
+
+        _register(app)
+    except Exception as e:
+        print(f'Warning: No se pudo registrar membership_verification: {e}')
+
+
+def register_api_center_module(app):
+    """API Center UI (keys, explorer, logs)."""
+    try:
+        from nodeone.modules.api_center.register import register_api_center_module as _register
+
+        _register(app)
+    except Exception as e:
+        print(f'Warning: No se pudo registrar api_center: {e}')
+
+
 def register_admin_services_catalog_blueprint(app):
     if os.environ.get('NODEONE_SKIP_ADMIN_SERVICES_CATALOG_BLUEPRINT', '').strip().lower() in ('1', 'true', 'yes'):
         return
@@ -1044,6 +1066,8 @@ def register_modules(app):
     register_security_matrix_blueprints(app)
     register_qr_generator_routes(app)
     register_qr_tools_routes(app)
+    register_membership_verification_module(app)
+    register_api_center_module(app)
 
 
 def init_extensions(app):

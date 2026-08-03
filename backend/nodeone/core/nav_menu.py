@@ -640,6 +640,47 @@ def _v_comunicacion(ctx: NavContext) -> bool:
     return ctx.nav_can('integrations.view')
 
 
+def _v_api_center(ctx: NavContext) -> bool:
+    """API Center (B2B) — permiso API Manager; no mezclar con Office365."""
+    return ctx.show_tenant_admin_menu and ctx.nav_can('integrations.manage')
+
+
+_API_CENTER_ITEMS: tuple[NavAreaItem, ...] = (
+    NavAreaItem(
+        'apis',
+        'APIs Disponibles',
+        'fas fa-list',
+        'api_center.apis_available',
+        active_endpoints=('api_center.apis_available',),
+        active_path_prefixes=('/admin/api-center/apis',),
+    ),
+    NavAreaItem(
+        'keys',
+        'API Keys',
+        'fas fa-key',
+        'api_center.api_keys',
+        active_endpoints=('api_center.api_keys', 'api_center.api_keys_create'),
+        active_path_prefixes=('/admin/api-center/keys',),
+    ),
+    NavAreaItem(
+        'explorer',
+        'API Explorer',
+        'fas fa-terminal',
+        'api_center.api_explorer',
+        active_endpoints=('api_center.api_explorer', 'api_center.api_explorer_execute'),
+        active_path_prefixes=('/admin/api-center/explorer',),
+    ),
+    NavAreaItem(
+        'logs',
+        'Registro',
+        'fas fa-history',
+        'api_center.api_logs',
+        active_endpoints=('api_center.api_logs',),
+        active_path_prefixes=('/admin/api-center/logs',),
+    ),
+)
+
+
 def _v_certificados(ctx: NavContext) -> bool:
     """App Certificados (admin): módulo ``certificates``."""
     return ctx.saas_module_enabled('certificates') and ctx.has_view_endpoint(
@@ -859,7 +900,7 @@ _SIDEBAR_LAUNCHER_GROUPS: tuple[NavLauncherGroup, ...] = (
     ),
     NavLauncherGroup('finanzas', 'Finanzas', 'fas fa-file-invoice-dollar', ('finanzas',)),
     NavLauncherGroup('inteligencia', 'Inteligencia', 'fas fa-chart-line', ('analitica',)),
-    NavLauncherGroup('sistema', 'Sistema', 'fas fa-server', ('plataforma',)),
+    NavLauncherGroup('sistema', 'Sistema', 'fas fa-server', ('api_center', 'plataforma')),
 )
 
 
@@ -1316,6 +1357,22 @@ APP_AREAS: tuple[NavArea, ...] = (
             _nav_menu_dropdown('canales', 'Canales', 'fas fa-comments', _COMUNICACION_CANALES_ITEMS),
         ),
     ),
+    NavArea(
+        id='api_center',
+        label='API Center',
+        icon='fas fa-plug',
+        visible=_v_api_center,
+        show_in_sidebar=True,
+        zone_blueprints=('api_center',),
+        zone_path_prefixes=('/admin/api-center',),
+        zone_endpoints=(
+            'api_center.apis_available',
+            'api_center.api_keys',
+            'api_center.api_explorer',
+            'api_center.api_logs',
+        ),
+        items=_API_CENTER_ITEMS,
+    ),
 )
 
 
@@ -1550,6 +1607,14 @@ def _in_comunicacion_zone() -> bool:
     )
 
 
+def _in_api_center_zone() -> bool:
+    if not has_request_context():
+        return False
+    bp = getattr(request, 'blueprint', None) or ''
+    path = request.path or ''
+    return bp == 'api_center' or path.startswith('/admin/api-center')
+
+
 def _resolve_educacion_zone_area_id(ctx: NavContext) -> str | None:
     """Rutas LMS / inscripción académica pertenecen a Educación, no a Ventas."""
     if not has_request_context():
@@ -1584,6 +1649,8 @@ def resolve_module_bar_area_id(ctx: NavContext) -> str | None:
         return 'contador'
     if _in_comunicacion_zone() and _v_comunicacion(ctx):
         return 'comunicacion'
+    if _in_api_center_zone() and _v_api_center(ctx):
+        return 'api_center'
     pay_area = _payments_nav_area_id(ctx)
     if pay_area:
         return pay_area

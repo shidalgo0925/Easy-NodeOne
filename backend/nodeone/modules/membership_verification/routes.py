@@ -6,13 +6,13 @@ import time
 
 from flask import Blueprint, g, jsonify, request
 
-from nodeone.services import integration_api_keys as keys_svc
-from nodeone.services.membership_verification import (
-    MembershipVerificationError,
-    verify,
-)
-
 membership_verification_bp = Blueprint('membership_verification', __name__)
+
+
+def _keys_svc():
+    from nodeone.services import integration_api_keys as keys_svc
+
+    return keys_svc
 
 
 def _client_ip() -> str | None:
@@ -22,6 +22,12 @@ def _client_ip() -> str | None:
 
 @membership_verification_bp.route('/api/v1/membership/verification', methods=['POST'])
 def membership_verification():
+    from nodeone.services.membership_verification import (
+        MembershipVerificationError,
+        verify,
+    )
+
+    keys_svc = _keys_svc()
     t0 = time.perf_counter()
     endpoint = '/api/v1/membership/verification'
     api_key_row = None
@@ -51,7 +57,11 @@ def membership_verification():
         vtype = data.get('type')
         value = data.get('value')
         try:
-            body = verify(type=str(vtype or ''), value=str(value if value is not None else ''), organization_id=org_id)
+            body = verify(
+                type=str(vtype or ''),
+                value=str(value if value is not None else ''),
+                organization_id=org_id,
+            )
             status = 200
             if not body.get('found'):
                 result_label = 'not_found'
@@ -94,16 +104,11 @@ def membership_verification():
 
 
 def register_membership_verification(app) -> None:
-    from nodeone.services.integration_api_keys import (
-        bootstrap_env_key_into_db_if_empty,
-        ensure_api_manager_permission,
-        ensure_integration_api_tables,
-    )
-
     try:
-        ensure_integration_api_tables()
-        ensure_api_manager_permission()
-        bootstrap_env_key_into_db_if_empty()
+        keys_svc = _keys_svc()
+        keys_svc.ensure_integration_api_tables()
+        keys_svc.ensure_api_manager_permission()
+        keys_svc.bootstrap_env_key_into_db_if_empty()
     except Exception:
         pass
 

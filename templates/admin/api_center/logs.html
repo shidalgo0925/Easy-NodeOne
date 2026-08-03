@@ -1,0 +1,50 @@
+{% extends "admin/api_center/_layout.html" %}
+
+{% block title %}Registro - API Center{% endblock %}
+
+{% block api_center_body %}
+<div class="table-responsive">
+    <table class="table table-hover table-sm align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Fecha</th>
+                <th>Endpoint</th>
+                <th>Key</th>
+                <th>IP</th>
+                <th>HTTP</th>
+                <th>ms</th>
+                <th>Resultado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td class="small text-nowrap">{{ fmt_dt(log.created_at) }}</td>
+                <td><code class="small">{{ log.endpoint }}</code></td>
+                <td class="small">
+                    {% set k = key_map.get(log.api_key_id) if log.api_key_id else None %}
+                    {% if k %}{{ k.name }} <code>{{ k.key_prefix }}…</code>
+                    {% elif log.api_key_id %}#{{ log.api_key_id }}
+                    {% else %}—
+                    {% endif %}
+                </td>
+                <td class="small">{{ log.client_ip or '—' }}</td>
+                <td>
+                    {% if log.http_status >= 200 and log.http_status < 300 %}
+                    <span class="badge bg-success">{{ log.http_status }}</span>
+                    {% elif log.http_status == 401 %}
+                    <span class="badge bg-warning text-dark">{{ log.http_status }}</span>
+                    {% else %}
+                    <span class="badge bg-secondary">{{ log.http_status }}</span>
+                    {% endif %}
+                </td>
+                <td class="small">{{ log.duration_ms if log.duration_ms is not none else '—' }}</td>
+                <td class="small">{{ log.result or '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-muted">Sin registros de consumo todavía.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

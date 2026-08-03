@@ -167,6 +167,80 @@ def create_api_key(
     return row, raw
 
 
+def list_api_keys(organization_id: int) -> list[IntegrationApiKey]:
+    ensure_integration_api_tables()
+    return (
+        IntegrationApiKey.query.filter_by(organization_id=int(organization_id))
+        .order_by(IntegrationApiKey.created_at.desc())
+        .all()
+    )
+
+
+def get_api_key_for_org(key_id: int, organization_id: int) -> IntegrationApiKey | None:
+    ensure_integration_api_tables()
+    return IntegrationApiKey.query.filter_by(
+        id=int(key_id), organization_id=int(organization_id)
+    ).first()
+
+
+def regenerate_api_key(row: IntegrationApiKey) -> str:
+    """Rota hash/prefix; el secreto anterior deja de valer. Retorna raw nuevo."""
+    raw, prefix, khash = generate_raw_api_key()
+    row.key_prefix = prefix
+    row.key_hash = khash
+    row.status = 'active'
+    row.revoked_at = None
+    row.last_used_at = None
+    row.updated_at = datetime.utcnow()
+    db.session.commit()
+    return raw
+
+
+def set_api_key_status(row: IntegrationApiKey, status: str) -> IntegrationApiKey:
+    st = (status or '').strip().lower()
+    if st not in ('active', 'disabled', 'revoked'):
+        raise ValueError('invalid_status')
+    row.status = st
+    row.updated_at = datetime.utcnow()
+    if st == 'revoked':
+        row.revoked_at = datetime.utcnow()
+    elif st == 'active':
+        row.revoked_at = None
+    db.session.commit()
+    return row
+
+
+def list_access_logs(
+    organization_id: int,
+    *,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[IntegrationApiAccessLog]:
+    ensure_integration_api_tables()
+    lim = max(1, min(int(limit or 100), 500))
+    off = max(0, int(offset or 0))
+    return (
+        IntegrationApiAccessLog.query.filter_by(organization_id=int(organization_id))
+        .order_by(IntegrationApiAccessLog.created_at.desc())
+        .offset(off)
+        .limit(lim)
+        .all()
+    )
+
+
+def key_public_dict(row: IntegrationApiKey) -> dict[str, Any]:
+    return {
+        'id': row.id,
+        'name': row.name,
+        'description': row.description,
+        'key_prefix': row.key_prefix,
+        'status': row.status,
+        'created_at': row.created_at.isoformat() + 'Z' if row.created_at else None,
+        'last_used_at': row.last_used_at.isoformat() + 'Z' if row.last_used_at else None,
+        'revoked_at': row.revoked_at.isoformat() + 'Z' if row.revoked_at else None,
+    }
+
+
 def ensure_api_manager_permission() -> None:
     from models.users import Permission
 

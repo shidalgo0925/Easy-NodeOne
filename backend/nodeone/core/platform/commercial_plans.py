@@ -96,21 +96,64 @@ FEATURE_CATALOG: dict[str, dict[str, Any]] = {
 }
 
 # Planes comerciales oficiales (landing + licencia)
-_PLAN_ORDER = ('starter', 'business', 'enterprise')
+# standalone = modalidad local (sin trial automático); starter/business/enterprise = conectados
+_PLAN_ORDER = ('standalone', 'starter', 'business', 'enterprise')
 
 _COMMERCIAL_PLANS: dict[str, dict[str, Any]] = {
+    'standalone': {
+        'code': 'standalone',
+        'name': 'Standalone',
+        'description': (
+            'Modalidad local para pequeños comercios con un solo punto de venta. '
+            'Activación al contratar · Sin prueba automática.'
+        ),
+        'eyebrow': 'Modalidad local',
+        'price_monthly': 15.00,
+        'price_annual': 150.00,
+        'currency': 'USD',
+        'status': 'active',
+        'modality': 'local',
+        'trial_days': 0,
+        'resource_limits': {
+            'branches': 1,
+            'pos': 1,
+            'registers': 1,
+            'tablets': 1,
+            'cashiers': 2,
+            'products': 500,
+            'customers': 500,
+        },
+        'features': {
+            'inventory': True,
+            'customers': True,
+            'open_tickets': True,
+            'multi_payment': True,
+            'offline': True,
+            'fiscal': False,
+            'kds': False,
+            'delivery': False,
+            'promotions': False,
+            'multi_branch': False,
+            'advanced_reports': False,
+            'api': False,
+            'cloud_backup': False,
+            'web_admin': False,
+            'dashboard': 'basic',
+        },
+    },
     'starter': {
         'code': 'starter',
         'name': 'Starter',
         'description': (
-            'Ideal para emprendedores y pequeños comercios que necesitan un punto de venta '
-            'profesional, sencillo y confiable.'
+            'Para emprendedores y pequeños comercios que desean empezar con control y respaldo.'
         ),
-        'eyebrow': 'Emprendedores y pequeños comercios',
+        'eyebrow': 'Modalidad conectada',
         'price_monthly': 29.95,
         'price_annual': 299.50,
         'currency': 'USD',
         'status': 'active',
+        'modality': 'connected',
+        'trial_days': 15,
         'resource_limits': {
             'branches': 1,
             'pos': 1,
@@ -133,24 +176,28 @@ _COMMERCIAL_PLANS: dict[str, dict[str, Any]] = {
             'multi_branch': False,
             'advanced_reports': False,
             'api': False,
+            'cloud_backup': True,
+            'web_admin': True,
             'dashboard': 'basic',
         },
     },
     'business': {
         'code': 'business',
         'name': 'Business',
-        'description': 'Ideal para restaurantes, cafeterías y comercios con mayor volumen de ventas.',
-        'eyebrow': 'Restaurantes, cafeterías y comercios establecidos',
-        'price_monthly': 49.95,
-        'price_annual': 499.50,
+        'description': 'Para restaurantes, cafeterías y comercios en crecimiento.',
+        'eyebrow': 'Más elegido · Conectada',
+        'price_monthly': 39.95,
+        'price_annual': 399.50,
         'currency': 'USD',
         'status': 'active',
         'featured': True,
+        'modality': 'connected',
+        'trial_days': 15,
         'resource_limits': {
-            'branches': 3,
+            'branches': 1,
             'pos': 3,
-            'registers': 5,
-            'tablets': 5,
+            'registers': 3,
+            'tablets': 3,
             'cashiers': 20,
             'products': 5000,
             'customers': 5000,
@@ -165,21 +212,25 @@ _COMMERCIAL_PLANS: dict[str, dict[str, Any]] = {
             'kds': True,
             'delivery': True,
             'promotions': True,
-            'multi_branch': True,
+            'multi_branch': False,
             'advanced_reports': True,
             'api': False,
+            'cloud_backup': True,
+            'web_admin': True,
             'dashboard': 'full',
         },
     },
     'enterprise': {
         'code': 'enterprise',
         'name': 'Enterprise',
-        'description': 'Ideal para empresas con múltiples sucursales o necesidades avanzadas.',
-        'eyebrow': 'Múltiples sucursales o necesidades avanzadas',
+        'description': 'Para empresas con múltiples sucursales o necesidades avanzadas.',
+        'eyebrow': 'Multi-sucursal · Conectada',
         'price_monthly': 79.95,
         'price_annual': 799.50,
         'currency': 'USD',
         'status': 'active',
+        'modality': 'connected',
+        'trial_days': 15,
         'resource_limits': {
             'branches': -1,
             'pos': -1,
@@ -202,6 +253,8 @@ _COMMERCIAL_PLANS: dict[str, dict[str, Any]] = {
             'multi_branch': True,
             'advanced_reports': True,
             'api': True,
+            'cloud_backup': True,
+            'web_admin': True,
             'dashboard': 'full',
         },
     },

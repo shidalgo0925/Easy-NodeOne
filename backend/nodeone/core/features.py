@@ -762,6 +762,7 @@ def register_events_blueprints(app):
         return
     try:
         from nodeone.modules.events.routes import admin_events_bp, events_api_bp, events_bp
+        from nodeone.modules.events.user_certificates_routes import my_event_certificates_bp
         from saas_features import register_events_saas_guards
 
         if 'events' not in app.blueprints:
@@ -769,6 +770,8 @@ def register_events_blueprints(app):
             app.register_blueprint(events_bp)
             app.register_blueprint(admin_events_bp)
             app.register_blueprint(events_api_bp)
+        if 'my_event_certificates' not in app.blueprints:
+            app.register_blueprint(my_event_certificates_bp)
     except ImportError as e:
         print(f'Warning: No se pudieron registrar los blueprints de eventos: {e}')
 
@@ -778,29 +781,9 @@ def register_certificates_blueprints(app):
     if os.environ.get('NODEONE_SKIP_CERTIFICATES_MODULE', '').strip().lower() in ('1', 'true', 'yes'):
         return
     try:
-        from certificate_routes import (
-            certificates_api_bp,
-            certificates_page_bp,
-            certificates_public_bp,
-        )
-        from certificate_template_routes import certificate_templates_bp
-        from certificates_builder.routes import certificates_builder_bp, certificates_builder_page_bp
-        from saas_features import register_certificates_saas_guards
+        from nodeone.modules.certificates.register import register_certificates_blueprints as _register_certificates
 
-        if 'certificates_api' not in app.blueprints:
-            register_certificates_saas_guards(
-                certificates_api_bp,
-                certificates_page_bp,
-                certificate_templates_bp,
-                certificates_builder_bp,
-                certificates_builder_page_bp,
-            )
-            app.register_blueprint(certificates_api_bp)
-            app.register_blueprint(certificates_public_bp)
-            app.register_blueprint(certificates_page_bp)
-            app.register_blueprint(certificate_templates_bp)
-            app.register_blueprint(certificates_builder_bp)
-            app.register_blueprint(certificates_builder_page_bp)
+        _register_certificates(app)
     except ImportError as e:
         print(f'Warning: No se pudieron registrar los blueprints de certificados: {e}')
 

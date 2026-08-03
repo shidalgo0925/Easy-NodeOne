@@ -14,7 +14,7 @@
                     <i class="fas fa-plus me-1"></i> Nueva plantilla
                 </a>
             </div>
-            <p class="text-muted small mb-0">Crea plantillas tipo Canva (arrastrar y soltar). Luego asígnalas a un formato de certificado para generar PDFs.</p>
+            <p class="text-muted small mb-0">Editor visual tipo Canva: arrastrá textos, variables, imágenes y QR. Los certificados de evento usan la misma plantilla visual.</p>
         </div>
     </div>
 
@@ -31,6 +31,7 @@
                     <thead>
                         <tr>
                             <th>Nombre</th>
+                            <th>Tipo</th>
                             <th>Tamaño</th>
                             <th>Actualizado</th>
                             <th>Acciones</th>
@@ -61,15 +62,27 @@
                 loadingEl.classList.add('d-none');
                 wrapEl.classList.remove('d-none');
                 if (!data.items || !data.items.length) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="text-muted">No hay plantillas. Crea una con "Nueva plantilla".</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-muted">No hay plantillas. Crea una visual con "Nueva plantilla" o habilita certificados en un evento para generar la institucional.</td></tr>';
                     return;
                 }
                 tbody.innerHTML = data.items.map(t => {
                     const size = (t.width || 1024) + '×' + (t.height || 768);
                     const updated = t.updated_at ? new Date(t.updated_at).toLocaleDateString() : '—';
-                    return '<tr><td>' + (t.name || '—') + '</td><td>' + size + '</td><td>' + updated + '</td><td>' +
-                        '<a href="/admin/certificate-templates/editor/' + t.id + '" class="btn btn-sm btn-outline-primary me-1">Editar</a>' +
-                        '<button type="button" class="btn btn-sm btn-outline-danger" data-id="' + t.id + '" onclick="deleteTemplate(' + t.id + ')">Eliminar</button></td></tr>';
+                    const kind = t.kind_label || 'Visual (Canva)';
+                    const kindBadge = t.event_id
+                        ? '<span class="badge bg-info text-dark">Evento</span>'
+                        : '<span class="badge bg-secondary">General</span>';
+                    const editHref = t.edit_path || ('/admin/certificate-templates/editor/' + t.id);
+                    const activeNote = t.event_id ? ' <span class="badge bg-success">Activa evento #' + t.event_id + '</span>' : '';
+                    const delBtn = t.event_id ? '' :
+                        '<button type="button" class="btn btn-sm btn-outline-danger" data-id="' + t.id + '" onclick="deleteTemplate(' + t.id + ')">Eliminar</button>';
+                    const linkBtn = t.event_id ? '' :
+                        '<button type="button" class="btn btn-sm btn-outline-warning me-1" onclick="linkTemplateToEvent(' + t.id + ')">Vincular evento</button>';
+                    return '<tr><td>' + (t.name || '—') + activeNote + '</td><td>' + kindBadge + ' <span class="small text-muted">' + kind + '</span></td><td>' + size + '</td><td>' + updated + '</td><td>' +
+                        linkBtn +
+                        '<a href="' + editHref + '" class="btn btn-sm btn-outline-primary me-1">Editar</a>' +
+                        '<button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="duplicateTemplate(' + t.id + ')"><i class="fas fa-copy me-1"></i>Duplicar</button>' +
+                        delBtn + '</td></tr>';
                 }).join('');
             })
             .catch(e => {
@@ -77,6 +90,37 @@
                 showAlert('Error al cargar plantillas: ' + e.message, 'danger');
             });
     }
+
+    window.linkTemplateToEvent = function(id) {
+        var eid = prompt('ID del evento a vincular (ej. 2):');
+        if (!eid) return;
+        fetch('/api/templates/' + id + '/link-event', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event_id: parseInt(eid, 10) })
+        }).then(r => r.json()).then(data => {
+            if (data.success) {
+                showAlert('Plantilla #' + id + ' vinculada al evento #' + data.event_id, 'success');
+                loadTemplates();
+            } else showAlert(data.error || 'Error', 'danger');
+        }).catch(e => showAlert('Error: ' + e.message, 'danger'));
+    };
+
+    window.duplicateTemplate = function(id) {
+        if (!confirm('¿Duplicar esta plantilla? Se creará una copia independiente.')) return;
+        fetch('/api/templates/' + id + '/duplicate', { method: 'POST', credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.item) {
+                    showAlert('Plantilla duplicada: <strong>' + (data.item.name || '') + '</strong>', 'success');
+                    loadTemplates();
+                } else {
+                    showAlert(data.error || 'Error al duplicar', 'danger');
+                }
+            })
+            .catch(e => showAlert('Error: ' + e.message, 'danger'));
+    };
 
     window.deleteTemplate = function(id) {
         if (!confirm('¿Eliminar esta plantilla?')) return;

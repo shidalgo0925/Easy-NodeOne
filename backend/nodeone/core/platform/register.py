@@ -47,6 +47,9 @@ def register_platform_core(app) -> None:
     from nodeone.modules.eposone_start.register import register_eposone_start
 
     register_eposone_start(app)
+    from nodeone.modules.membership_verification.register import register_membership_verification_module
+
+    register_membership_verification_module(app)
     from nodeone.core.sync.routes import register_platform_sync_blueprint
 
     register_platform_sync_blueprint(app)

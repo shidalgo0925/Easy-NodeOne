@@ -306,9 +306,11 @@
                             {% endif %}
                             {% if nav_can('system.settings.view') %}
                             <li><a class="dropdown-item" href="{{ url_for('media_admin.admin_media') }}"><i class="fas fa-photo-video me-2"></i> Multimedia</a></li>
+                            {# Relatic EN1: ocultar IA del menú tenant
                             {% if saas_module_enabled('chatbot') %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_ai') }}"><i class="fas fa-robot me-2"></i> IA</a></li>
                             {% endif %}
+                            #}
                             {% if has_view_endpoint('admin_ecalendar_settings_page') %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_ecalendar_settings_page') }}"><i class="fas fa-calendar-check me-2"></i> Agenda ECalendar</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('admin_ecalendar_appointments_page') }}"><i class="fas fa-list me-2"></i> Gestionar citas ECalendar</a></li>
@@ -318,9 +320,11 @@
                             {% if saas_module_enabled('rbac_matrix') and nav_can('roles.view') and has_view_endpoint('admin_roles_matrix') %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_roles_matrix') }}"><i class="fas fa-th me-2"></i> Permisos</a></li>
                             {% endif %}
+                            {# Relatic EN1: ocultar Matriz Odoo del menú tenant
                             {% if saas_module_enabled('security_matrix') and has_view_endpoint('security_matrix.security_matrix_index') and nav_can('security_matrix.admin') %}
                             <li><a class="dropdown-item" href="{{ url_for('security_matrix.security_matrix_index') }}"><i class="fas fa-shield-alt me-2"></i> Matriz Odoo</a></li>
                             {% endif %}
+                            #}
                             {% if nav_can('users.view') %}
                             <li><a class="dropdown-item" href="{{ url_for('admin_users') }}"><i class="fas fa-users me-2"></i> Usuarios</a></li>
                             {% endif %}

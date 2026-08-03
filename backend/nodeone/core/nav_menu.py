@@ -740,11 +740,13 @@ def _v_plataforma(ctx: NavContext) -> bool:
 
 
 def _v_security_matrix(ctx: NavContext) -> bool:
-    return (
-        ctx.saas_module_enabled('security_matrix')
-        and ctx.has_view_endpoint('security_matrix.security_matrix_index')
-        and ctx.nav_can('security_matrix.admin')
-    )
+    # Relatic EN1: Matriz Odoo oculta del menú (código conservado).
+    return False
+    # return (
+    #     ctx.saas_module_enabled('security_matrix')
+    #     and ctx.has_view_endpoint('security_matrix.security_matrix_index')
+    #     and ctx.nav_can('security_matrix.admin')
+    # )
 
 
 def _v_en1_roles_matrix(ctx: NavContext) -> bool:

@@ -4,15 +4,15 @@
 |-------|--------|
 | ID | **ADR-024** |
 | Título | Asistente de Inicio EPosOne (puerta comercial oficial unificada) |
-| Estado | **Aprobado** · Diseño entregado · **Implementación Dev** (`/start`) · Local/deploy pendientes de GO |
+| Estado | **Aprobado** · `/start` **en PROD** (`e56bb96`) · **Play Store NO listo** · falta `GO Local` |
 | Fecha | 2026-08-03 |
 | Producto | EPosOne |
 | Arquitectura | EN1 (invisible) + Portal EPosOne + Aplicación Android |
 | Responsable Portal | **CODITO** |
 | Responsable APK | **LOCAL** |
 | Numeración | **No** usar ADR-019 (ocupado por Jerarquía Administrativa). Este es **ADR-024**. |
-| Relacionados | [`EN1_PLATFORM_CONSTITUTION_V1.md`](EN1_PLATFORM_CONSTITUTION_V1.md) · [ADR-023 Trial/Grace](ADR-023-EPOSONE-TRIAL-SUBSCRIPTION-GRACE.md) · Centro legal `/legal/*` · Planes landing EPosOne |
-| Este GO | **GO docs** · **GO diseño** · **GO implementación** (Dev EN1: módulo `eposone_start`, ruta `/start`). **Pendiente:** `GO Local` · `GO deploy`. |
+| Relacionados | [`EN1_PLATFORM_CONSTITUTION_V1.md`](EN1_PLATFORM_CONSTITUTION_V1.md) · [ADR-023 Trial/Grace](ADR-023-EPOSONE-TRIAL-SUBSCRIPTION-GRACE.md) · Centro legal `/legal/*` · Planes landing EPosOne · handoff [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
+| Este GO | **GO docs** · **GO diseño** · **GO implementación** · **GO deploy** (prod `/start`). **Pendiente:** `GO Local` (APK / Play Store). |
 
 ---
 
@@ -25,8 +25,8 @@ No implementar, no crear rutas, no tocar modelos, no modificar servicios, no des
 | `GO docs` | Esta documentación (completada) |
 | `GO diseño` | Wireframes / UX / copy / preview (completado) |
 | `GO implementación` | Código solo en Dev EN1 (**hecho**: `/start`) |
-| `GO Local` | Handoff con LOCAL |
-| `GO deploy` | Despliegue al silo indicado |
+| `GO deploy` | Staging + prod (**hecho** 3 ago 2026 — `e56bb96`) |
+| `GO Local` | Handoff con LOCAL / Play Store (**pendiente** — **no** publicar APK aún) |
 
 Cada GO autoriza **solo** la fase indicada. El silencio no es autorización.
 
@@ -613,8 +613,9 @@ QR → tipo → recomendación → aceptar/cambiar → acceso → negocio → le
 | ADR-024 formal | **Entregado** (este documento) |
 | Diagrama Mermaid Capa A + B | **Incluido** (§25) |
 | Flujo, límites, handoff conceptual, precios, trial | **Incluidos** |
-| Código / `/start` / UI (Dev) | **Hecho** (GO implementación) |
-| Deploy / Local | **Pendiente** — requiere `GO deploy` / `GO Local` |
+| Código / `/start` / UI | **Hecho** (Dev + **prod**) |
+| Deploy | **Hecho** (`GO deploy` 3 ago 2026) |
+| Local / Play Store | **Pendiente** — **no listos**; requiere `GO Local` |
 
 ---
 

@@ -8,6 +8,7 @@
 | Cajero Hito 2.5 | [`EPOSONE_EN1_HITO2_5_CASHIER_CONTRACT.md`](EPOSONE_EN1_HITO2_5_CASHIER_CONTRACT.md) |
 | Handoff | [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
 | Foco P2 | Consumir contratos H3 + H2.5 · no inventar Pedido ni PIN plano |
+| **Play Store** | **NO listo** (3 ago 2026) · embudo web `/start` en prod · falta `GO Local` / AAB · ver handoff |
 
 ---
 

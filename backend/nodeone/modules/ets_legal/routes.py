@@ -12,14 +12,32 @@ ets_legal_bp = Blueprint('ets_legal', __name__, url_prefix='/legal')
 def _brand_bits() -> dict:
     try:
         from nodeone.core.platform.context_resolver import current_app_context
+        from nodeone.core.platform.product_registry import ProductRegistry
+        from nodeone.services.nav_branding import brand_context_logo_relpath
 
         ctx = current_app_context()
+        product_code = (ctx.product.code if ctx.product else '') or ''
+        defn = ProductRegistry.get(product_code) if product_code else None
+        favicon = ''
+        if defn is not None:
+            favicon = (defn.favicon_url or defn.icon or defn.logo_url or '') or ''
+        if not favicon:
+            favicon = brand_context_logo_relpath() or ''
+        if not favicon and product_code == 'eposone':
+            favicon = 'images/logo-eposone.svg'
+        if not favicon:
+            favicon = 'images/logo-easy-technology-services.png'
         return {
             'brand_name': ctx.display_name or 'Easy Technology Services',
-            'product_code': (ctx.product.code if ctx.product else '') or '',
+            'product_code': product_code,
+            'brand_favicon': favicon,
         }
     except Exception:
-        return {'brand_name': 'Easy Technology Services', 'product_code': ''}
+        return {
+            'brand_name': 'Easy Technology Services',
+            'product_code': '',
+            'brand_favicon': 'images/logo-easy-technology-services.png',
+        }
 
 
 @ets_legal_bp.route('/')
@@ -30,6 +48,7 @@ def legal_index():
         pages=LEGAL_PAGES,
         brand_name=bits['brand_name'],
         product_code=bits['product_code'],
+        brand_favicon=bits['brand_favicon'],
     )
 
 
@@ -45,6 +64,7 @@ def legal_page(slug: str):
         pages=LEGAL_PAGES,
         brand_name=bits['brand_name'],
         product_code=bits['product_code'],
+        brand_favicon=bits['brand_favicon'],
     )
 
 

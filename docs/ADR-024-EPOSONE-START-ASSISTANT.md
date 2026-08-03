@@ -12,7 +12,7 @@
 | Responsable APK | **LOCAL** |
 | Numeración | **No** usar ADR-019 (ocupado por Jerarquía Administrativa). Este es **ADR-024**. |
 | Relacionados | [`EN1_PLATFORM_CONSTITUTION_V1.md`](EN1_PLATFORM_CONSTITUTION_V1.md) · [ADR-023 Trial/Grace](ADR-023-EPOSONE-TRIAL-SUBSCRIPTION-GRACE.md) · Centro legal `/legal/*` · Planes landing EPosOne |
-| Este GO | **GO docs** — solo documentación. **Prohibido:** código, rutas, modelos, servicios, UI, deploy, Local, producción. |
+| Este GO | **GO docs** entregado · **GO diseño** entregado en [`eposone-start-assistant/DESIGN.md`](eposone-start-assistant/DESIGN.md) · Preview [`wireframes/index.html`](eposone-start-assistant/wireframes/index.html). **Prohibido aún:** implementación, Local, deploy. |
 
 ---
 

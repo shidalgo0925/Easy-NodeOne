@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wireframes — Asistente de Inicio EPosOne</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <aside class="panel">
+      <h1>Asistente de Inicio EPosOne</h1>
+      <p>Preview de diseño (ADR-024). No es la app en producción. Navegá las pantallas.</p>
+      <button type="button" class="nav is-active" data-go="1">1 · Bienvenida</button>
+      <button type="button" class="nav" data-go="2">2 · Tipo de negocio</button>
+      <button type="button" class="nav" data-go="3">3 · Recomendación</button>
+      <button type="button" class="nav" data-go="4">4 · Otras opciones</button>
+      <button type="button" class="nav" data-go="5">5 · Crear acceso</button>
+      <button type="button" class="nav" data-go="6">6 · Datos del negocio</button>
+      <button type="button" class="nav" data-go="7">7 · Resumen + legal</button>
+      <button type="button" class="nav" data-go="8">8 · Confirmación WOW</button>
+      <button type="button" class="nav" data-go="9">9 · Guía Play Store</button>
+      <p class="meta">
+        Branding EPosOne · Recomienda, no obliga · Sin EN1 · Sin config POS<br />
+        Ver también: ../DESIGN.md
+      </p>
+    </aside>
+
+    <div>
+      <div class="phone" id="phone">
+        <div class="topbar">
+          <div class="brand"><span class="brand-mark" aria-hidden="true"></span> EPosOne</div>
+          <button type="button" class="btn-ghost" id="btn-back" hidden>Atrás</button>
+        </div>
+        <div class="stage">
+          <div class="stage-bar" id="stage-bar">
+            <span data-s="1"></span><span data-s="2"></span><span data-s="3"></span><span data-s="4"></span>
+          </div>
+          <div class="stage-label" id="stage-label">Tu negocio</div>
+        </div>
+
+        <!-- 1 -->
+        <section class="screen is-visible" data-screen="1">
+          <div class="content">
+            <h2>Empieza con EPosOne</h2>
+            <p class="lead">Prepara tu negocio y descarga tu punto de venta en pocos minutos.</p>
+            <div class="reco">
+              <p class="eyebrow">Asistente de Inicio</p>
+              <p style="margin:0.5rem 0 0;color:#64748b;font-size:0.9rem;">
+                Te guiaremos: tu negocio → recomendación → tu acceso → descargar la app.
+              </p>
+            </div>
+          </div>
+          <div class="footer-cta">
+            <button type="button" class="btn btn-primary" data-next="2">Comenzar</button>
+          </div>
+        </section>
+
+        <!-- 2 -->
+        <section class="screen" data-screen="2">
+          <div class="content">
+            <h2>¿Qué tipo de negocio tienes?</h2>
+            <p class="lead">Así te recomendamos la mejor forma de empezar.</p>
+            <div class="grid-types" id="types">
+              <button type="button" class="chip" data-type="Restaurante">Restaurante</button>
+              <button type="button" class="chip is-selected" data-type="Cafetería">Cafetería</button>
+              <button type="button" class="chip" data-type="Bar">Bar</button>
+              <button type="button" class="chip" data-type="Tienda">Tienda</button>
+              <button type="button" class="chip" data-type="Mini súper">Mini súper</button>
+              <button type="button" class="chip" data-type="Farmacia">Farmacia</button>
+              <button type="button" class="chip" data-type="Servicios">Servicios</button>
+              <button type="button" class="chip" data-type="Otro">Otro</button>
+            </div>
+          </div>
+          <div class="footer-cta">
+            <button type="button" class="btn btn-primary" data-next="3">Continuar</button>
+          </div>
+        </section>
+
+        <!-- 3 -->
+        <section class="screen" data-screen="3">
+          <div class="content">
+            <h2>Tu recomendación</h2>
+            <p class="lead" id="reco-lead">Para una cafetería como la tuya recomendamos EPosOne Business.</p>
+            <div class="reco">
+              <p class="eyebrow">Administra tu negocio desde cualquier lugar</p>
+              <p style="margin:0;font-weight:800;font-size:1.15rem;">EPosOne Business</p>
+              <p class="price">USD 39.95 <span style="font-size:0.85rem;font-weight:600;color:#64748b;">/ mes</span></p>
+              <span class="badge">15 días gratis · Sin tarjeta</span>
+              <p style="margin:0.75rem 0 0;color:#64748b;font-size:0.88rem;">
+                Ideal para cafeterías y restaurantes: hasta 3 puntos de venta, sincronización y administración desde cualquier lugar.
+              </p>
+              <p style="margin:0.5rem 0 0;font-size:0.75rem;color:#94a3b8;">Etiqueta: EPosOne conectado</p>
+            </div>
+          </div>
+          <div class="footer-cta">
+            <button type="button" class="btn btn-primary" data-next="5">Usar esta recomendación</button>
+            <button type="button" class="btn btn-secondary" data-next="4">Ver otras opciones</button>
+          </div>
+        </section>
+
+        <!-- 4 -->
+        <section class="screen" data-screen="4">
+          <div class="content">
+            <h2>Elige cómo quieres empezar</h2>
+            <p class="lead">Compara solo lo esencial. Puedes cambiar después según tu crecimiento.</p>
+            <div style="display:grid;gap:0.55rem;">
+              <button type="button" class="card-opt" data-plan="standalone"><strong>Standalone</strong> · USD 15.00/mes<small>Opera localmente · Activación inmediata</small></button>
+              <button type="button" class="card-opt" data-plan="starter"><strong>Starter</strong> · USD 29.95/mes<small>Conectado · 15 días gratis · 1 POS</small></button>
+              <button type="button" class="card-opt is-selected" data-plan="business"><strong>Business</strong> · USD 39.95/mes<small>Conectado · 15 días gratis · Hasta 3 POS</small></button>
+              <button type="button" class="card-opt" data-plan="enterprise"><strong>Enterprise</strong> · USD 79.95/mes<small>Multi-sucursal · 15 días gratis</small></button>
+            </div>
+          </div>
+          <div class="footer-cta">
+            <button type="button" class="btn btn-primary" data-next="5">Continuar con esta opción</button>
+            <button type="button" class="btn btn-ghost" data-next="3">Volver a la recomendación</button>
+          </div>
+        </section>
+
+        <!-- 5 -->
+        <section class="screen" data-screen="5">
+          <div class="content">
+            <h2>Crea tu acceso</h2>
+            <p class="lead">Solo lo necesario para entrar a EPosOne.</p>
+            <div class="field"><label>Nombre</label><input placeholder="Tu nombre" /></div>
+            <div class="field"><label>Correo</label><input type="email" placeholder="correo@negocio.com" /></div>
+            <div class="field"><label>Contraseña</label><input type="password" placeholder="••••••••" /></div>
+          </div>
+          <div class="footer-cta">
+            <button type="button" class="btn btn-primary" data-next="6">Continuar</button>
+          </div>
+        </section>
+
+        <!-- 6 -->
+        <section class="screen" data-screen="6">
+          <div class="content">
+            <h2>¿Cómo se llama tu negocio?</h2>
+            <p class="lead">Datos mínimos. La configuración del POS viene después, en la app.</p>
+            <div class="field"><label>Nombre del negocio</label><input placeholder="Ej. Café Aurora" value="Café Aurora" /></div>
+            <div class="field"><label>País</label><input value="Panamá" /></div>
+            <div class="field"><label>Tipo</label><input value="Cafetería" readonly /></div>
+          </div>
+          <div class="footer-cta">
+            <button type="button" class="btn btn-primary" data-next="7">Continuar</button>
+          </div>
+        </section>
+
+        <!-- 7 -->
+        <section class="screen" data-screen="7">
+          <div class="content">
+            <h2>Confirma y prepara EPosOne</h2>
+            <div class="reco">
+              <p style="margin:0;"><strong>Café Aurora</strong></p>
+              <p style="margin:0.35rem 0;color:#64748b;font-size:0.9rem;">Administra tu negocio desde cualquier lugar</p>
+              <p style="margin:0;font-weight:800;">Business · USD 39.95/mes</p>
+              <p style="margin:0.35rem 0 0;"><span class="badge">15 días gratis</span></p>
+            </div>
+            <div class="checks">
+              <label><input type="checkbox" /> Acepto los <a href="/legal/terms" target="_blank">Términos del servicio</a></label>
+              <label><input type="checkbox" /> Acepto la <a href="/legal/privacy" target="_blank">Política de privacidad</a></label>
+              <label><input type="checkbox" /> Acepto el <a href="/legal/eula" target="_blank">EULA</a></label>
+            </div>
+          </div>
+          <div class="footer-cta">
+            <button type="button" class="btn btn-primary" data-next="8">Preparar mi EPosOne</button>
+          </div>
+        </section>
+
+        <!-- 8 -->
+        <section class="screen" data-screen="8">
+          <div class="content">
+            <h2>¡Bienvenido a EPosOne!</h2>
+            <p class="lead">Tu negocio ya está preparado.</p>
+            <ul class="wow-list">
+              <li>Acceso creado</li>
+              <li>Negocio preparado</li>
+              <li>Trial iniciado</li>
+              <li>Código de instalación listo</li>
+            </ul>
+            <div class="code-box" id="code-box" hidden>EP1-7K2M-9QX4</div>
+          </div>
+          <div class="footer-cta">
+            <button type="button" class="btn btn-primary" data-next="9">Descargar en Google Play</button>
+            <button type="button" class="btn btn-secondary" id="btn-code">Ver mi código de instalación</button>
+          </div>
+        </section>
+
+        <!-- 9 -->
+        <section class="screen" data-screen="9">
+          <div class="content">
+            <h2>Instala EPosOne</h2>
+            <p class="lead">Disponible para Android. Sigue estos pasos:</p>
+            <ol class="steps">
+              <li>Descarga EPosOne desde Google Play</li>
+              <li>Instala la aplicación</li>
+              <li>Inicia sesión con tu correo</li>
+              <li>Escanea o ingresa tu código</li>
+              <li>Espera la configuración inicial</li>
+            </ol>
+            <p style="font-size:0.82rem;color:#64748b;">Productos, impresoras y cajeros se configuran después, dentro de EPosOne.</p>
+          </div>
+          <div class="footer-cta">
+            <button type="button" class="btn btn-primary">Abrir EPosOne</button>
+            <button type="button" class="btn btn-secondary" data-next="8">Volver a mi código</button>
+          </div>
+        </section>
+      </div>
+      <p class="desktop-note">Preview móvil-first · El layout desktop del Portal reutilizará los mismos pasos con más aire lateral (GO implementación).</p>
+    </div>
+  </div>
+
+  <script>
+    const stageMap = {1:1,2:1,3:2,4:2,5:3,6:3,7:3,8:4,9:4};
+    const stageNames = {1:'Tu negocio',2:'Tu recomendación',3:'Tu acceso',4:'Todo listo'};
+    let current = 1;
+
+    function show(n) {
+      current = Number(n);
+      document.querySelectorAll('.screen').forEach(s => {
+        s.classList.toggle('is-visible', Number(s.dataset.screen) === current);
+      });
+      document.querySelectorAll('.nav').forEach(b => {
+        b.classList.toggle('is-active', Number(b.dataset.go) === current);
+      });
+      const stage = stageMap[current];
+      document.querySelectorAll('#stage-bar span').forEach(el => {
+        el.classList.toggle('on', Number(el.dataset.s) <= stage);
+      });
+      document.getElementById('stage-label').textContent = stageNames[stage];
+      document.getElementById('btn-back').hidden = current <= 1 || current >= 8;
+    }
+
+    document.querySelectorAll('[data-next]').forEach(btn => {
+      btn.addEventListener('click', () => show(btn.dataset.next));
+    });
+    document.querySelectorAll('.nav').forEach(btn => {
+      btn.addEventListener('click', () => show(btn.dataset.go));
+    });
+    document.getElementById('btn-back').addEventListener('click', () => {
+      if (current === 4) show(3);
+      else if (current > 1 && current < 8) show(current - 1);
+    });
+
+    document.getElementById('types').addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      document.querySelectorAll('#types .chip').forEach(c => c.classList.remove('is-selected'));
+      chip.classList.add('is-selected');
+      document.getElementById('reco-lead').textContent =
+        'Para un' + (chip.dataset.type === 'Otro' ? '' : 'a') + ' ' + chip.dataset.type.toLowerCase() +
+        ' como la tuya recomendamos EPosOne Business.';
+    });
+
+    document.querySelectorAll('[data-plan]').forEach(el => {
+      el.addEventListener('click', () => {
+        document.querySelectorAll('[data-plan]').forEach(x => x.classList.remove('is-selected'));
+        el.classList.add('is-selected');
+      });
+    });
+
+    document.getElementById('btn-code').addEventListener('click', () => {
+      const box = document.getElementById('code-box');
+      box.hidden = !box.hidden;
+    });
+
+    show(1);
+  </script>
+</body>
+</html>

@@ -14,10 +14,14 @@
             </h1>
             <p class="text-muted small mb-0">
                 Operación de hoy · {{ board.day_local }} · {{ board.timezone }}
-                · <span class="text-uppercase">ADR-025 · Fase A Visibilidad</span>
+                · <span class="text-uppercase">ADR-025 · OCC</span>
             </p>
         </div>
-        <a href="{{ url_for('eposone.eposone_home') }}" class="btn btn-sm btn-outline-secondary">Dashboard ventas</a>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ url_for('eposone.eposone_occ_operacion') }}" class="btn btn-sm btn-outline-primary">Operación</a>
+            <a href="{{ url_for('eposone.eposone_occ_pagos') }}" class="btn btn-sm btn-outline-primary">Pagos</a>
+            <a href="{{ url_for('eposone.eposone_home') }}" class="btn btn-sm btn-outline-secondary">Dashboard ventas</a>
+        </div>
     </div>
 
     {{ occ_subnav('hoy') }}
@@ -42,22 +46,22 @@
             </div>
         </div>
         <div class="col-6 col-md-4 col-lg-2">
-            <div class="border rounded p-3 h-100 bg-white">
+            <a href="{{ url_for('eposone.eposone_occ_excepciones') }}" class="border rounded p-3 h-100 bg-white d-block text-decoration-none text-body">
                 <div class="small text-muted">Diferencias</div>
                 <div class="fs-4 fw-semibold {% if s.differences %}text-danger{% endif %}">{{ s.differences }}</div>
-            </div>
+            </a>
         </div>
         <div class="col-6 col-md-4 col-lg-2">
-            <div class="border rounded p-3 h-100 bg-white">
+            <a href="{{ url_for('eposone.eposone_occ_excepciones') }}" class="border rounded p-3 h-100 bg-white d-block text-decoration-none text-body">
                 <div class="small text-muted">Alertas</div>
                 <div class="fs-4 fw-semibold {% if s.alerts %}text-warning{% endif %}">{{ s.alerts }}</div>
-            </div>
+            </a>
         </div>
         <div class="col-6 col-md-4 col-lg-2">
-            <div class="border rounded p-3 h-100 bg-white">
+            <a href="{{ url_for('eposone.eposone_occ_pagos') }}" class="border rounded p-3 h-100 bg-white d-block text-decoration-none text-body">
                 <div class="small text-muted">Ventas</div>
                 <div class="fs-4 fw-semibold">${{ '%.2f'|format(s.sales) }}</div>
-            </div>
+            </a>
         </div>
     </div>
 
@@ -75,7 +79,10 @@
         </div>
         <div class="col-lg-4">
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white py-2"><strong>Problemas</strong></div>
+                <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                    <strong>Problemas</strong>
+                    <a class="small" href="{{ url_for('eposone.eposone_occ_excepciones') }}">Excepciones</a>
+                </div>
                 <div class="card-body p-0">
                     {% if board.problems %}
                     <ul class="list-group list-group-flush">

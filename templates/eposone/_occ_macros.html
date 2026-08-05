@@ -17,7 +17,13 @@
         <a class="nav-link {% if active == 'hoy' %}active{% endif %}" href="{{ url_for('eposone.eposone_occ_hoy') }}">Hoy</a>
     </li>
     <li class="nav-item">
+        <a class="nav-link {% if active == 'operacion' %}active{% endif %}" href="{{ url_for('eposone.eposone_occ_operacion') }}">Operación</a>
+    </li>
+    <li class="nav-item">
         <a class="nav-link {% if active == 'cierres' %}active{% endif %}" href="{{ url_for('eposone.eposone_occ_cierres') }}">Cierres</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active == 'pagos' %}active{% endif %}" href="{{ url_for('eposone.eposone_occ_pagos') }}">Pagos</a>
     </li>
     <li class="nav-item">
         <a class="nav-link {% if active == 'excepciones' %}active{% endif %}" href="{{ url_for('eposone.eposone_occ_excepciones') }}">Excepciones</a>

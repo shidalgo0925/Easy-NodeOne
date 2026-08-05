@@ -137,7 +137,8 @@ Jerarquía de atención del gerente: **Hoy → Alertas → Arqueo → Bitácora*
 - [x] IA de navegación congelada (Hoy / Operación / Cajas / Pagos / Alertas / Auditoría).  
 - [x] Fases A–D por madurez documentadas.  
 - [x] Fase A Visibilidad en código (Dev): `/admin/eposone/control` · Hoy + Cierres → Arqueo.  
-- [x] Fase B Control en código (Dev): Excepciones (`/control/excepciones`) + Bitácora (`/control/auditoria/<shift_id>`).
+- [x] Fase B Control en código (Dev): Excepciones (`/control/excepciones`) + Bitácora (`/control/auditoria/<shift_id>`).  
+- [x] Fase C Inteligencia en código (Dev): Operación (`/control/operacion`) + Pagos (`/control/pagos`).
 
 ---
 

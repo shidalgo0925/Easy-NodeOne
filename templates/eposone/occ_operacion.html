@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% from 'eposone/_occ_macros.html' import occ_subnav, occ_status_badge %}
+
+{% block title %}Centro de Control — Operación | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+{% set h = board.health %}
+<div class="container-fluid py-3 en1-eposone-page" style="max-width: 72rem;">
+    <div class="mb-3">
+        <h1 class="h4 mb-1">
+            <i class="fas fa-heartbeat me-2" style="color: var(--epos-accent, #e67e22)"></i>
+            Operación
+        </h1>
+        <p class="text-muted small mb-0">
+            Salud + ranking · {{ board.day_local }} · ADR-025 · Fase C Inteligencia
+            {% if h.score == 'green' %}
+            <span class="badge text-bg-success ms-1">Verde</span>
+            {% elif h.score == 'amber' %}
+            <span class="badge text-bg-warning text-dark ms-1">Ámbar</span>
+            {% else %}
+            <span class="badge text-bg-danger ms-1">Rojo</span>
+            {% endif %}
+        </p>
+    </div>
+
+    {{ occ_subnav('operacion') }}
+
+    <div class="row g-2 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="border rounded p-3 h-100 bg-white">
+                <div class="small text-muted">Dispositivos OK</div>
+                <div class="fs-4 fw-semibold">{{ h.devices_ok }}/{{ h.devices_total }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="border rounded p-3 h-100 bg-white">
+                <div class="small text-muted">Retrasados / sin señal</div>
+                <div class="fs-4 fw-semibold {% if h.devices_stale %}text-danger{% endif %}">{{ h.devices_stale }} / {{ h.devices_unknown }}</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="border rounded p-3 h-100 bg-white">
+                <div class="small text-muted">Pedidos abiertos</div>
+                <div class="fs-4 fw-semibold">{{ h.open_orders }}</div>
+                {% if h.stale_orders %}<div class="small text-warning">{{ h.stale_orders }} lentos</div>{% endif %}
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="border rounded p-3 h-100 bg-white">
+                <div class="small text-muted">Ticket promedio</div>
+                <div class="fs-4 fw-semibold">${{ '%.2f'|format(h.avg_ticket) }}</div>
+                <div class="small text-muted">{{ h.orders_count }} pedidos</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white py-2"><strong>Insights</strong></div>
+                <ul class="list-group list-group-flush">
+                    {% for ins in board.insights %}
+                    <li class="list-group-item">
+                        <div class="fw-semibold">{{ ins.title }}</div>
+                        <div class="small text-muted">{{ ins.text }}</div>
+                        {% if ins.href %}<a class="small" href="{{ ins.href }}">Ver</a>{% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white py-2"><strong>Ranking cajas (ventas hoy)</strong></div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Caja</th>
+                                    <th>Sucursal</th>
+                                    <th class="text-end">Ventas</th>
+                                    <th>Estado</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in board.ranking %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td><strong>{{ row.register_name }}</strong></td>
+                                    <td>{{ row.branch_name }}</td>
+                                    <td class="text-end">${{ '%.2f'|format(row.sales) }}</td>
+                                    <td>{{ occ_status_badge(row) }}</td>
+                                    <td class="text-end text-nowrap">
+                                        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('eposone.eposone_shift_detail', shift_id=row.shift_id, register_ref=row.register_ref) }}">Arqueo</a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="6" class="text-muted text-center py-3">Sin ventas aún.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-2 d-flex justify-content-between">
+            <strong>Dispositivos</strong>
+            <a class="small" href="/admin/eposone/section/terminals">Gestionar</a>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Dispositivo</th>
+                            <th>Caja</th>
+                            <th>Plataforma</th>
+                            <th>Última señal</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in board.devices %}
+                        <tr class="{% if d.health == 'stale' %}table-danger{% elif d.health == 'unknown' %}table-warning{% endif %}">
+                            <td>
+                                <strong>{{ d.device_label }}</strong>
+                                <div class="small text-muted"><code>{{ d.terminal_ref }}</code></div>
+                            </td>
+                            <td><code>{{ d.register_ref or '—' }}</code></td>
+                            <td>{{ d.platform or '—' }}{% if d.app_version %} · {{ d.app_version }}{% endif %}</td>
+                            <td class="small">{{ format_business_dt(d.last_seen_at, '%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>
+                                {% if d.health == 'ok' %}
+                                <span class="badge text-bg-success">{{ d.health_label }}</span>
+                                {% elif d.health == 'stale' %}
+                                <span class="badge text-bg-danger">{{ d.health_label }}</span>
+                                {% else %}
+                                <span class="badge text-bg-secondary">{{ d.health_label }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-muted text-center py-3">Sin dispositivos activos.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

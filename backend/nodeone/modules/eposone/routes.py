@@ -797,6 +797,50 @@ def eposone_occ_cierres():
     )
 
 
+@eposone_bp.route('/control/operacion')
+@login_required
+def eposone_occ_operacion():
+    """ADR-025 OCC Fase C — salud operativa + ranking + insights."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.occ_service import build_operations_control_operacion
+    from nodeone.modules.eposone.timefmt import format_business_dt
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    board = build_operations_control_operacion(int(oid))
+    return render_template(
+        'eposone/occ_operacion.html',
+        board=board,
+        format_business_dt=format_business_dt,
+        occ_view='operacion',
+    )
+
+
+@eposone_bp.route('/control/pagos')
+@login_required
+def eposone_occ_pagos():
+    """ADR-025 OCC Fase C — mix de medios de pago del día."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.occ_service import build_operations_control_pagos
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    board = build_operations_control_pagos(int(oid))
+    return render_template(
+        'eposone/occ_pagos.html',
+        board=board,
+        occ_view='pagos',
+    )
+
+
 @eposone_bp.route('/control/excepciones')
 @login_required
 def eposone_occ_excepciones():

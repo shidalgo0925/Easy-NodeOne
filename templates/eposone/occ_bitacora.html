@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% from 'eposone/_occ_macros.html' import occ_subnav, occ_status_badge, occ_severity_badge %}
+
+{% block title %}Bitácora · {{ shift_row.register_name }} | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 en1-eposone-page" style="max-width: 52rem;">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <div>
+            <h1 class="h4 mb-1">
+                <i class="fas fa-stream me-2" style="color: var(--epos-accent, #e67e22)"></i>
+                Bitácora del turno
+            </h1>
+            <p class="text-muted small mb-0">
+                {{ shift_row.branch_name }} · {{ shift_row.register_name }}
+                · {{ shift_row.cashier_name }}
+                · {{ occ_status_badge(shift_row) }}
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('eposone.eposone_occ_auditoria') }}">Volver</a>
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('eposone.eposone_shift_detail', shift_id=shift_row.shift_id, register_ref=shift_row.register_ref) }}">Arqueo</a>
+        </div>
+    </div>
+
+    {{ occ_subnav('auditoria') }}
+
+    {% if exceptions %}
+    <div class="alert alert-warning py-2 small mb-3">
+        <strong>{{ exceptions|length }} excepción(es)</strong> en este turno:
+        {% for exc in exceptions %}
+        <span class="me-2">{{ occ_severity_badge(exc) }} {{ exc.title }}</span>
+        {% endfor %}
+        · <a href="{{ url_for('eposone.eposone_occ_excepciones') }}">Ver todas</a>
+    </div>
+    {% endif %}
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-2 d-flex justify-content-between">
+            <strong>Timeline</strong>
+            <span class="small text-muted">{{ entries|length }} eventos</span>
+        </div>
+        <div class="card-body p-0">
+            {% if entries %}
+            <ul class="list-group list-group-flush">
+                {% for e in entries %}
+                <li class="list-group-item d-flex justify-content-between align-items-start gap-3">
+                    <div>
+                        <div class="fw-semibold">{{ e.title }}</div>
+                        <div class="small text-muted">
+                            {% if e.en1_number %}
+                            <a href="{{ url_for('eposone.eposone_order_domain_detail', order_id=e.order_id) }}">{{ e.en1_number }}</a>
+                            {% endif %}
+                            {% if e.meta %}{% if e.en1_number %} · {% endif %}{{ e.meta }}{% endif %}
+                        </div>
+                        <div class="small text-muted mt-1">
+                            <span class="badge text-bg-light text-dark border">{{ e.kind }}</span>
+                        </div>
+                    </div>
+                    <div class="text-end flex-shrink-0">
+                        <div class="small text-muted">{{ format_business_dt(e.at, '%Y-%m-%d %H:%M:%S') }}</div>
+                        {% if e.amount is not none %}
+                        <div class="fw-semibold">${{ '%.2f'|format(e.amount) }}</div>
+                        {% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-muted small p-3 mb-0">Sin eventos en este turno.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -797,6 +797,76 @@ def eposone_occ_cierres():
     )
 
 
+@eposone_bp.route('/control/excepciones')
+@login_required
+def eposone_occ_excepciones():
+    """ADR-025 OCC Fase B — Alertas / Excepciones (solo riesgo)."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.occ_service import build_operations_control_excepciones
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    board = build_operations_control_excepciones(int(oid))
+    return render_template(
+        'eposone/occ_excepciones.html',
+        board=board,
+        occ_view='excepciones',
+    )
+
+
+@eposone_bp.route('/control/auditoria')
+@login_required
+def eposone_occ_auditoria():
+    """ADR-025 OCC Fase B — índice Auditoría (bitácoras del día)."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.occ_service import build_operations_control_auditoria
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    board = build_operations_control_auditoria(int(oid))
+    return render_template(
+        'eposone/occ_auditoria.html',
+        board=board,
+        occ_view='auditoria',
+    )
+
+
+@eposone_bp.route('/control/auditoria/<int:shift_id>')
+@login_required
+def eposone_occ_bitacora(shift_id: int):
+    """ADR-025 OCC Fase B — Bitácora operacional de un turno."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.occ_service import build_shift_bitacora
+    from nodeone.modules.eposone.timefmt import format_business_dt
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    payload = build_shift_bitacora(int(oid), int(shift_id))
+    if payload is None:
+        abort(404)
+    return render_template(
+        'eposone/occ_bitacora.html',
+        board=payload,
+        shift_row=payload['shift_row'],
+        entries=payload['entries'],
+        exceptions=payload.get('exceptions') or [],
+        format_business_dt=format_business_dt,
+        occ_view='auditoria',
+    )
+
+
 @eposone_bp.route('/devices/rotate-provisioning-code', methods=['POST'])
 @login_required
 def eposone_rotate_provisioning_code():

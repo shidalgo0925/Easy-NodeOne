@@ -20,13 +20,24 @@
         <a class="nav-link {% if active == 'cierres' %}active{% endif %}" href="{{ url_for('eposone.eposone_occ_cierres') }}">Cierres</a>
     </li>
     <li class="nav-item">
-        <span class="nav-link disabled text-muted" title="Fase B">Excepciones</span>
+        <a class="nav-link {% if active == 'excepciones' %}active{% endif %}" href="{{ url_for('eposone.eposone_occ_excepciones') }}">Excepciones</a>
     </li>
     <li class="nav-item">
-        <span class="nav-link disabled text-muted" title="Fase B">Auditoría</span>
+        <a class="nav-link {% if active == 'auditoria' %}active{% endif %}" href="{{ url_for('eposone.eposone_occ_auditoria') }}">Auditoría</a>
     </li>
 </ul>
 {% endmacro %}
+
+{% macro occ_severity_badge(exc) -%}
+{% set s = exc.severity %}
+{% if s == 'critical' %}
+<span class="badge text-bg-danger">Crítica</span>
+{% elif s == 'high' %}
+<span class="badge text-bg-warning text-dark">Alta</span>
+{% else %}
+<span class="badge text-bg-secondary">Media</span>
+{% endif %}
+{%- endmacro %}
 
 {% macro occ_cierres_table(rows) %}
 <div class="table-responsive">

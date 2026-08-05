@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% from 'eposone/_occ_macros.html' import occ_subnav, occ_severity_badge, occ_status_badge %}
+
+{% block title %}Centro de Control — Excepciones | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+{% set es = board.exception_summary %}
+<div class="container-fluid py-3 en1-eposone-page" style="max-width: 72rem;">
+    <div class="mb-3">
+        <h1 class="h4 mb-1">
+            <i class="fas fa-exclamation-triangle me-2" style="color: var(--epos-accent, #e67e22)"></i>
+            Excepciones
+        </h1>
+        <p class="text-muted small mb-0">
+            Solo donde hay riesgo · {{ board.day_local }} · ADR-025 · Fase B Control
+        </p>
+    </div>
+
+    {{ occ_subnav('excepciones') }}
+
+    <div class="d-flex flex-wrap gap-3 small text-muted mb-3">
+        <span>Total: <strong>{{ es.total }}</strong></span>
+        <span>Críticas: <strong class="{% if es.critical %}text-danger{% endif %}">{{ es.critical }}</strong></span>
+        <span>Altas: <strong class="{% if es.high %}text-warning{% endif %}">{{ es.high }}</strong></span>
+        <span>Medias: <strong>{{ es.medium }}</strong></span>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Severidad</th>
+                            <th>Excepción</th>
+                            <th>Sucursal / Caja</th>
+                            <th>Cajero</th>
+                            <th>Estado</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for exc in board.exceptions %}
+                        <tr class="{% if exc.severity == 'critical' %}table-danger{% elif exc.severity == 'high' %}table-warning{% endif %}">
+                            <td>{{ occ_severity_badge(exc) }}</td>
+                            <td>
+                                <strong>{{ exc.title }}</strong>
+                                <div class="small text-muted">{{ exc.detail }}</div>
+                            </td>
+                            <td>
+                                {{ exc.branch_name }}
+                                <div class="small"><strong>{{ exc.register_name }}</strong></div>
+                            </td>
+                            <td>{{ exc.cashier_name }}</td>
+                            <td>{{ occ_status_badge(exc) }}</td>
+                            <td class="text-end text-nowrap">
+                                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('eposone.eposone_occ_bitacora', shift_id=exc.shift_id) }}">Bitácora</a>
+                                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('eposone.eposone_shift_detail', shift_id=exc.shift_id, register_ref=exc.register_ref) }}">Arqueo</a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-muted text-center py-4">Sin excepciones. Operación en verde.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

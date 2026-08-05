@@ -90,7 +90,10 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            <a class="btn btn-sm btn-outline-primary flex-shrink-0" href="{{ url_for('eposone.eposone_shift_detail', shift_id=row.shift_id, register_ref=row.register_ref) }}">Ver</a>
+                            <div class="d-flex flex-column gap-1 flex-shrink-0">
+                                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('eposone.eposone_shift_detail', shift_id=row.shift_id, register_ref=row.register_ref) }}">Arqueo</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('eposone.eposone_occ_bitacora', shift_id=row.shift_id) }}">Bitácora</a>
+                            </div>
                         </li>
                         {% endfor %}
                     </ul>

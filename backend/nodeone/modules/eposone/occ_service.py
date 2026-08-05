@@ -1,7 +1,8 @@
-"""OCC Fase A/B — Visibilidad + Control (ADR-025).
+"""OCC Fase A/B/C — Visibilidad + Control + Inteligencia (ADR-025).
 
 Fase A: Dashboard Hoy + Cierres.
 Fase B: Excepciones (Alertas) + Bitácora del turno (Auditoría).
+Fase C: Operación (salud + ranking) + Pagos (medios del día).
 """
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from models.commercial_core import CoreCashMovement, CoreCashShift
+from models.commercial_core import CoreCashMovement, CoreCashShift, CorePosTerminal
 from models.eposone_order import EposoneOrder, EposoneOrderEvent, EposoneOrderPayment
 from nodeone.core.commerce.constants import (
     CASH_SHIFT_CLOSED,
@@ -44,6 +45,10 @@ _STATUS_LABELS = {
 # Umbrales Fase B (Control) — fijos v1; configurable más adelante
 OCC_OPEN_SHIFT_HOURS_ALERT = 12
 OCC_VARIANCE_CRITICAL_ABS = 20.0
+
+# Umbrales Fase C (Inteligencia)
+OCC_DEVICE_STALE_MINUTES = 15
+OCC_OPEN_ORDER_STALE_MINUTES = 45
 
 OCC_SEV_CRITICAL = 'critical'
 OCC_SEV_HIGH = 'high'
@@ -592,4 +597,287 @@ def build_shift_bitacora(organization_id: int, shift_id: int) -> dict[str, Any] 
         'exceptions': exceptions_for_shift_row(row, now=datetime.utcnow()),
         'day_local': None,
         'timezone': None,
+    }
+
+
+def _device_health_rows(organization_id: int, *, now: datetime | None = None) -> list[dict[str, Any]]:
+    oid = int(organization_id)
+    now = now or datetime.utcnow()
+    stale_before = now - timedelta(minutes=OCC_DEVICE_STALE_MINUTES)
+    terminals = (
+        CorePosTerminal.query.filter_by(organization_id=oid)
+        .filter(CorePosTerminal.status == 'active')
+        .order_by(CorePosTerminal.id.asc())
+        .all()
+    )
+    rows: list[dict[str, Any]] = []
+    _health_rank = {'stale': 0, 'unknown': 1, 'ok': 2}
+    for t in terminals:
+        seen = t.last_seen_at
+        if seen is not None and getattr(seen, 'tzinfo', None) is not None:
+            seen_naive = seen.replace(tzinfo=None)
+        else:
+            seen_naive = seen
+        if seen_naive is None:
+            health = 'unknown'
+            health_label = 'Sin señal'
+        elif seen_naive < stale_before:
+            health = 'stale'
+            health_label = 'Retrasado'
+        else:
+            health = 'ok'
+            health_label = 'En línea'
+        rows.append(
+            {
+                'terminal_ref': str(t.terminal_ref),
+                'device_label': str(t.device_label or t.terminal_ref),
+                'register_ref': str(t.register_ref or ''),
+                'platform': str(t.platform or ''),
+                'app_version': str(t.app_version or ''),
+                'last_seen_at': t.last_seen_at,
+                'health': health,
+                'health_label': health_label,
+            }
+        )
+    rows.sort(
+        key=lambda d: (
+            _health_rank.get(d['health'], 9),
+            str(d.get('device_label') or '').lower(),
+        )
+    )
+    return rows
+
+
+_PAYMENT_METHOD_LABELS = {
+    'cash': 'Efectivo',
+    'card': 'Tarjeta',
+    'transfer': 'Transferencia',
+    'wallet': 'Billetera',
+    'credit': 'Crédito',
+    'other': 'Otros',
+    'otros': 'Otros',
+}
+
+
+def _payment_method_label(method: str) -> str:
+    key = str(method or 'otros').strip().lower()
+    return _PAYMENT_METHOD_LABELS.get(key) or key.replace('_', ' ').title()
+
+
+def build_operations_control_pagos(organization_id: int) -> dict[str, Any]:
+    """Vista Pagos — mix de medios del día de negocio (Order Domain)."""
+    from app import db
+    from sqlalchemy import func
+
+    oid = int(organization_id)
+    start, end, day_local, zone = _biz_bounds_today(oid)
+    pay_rows = (
+        db.session.query(
+            EposoneOrderPayment.method,
+            func.coalesce(func.sum(EposoneOrderPayment.amount), 0.0),
+            func.count(EposoneOrderPayment.id),
+        )
+        .join(EposoneOrder, EposoneOrder.id == EposoneOrderPayment.order_id)
+        .filter(
+            EposoneOrder.organization_id == oid,
+            EposoneOrderPayment.kind == 'payment',
+            EposoneOrderPayment.created_at >= start,
+            EposoneOrderPayment.created_at < end,
+        )
+        .group_by(EposoneOrderPayment.method)
+        .order_by(func.sum(EposoneOrderPayment.amount).desc())
+        .all()
+    )
+    methods: list[dict[str, Any]] = []
+    total_amount = 0.0
+    total_count = 0
+    for method, amount, count in pay_rows:
+        amt = _money(amount)
+        cnt = int(count or 0)
+        if amt <= 0 and cnt <= 0:
+            continue
+        total_amount += amt
+        total_count += cnt
+        key = str(method or 'otros')
+        methods.append(
+            {
+                'method': key,
+                'method_label': _payment_method_label(key),
+                'amount': amt,
+                'count': cnt,
+                'share_pct': 0.0,
+            }
+        )
+    total_amount = _money(total_amount)
+    for m in methods:
+        m['share_pct'] = round((m['amount'] / total_amount) * 100.0, 1) if total_amount else 0.0
+
+    lead = methods[0] if methods else None
+    insights: list[str] = []
+    if lead and total_amount > 0:
+        insights.append(
+            f"Medio dominante: {lead['method_label']} ({lead['share_pct']:.0f}% · ${lead['amount']:.2f})"
+        )
+    if len(methods) >= 2:
+        insights.append(f'{len(methods)} medios activos en el día')
+    elif not methods:
+        insights.append('Sin cobros registrados en el día de negocio')
+
+    return {
+        'day_local': day_local,
+        'timezone': str(getattr(zone, 'key', None) or zone),
+        'view': 'pagos',
+        'methods': methods,
+        'summary': {
+            'amount': total_amount,
+            'count': total_count,
+            'methods': len(methods),
+            'currency': 'USD',
+        },
+        'insights': insights,
+    }
+
+
+def build_operations_control_operacion(organization_id: int) -> dict[str, Any]:
+    """Vista Operación — salud + ranking + insights (Fase C)."""
+    from app import db
+    from sqlalchemy import func
+
+    oid = int(organization_id)
+    board = build_operations_control_today(oid)
+    now = datetime.utcnow()
+    start, end, day_local, zone = _biz_bounds_today(oid)
+
+    exceptions: list[dict[str, Any]] = []
+    for row in board['rows']:
+        exceptions.extend(exceptions_for_shift_row(row, now=now))
+    exc_summary = {
+        'total': len(exceptions),
+        OCC_SEV_CRITICAL: sum(1 for e in exceptions if e['severity'] == OCC_SEV_CRITICAL),
+        OCC_SEV_HIGH: sum(1 for e in exceptions if e['severity'] == OCC_SEV_HIGH),
+        OCC_SEV_MEDIUM: sum(1 for e in exceptions if e['severity'] == OCC_SEV_MEDIUM),
+    }
+
+    devices = _device_health_rows(oid, now=now)
+    devices_ok = sum(1 for d in devices if d['health'] == 'ok')
+    devices_stale = sum(1 for d in devices if d['health'] == 'stale')
+    devices_unknown = sum(1 for d in devices if d['health'] == 'unknown')
+
+    open_orders = (
+        EposoneOrder.query.filter_by(organization_id=oid, status='open')
+        .filter(EposoneOrder.opened_at >= start, EposoneOrder.opened_at < end)
+        .count()
+    )
+    stale_cut = now - timedelta(minutes=OCC_OPEN_ORDER_STALE_MINUTES)
+    stale_orders = (
+        EposoneOrder.query.filter_by(organization_id=oid, status='open')
+        .filter(
+            EposoneOrder.opened_at < stale_cut,
+            EposoneOrder.opened_at >= start,
+        )
+        .count()
+    )
+
+    ticket_row = (
+        db.session.query(
+            func.count(EposoneOrder.id),
+            func.coalesce(func.avg(EposoneOrder.total), 0.0),
+            func.coalesce(func.sum(EposoneOrder.total), 0.0),
+        )
+        .filter(
+            EposoneOrder.organization_id == oid,
+            EposoneOrder.opened_at >= start,
+            EposoneOrder.opened_at < end,
+            EposoneOrder.status != 'cancelled',
+        )
+        .first()
+    )
+    orders_n = int(ticket_row[0] or 0) if ticket_row else 0
+    avg_ticket = _money(ticket_row[1]) if ticket_row else 0.0
+    sales_orders = _money(ticket_row[2]) if ticket_row else 0.0
+
+    ranking = sorted(
+        [r for r in board['rows'] if float(r.get('sales') or 0) > 0],
+        key=lambda r: float(r.get('sales') or 0),
+        reverse=True,
+    )[:8]
+
+    insights: list[dict[str, str]] = []
+    if exc_summary['total']:
+        insights.append(
+            {
+                'tone': 'warning',
+                'title': f"{exc_summary['total']} excepción(es) activas",
+                'text': 'Priorizá Excepciones antes de revisar el ranking.',
+                'href': '/admin/eposone/control/excepciones',
+            }
+        )
+    if devices_stale or devices_unknown:
+        insights.append(
+            {
+                'tone': 'danger' if devices_stale else 'secondary',
+                'title': f'{devices_stale} dispositivo(s) retrasado(s)',
+                'text': f'{devices_unknown} sin señal · umbral {OCC_DEVICE_STALE_MINUTES} min',
+                'href': '/admin/eposone/section/terminals',
+            }
+        )
+    if stale_orders:
+        insights.append(
+            {
+                'tone': 'warning',
+                'title': f'{stale_orders} pedido(s) abiertos >{OCC_OPEN_ORDER_STALE_MINUTES} min',
+                'text': 'Pueden requerir atención en piso.',
+                'href': '/admin/eposone/section/orders',
+            }
+        )
+    if ranking:
+        top = ranking[0]
+        insights.append(
+            {
+                'tone': 'info',
+                'title': f"Caja líder: {top['register_name']}",
+                'text': f"${top['sales']:.2f} · {top['branch_name']}",
+                'href': top.get('detail_url_path') or '/admin/eposone/control/cierres',
+            }
+        )
+    if not insights:
+        insights.append(
+            {
+                'tone': 'success',
+                'title': 'Operación estable',
+                'text': 'Sin señales de riesgo en salud ni excepciones.',
+                'href': '/admin/eposone/control/hoy',
+            }
+        )
+
+    # Semáforo: turnos abiertos son normales; no bajan a ámbar solos.
+    health_score = 'green'
+    if devices_stale or exc_summary.get(OCC_SEV_CRITICAL) or stale_orders >= 3:
+        health_score = 'red'
+    elif devices_unknown or exc_summary['total'] or stale_orders:
+        health_score = 'amber'
+
+    return {
+        **board,
+        'view': 'operacion',
+        'day_local': day_local,
+        'timezone': str(getattr(zone, 'key', None) or zone),
+        'health': {
+            'score': health_score,
+            'devices_total': len(devices),
+            'devices_ok': devices_ok,
+            'devices_stale': devices_stale,
+            'devices_unknown': devices_unknown,
+            'open_orders': open_orders,
+            'stale_orders': stale_orders,
+            'exceptions': exc_summary['total'],
+            'avg_ticket': avg_ticket,
+            'orders_count': orders_n,
+            'sales_orders': sales_orders,
+            'shifts_open': board['summary']['shifts_open'],
+        },
+        'devices': devices,
+        'ranking': ranking,
+        'insights': insights,
+        'exception_summary': exc_summary,
     }

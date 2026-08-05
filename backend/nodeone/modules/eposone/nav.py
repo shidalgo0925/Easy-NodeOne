@@ -110,6 +110,8 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                 active_endpoints=(
                     'eposone.eposone_occ_hoy',
                     'eposone.eposone_occ_cierres',
+                    'eposone.eposone_occ_operacion',
+                    'eposone.eposone_occ_pagos',
                     'eposone.eposone_occ_excepciones',
                     'eposone.eposone_occ_auditoria',
                     'eposone.eposone_occ_bitacora',

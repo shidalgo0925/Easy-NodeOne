@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from 'eposone/_occ_macros.html' import occ_subnav %}
+
+{% block title %}Centro de Control — Pagos | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+{% set s = board.summary %}
+<div class="container-fluid py-3 en1-eposone-page" style="max-width: 52rem;">
+    <div class="mb-3">
+        <h1 class="h4 mb-1">
+            <i class="fas fa-credit-card me-2" style="color: var(--epos-accent, #e67e22)"></i>
+            Pagos
+        </h1>
+        <p class="text-muted small mb-0">
+            Mix de medios · {{ board.day_local }} · ADR-025 · Fase C Inteligencia
+        </p>
+    </div>
+
+    {{ occ_subnav('pagos') }}
+
+    <div class="d-flex flex-wrap gap-3 small text-muted mb-3">
+        <span>Total cobrado: <strong>${{ '%.2f'|format(s.amount) }}</strong></span>
+        <span>Pagos: <strong>{{ s.count }}</strong></span>
+        <span>Medios: <strong>{{ s.methods }}</strong></span>
+    </div>
+
+    {% if board.insights %}
+    <ul class="list-unstyled small mb-3">
+        {% for tip in board.insights %}
+        <li class="mb-1"><i class="fas fa-lightbulb text-warning me-1"></i>{{ tip }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Medio</th>
+                            <th class="text-end">Monto</th>
+                            <th class="text-end">#</th>
+                            <th style="min-width: 8rem;">Participación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in board.methods %}
+                        <tr>
+                            <td class="fw-semibold">{{ m.method_label }}</td>
+                            <td class="text-end">${{ '%.2f'|format(m.amount) }}</td>
+                            <td class="text-end">{{ m.count }}</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="progress flex-grow-1" style="height: 0.5rem;">
+                                        <div class="progress-bar" role="progressbar" style="width: {{ m.share_pct }}%; background: var(--epos-accent, #e67e22);"></div>
+                                    </div>
+                                    <span class="small text-muted" style="min-width: 2.5rem;">{{ '%.0f'|format(m.share_pct) }}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="text-muted text-center py-4">Sin pagos en el día de negocio.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

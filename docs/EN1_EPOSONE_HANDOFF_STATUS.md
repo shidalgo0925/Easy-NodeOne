@@ -2,12 +2,13 @@
 
 | Campo | Valor |
 |-------|--------|
-| Fecha | **3 ago 2026** |
+| Fecha | **5 ago 2026** |
 | **Puerta comercial (ADR-024)** | **Asistente de Inicio en PROD** — https://eposone.easytech.services/start · login clientes `/login` · CTA landing «Empieza con EPosOne» · commit `e56bb96` · docs [`ADR-024`](ADR-024-EPOSONE-START-ASSISTANT.md) · diseño [`eposone-start-assistant/`](eposone-start-assistant/DESIGN.md) |
 | **Play Store / APK** | **NO listos para publicar** · EN1 solo tiene embudo web + código de instalación · falta **`GO Local`** (handoff CODITO→LOCAL: login app, código, sync, AAB firmado, ficha Play, URL real de la app) · CTA Play hoy es placeholder (búsqueda) |
 | **Post-demo Mexican Food** | Design Partner #1 · presentación comercial 28 jul · instalación **jueves 30 jul** · freeze features nuevas · SoT: [`EN1_EPOSONE_POST_DEMO_MEXICAN_FOOD_PRIORITIES.md`](EN1_EPOSONE_POST_DEMO_MEXICAN_FOOD_PRIORITIES.md) |
-| **P0 inmediato** | Caja/turnos · sync 100% · estados recibos · informes/cierres (mismas cifras EN1↔EPosOne) · **BO Turnos:** historial de cierres filtrable por Caja (`c30a264`) |
+| **P0 inmediato** | Caja/turnos · sync 100% · estados recibos · **OCC Fase A (Visibilidad)** tras ADR-025 · informes/cierres (mismas cifras EN1↔EPosOne) · **BO Turnos:** historial de cierres filtrable por Caja (`c30a264`) |
 | **P1 comercial** | Licenciamiento + pago EN1 + correo creación de cuenta · **entrada web EPosOne hecha** (ADR-024); pago/pasarela y Play Store siguen pendientes |
+| **ADR-025 OCC** | **Aprobado** — dominio **Operations Control Center** (NOC comercial) · OCC ≠ reportes · Fases Visibilidad→Control→Inteligencia→Conciliación · [`ADR-025-EPOSONE-OPERATIONS-CONTROL-CENTER.md`](ADR-025-EPOSONE-OPERATIONS-CONTROL-CENTER.md) |
 | **ADR-019 / ADR-020 / ADR-021 / ADR-022** | [ADR-019](ADR-019-ADMINISTRATIVE-HIERARCHY.md) · [ADR-020](ADR-020-ORDER-EVENT-OWNERSHIP.md) · [ADR-021 Installation](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) · [**ADR-022 Multiproducto**](ADR-022-EN1-MULTIPRODUCT-COMMERCIAL-MODEL.md) (**propuesto** — org = activo raíz) · contrato [Installation v1](EN1_EPOSONE_INSTALLATION_LIFECYCLE_CONTRACT_V1.md) |
 
 | **ADR-011 / 012 / 013** | **Aprobados** · BrandContext Fase 1 en Dev · Arquitectura ETS · Portal `app.easytech.services` · [`ADR-011`](ADR-011-PORTAL-ETS-PUNTO-ENTRADA.md) · [`ADR-012`](ADR-012-ETS-ECOSYSTEM-ARCHITECTURE.md) · [`ADR-013`](ADR-013-PORTAL-ETS-PUNTO-ENTRADA.md) |
@@ -46,7 +47,7 @@
 
 ## Una frase
 
-**3 ago 2026:** Embudo comercial EPosOne **en prod** (`/start` + `/login`). **No** estamos listos para Play Store — falta `GO Local` / APK (Local). En paralelo: P0 post-demo = caja/turnos + sync + recibos + informes. Detalle comercial: [`ADR-024`](ADR-024-EPOSONE-START-ASSISTANT.md) · post-demo: [`EN1_EPOSONE_POST_DEMO_MEXICAN_FOOD_PRIORITIES.md`](EN1_EPOSONE_POST_DEMO_MEXICAN_FOOD_PRIORITIES.md).
+**5 ago 2026:** Congelado dominio **Operations Control Center** ([ADR-025](ADR-025-EPOSONE-OPERATIONS-CONTROL-CENTER.md)) — OCC ≠ reportes; Fases Visibilidad→Control→Inteligencia→Conciliación. Embudo comercial EPosOne en prod (`/start`). Play Store pendiente `GO Local`. Post-demo Mexican Food: caja/sync/recibos + **OCC Fase A**. Detalle: [`ADR-024`](ADR-024-EPOSONE-START-ASSISTANT.md) · [`EN1_EPOSONE_POST_DEMO_MEXICAN_FOOD_PRIORITIES.md`](EN1_EPOSONE_POST_DEMO_MEXICAN_FOOD_PRIORITIES.md).
 
 ### Checklist Play Store (estado)
 

@@ -1,0 +1,71 @@
+{% macro occ_status_badge(row) -%}
+{% set s = row.occ_status %}
+{% if s == 'ok' %}
+<span class="badge text-bg-success" title="{{ row.occ_status_label }}">✓ Conciliado</span>
+{% elif s == 'warn' %}
+<span class="badge text-bg-warning text-dark" title="{{ row.occ_status_label }}">⚠ Observaciones</span>
+{% elif s == 'alert' %}
+<span class="badge text-bg-danger" title="{{ row.occ_status_label }}">● Diferencia</span>
+{% else %}
+<span class="badge text-bg-secondary" title="{{ row.occ_status_label }}">Abierta</span>
+{% endif %}
+{%- endmacro %}
+
+{% macro occ_subnav(active) %}
+<ul class="nav nav-pills gap-1 mb-3 flex-wrap">
+    <li class="nav-item">
+        <a class="nav-link {% if active == 'hoy' %}active{% endif %}" href="{{ url_for('eposone.eposone_occ_hoy') }}">Hoy</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active == 'cierres' %}active{% endif %}" href="{{ url_for('eposone.eposone_occ_cierres') }}">Cierres</a>
+    </li>
+    <li class="nav-item">
+        <span class="nav-link disabled text-muted" title="Fase B">Excepciones</span>
+    </li>
+    <li class="nav-item">
+        <span class="nav-link disabled text-muted" title="Fase B">Auditoría</span>
+    </li>
+</ul>
+{% endmacro %}
+
+{% macro occ_cierres_table(rows) %}
+<div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>Sucursal</th>
+                <th>Caja</th>
+                <th>Cajero</th>
+                <th class="text-end">Ventas</th>
+                <th class="text-end">Esperado</th>
+                <th class="text-end">Contado</th>
+                <th class="text-end">Diferencia</th>
+                <th>Estado</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr class="{% if row.occ_status == 'alert' %}table-danger{% elif row.occ_status == 'warn' %}table-warning{% endif %}">
+                <td>{{ row.branch_name }}</td>
+                <td>
+                    <strong>{{ row.register_name }}</strong>
+                    <div class="small text-muted"><code>{{ row.register_ref }}</code></div>
+                </td>
+                <td>{{ row.cashier_name }}</td>
+                <td class="text-end">{{ '%.2f'|format(row.sales) }}</td>
+                <td class="text-end">{{ '%.2f'|format(row.expected) }}</td>
+                <td class="text-end">{% if row.counted is not none %}{{ '%.2f'|format(row.counted) }}{% else %}—{% endif %}</td>
+                <td class="text-end fw-semibold">{% if row.variance is not none %}{{ '%.2f'|format(row.variance) }}{% else %}—{% endif %}</td>
+                <td>{{ occ_status_badge(row) }}</td>
+                <td class="text-end">
+                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('eposone.eposone_shift_detail', shift_id=row.shift_id, register_ref=row.register_ref) }}">Ver</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="text-muted text-center py-4">Sin turnos en el día de negocio.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endmacro %}

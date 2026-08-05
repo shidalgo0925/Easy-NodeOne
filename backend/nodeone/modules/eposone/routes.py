@@ -754,6 +754,49 @@ def eposone_home():
     )
 
 
+@eposone_bp.route('/control')
+@eposone_bp.route('/control/hoy')
+@login_required
+def eposone_occ_hoy():
+    """ADR-025 OCC Fase A — Dashboard Ejecutivo (Hoy)."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.occ_service import build_operations_control_today
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    board = build_operations_control_today(int(oid))
+    return render_template(
+        'eposone/occ_hoy.html',
+        board=board,
+        occ_view='hoy',
+    )
+
+
+@eposone_bp.route('/control/cierres')
+@login_required
+def eposone_occ_cierres():
+    """ADR-025 OCC Fase A — vista Cierres del día."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.occ_service import build_operations_control_cierres
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    board = build_operations_control_cierres(int(oid))
+    return render_template(
+        'eposone/occ_cierres.html',
+        board=board,
+        occ_view='cierres',
+    )
+
+
 @eposone_bp.route('/devices/rotate-provisioning-code', methods=['POST'])
 @login_required
 def eposone_rotate_provisioning_code():

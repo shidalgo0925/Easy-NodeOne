@@ -82,6 +82,7 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
     device_prefixes = (
         '/admin/eposone/section/terminals',
         '/admin/eposone/section/shifts',
+        '/admin/eposone/control',
     )
 
     return AppNavTree(
@@ -99,6 +100,15 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                 visible=_v_eposone,
                 active_endpoints=('eposone.eposone_home',),
                 active_path_prefixes=('/admin/eposone/dashboard',),
+            ),
+            AppNavItem(
+                'occ',
+                'Centro de Control',
+                'fas fa-satellite-dish',
+                url=safe_url_for('eposone.eposone_occ_hoy'),
+                visible=_v_eposone,
+                active_endpoints=('eposone.eposone_occ_hoy', 'eposone.eposone_occ_cierres'),
+                active_path_prefixes=('/admin/eposone/control',),
             ),
             AppNavItem(
                 'pedidos',

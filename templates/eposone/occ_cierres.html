@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from 'eposone/_occ_macros.html' import occ_subnav, occ_cierres_table %}
+
+{% block title %}Centro de Control — Cierres | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+{% set s = board.summary %}
+<div class="container-fluid py-3 en1-eposone-page" style="max-width: 72rem;">
+    <div class="mb-3">
+        <h1 class="h4 mb-1">
+            <i class="fas fa-cash-register me-2" style="color: var(--epos-accent, #e67e22)"></i>
+            Cierres
+        </h1>
+        <p class="text-muted small mb-0">
+            Turnos del día {{ board.day_local }} · click en Ver → Arqueo del turno
+        </p>
+    </div>
+
+    {{ occ_subnav('cierres') }}
+
+    <div class="d-flex flex-wrap gap-3 small text-muted mb-3">
+        <span>Abiertos: <strong>{{ s.shifts_open }}</strong></span>
+        <span>Cerrados: <strong>{{ s.shifts_closed }}</strong></span>
+        <span>Diferencias: <strong class="{% if s.differences %}text-danger{% endif %}">{{ s.differences }}</strong></span>
+        <span>Ventas: <strong>${{ '%.2f'|format(s.sales) }}</strong></span>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            {{ occ_cierres_table(board.rows) }}
+        </div>
+    </div>
+</div>
+{% endblock %}

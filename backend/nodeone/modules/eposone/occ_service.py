@@ -1,4 +1,8 @@
-"""OCC Fase A — Visibilidad (ADR-025): Dashboard Hoy + Cierres."""
+"""OCC Fase A/B — Visibilidad + Control (ADR-025).
+
+Fase A: Dashboard Hoy + Cierres.
+Fase B: Excepciones (Alertas) + Bitácora del turno (Auditoría).
+"""
 
 from __future__ import annotations
 
@@ -6,8 +10,8 @@ from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from models.commercial_core import CoreCashShift
-from models.eposone_order import EposoneOrder, EposoneOrderPayment
+from models.commercial_core import CoreCashMovement, CoreCashShift
+from models.eposone_order import EposoneOrder, EposoneOrderEvent, EposoneOrderPayment
 from nodeone.core.commerce.constants import (
     CASH_SHIFT_CLOSED,
     CASH_SHIFT_OPEN,
@@ -35,6 +39,66 @@ _STATUS_LABELS = {
     OCC_STATUS_WARN: 'Conciliado con observaciones',
     OCC_STATUS_ALERT: 'Diferencia pendiente',
     OCC_STATUS_OPEN: 'Turno abierto',
+}
+
+# Umbrales Fase B (Control) — fijos v1; configurable más adelante
+OCC_OPEN_SHIFT_HOURS_ALERT = 12
+OCC_VARIANCE_CRITICAL_ABS = 20.0
+
+OCC_SEV_CRITICAL = 'critical'
+OCC_SEV_HIGH = 'high'
+OCC_SEV_MEDIUM = 'medium'
+
+_SEV_LABELS = {
+    OCC_SEV_CRITICAL: 'Crítica',
+    OCC_SEV_HIGH: 'Alta',
+    OCC_SEV_MEDIUM: 'Media',
+}
+
+_SEV_RANK = {
+    OCC_SEV_CRITICAL: 0,
+    OCC_SEV_HIGH: 1,
+    OCC_SEV_MEDIUM: 2,
+}
+
+_BITACORA_ORDER_EVENT_TYPES = frozenset(
+    {
+        'pedido.anulado',
+        'pedido.devuelto',
+        'pago.registrado',
+        'pedido.cobrado',
+        'producto.eliminado',
+        'linea.cancelada',
+        'pedido.dividido',
+    }
+)
+
+_ORDER_EVENT_TITLES = {
+    'pedido.creado': 'Pedido creado',
+    'pedido.actualizado': 'Pedido actualizado',
+    'pedido.dividido': 'Pedido dividido',
+    'producto.agregado': 'Producto agregado',
+    'producto.eliminado': 'Producto quitado',
+    'cantidad.modificada': 'Cantidad modificada',
+    'pedido.enviado': 'Enviado a cocina',
+    'linea.lista': 'Línea lista',
+    'pedido.listo': 'Listo',
+    'linea.entregada': 'Línea entregada',
+    'pedido.entregado': 'Entregado',
+    'pago.registrado': 'Pago',
+    'pedido.cobrado': 'Cobrado',
+    'linea.cancelada': 'Línea cancelada',
+    'pedido.anulado': 'Anulado',
+    'pedido.devuelto': 'Devuelto',
+}
+
+_MOVEMENT_TITLES = {
+    'sale_cash': 'Venta efectivo',
+    'refund_cash': 'Reembolso efectivo',
+    'cash_in': 'Entrada de efectivo',
+    'cash_out': 'Salida de efectivo',
+    'opening': 'Fondo de apertura',
+    'closing': 'Retiro de cierre',
 }
 
 
@@ -242,4 +306,290 @@ def build_operations_control_cierres(
         **board,
         'rows': rows,
         'view': 'cierres',
+    }
+
+
+def _hours_open(opened_at: datetime | None, *, now: datetime | None = None) -> float:
+    if opened_at is None:
+        return 0.0
+    end = now or datetime.utcnow()
+    start = opened_at
+    if start.tzinfo is not None:
+        start = start.replace(tzinfo=None)
+    if end.tzinfo is not None:
+        end = end.replace(tzinfo=None)
+    secs = max(0.0, (end - start).total_seconds())
+    return round(secs / 3600.0, 2)
+
+
+def _exception_entry(
+    *,
+    code: str,
+    severity: str,
+    title: str,
+    detail: str,
+    row: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        'code': code,
+        'severity': severity,
+        'severity_label': _SEV_LABELS.get(severity, severity),
+        'title': title,
+        'detail': detail,
+        'shift_id': row['shift_id'],
+        'register_ref': row['register_ref'],
+        'register_name': row['register_name'],
+        'branch_name': row['branch_name'],
+        'cashier_name': row['cashier_name'],
+        'occ_status': row['occ_status'],
+        'occ_status_label': row.get('occ_status_label') or _STATUS_LABELS.get(row['occ_status'], row['occ_status']),
+        'variance': row.get('variance'),
+        'sales': row.get('sales'),
+        'opened_at': row.get('opened_at'),
+        'closed_at': row.get('closed_at'),
+        'detail_url_path': row.get('detail_url_path'),
+        'bitacora_url_path': f"/admin/eposone/control/auditoria/{int(row['shift_id'])}",
+    }
+
+
+def exceptions_for_shift_row(
+    row: dict[str, Any],
+    *,
+    now: datetime | None = None,
+    open_hours_threshold: float = OCC_OPEN_SHIFT_HOURS_ALERT,
+    variance_critical: float = OCC_VARIANCE_CRITICAL_ABS,
+) -> list[dict[str, Any]]:
+    """Reglas de excepción v1 sobre una fila OCC (sin I/O)."""
+    out: list[dict[str, Any]] = []
+    status = row.get('occ_status')
+    variance = row.get('variance')
+    shift_status = row.get('shift_status')
+
+    if status == OCC_STATUS_ALERT and variance is not None and abs(float(variance)) >= 0.01:
+        sev = (
+            OCC_SEV_CRITICAL
+            if abs(float(variance)) >= float(variance_critical)
+            else OCC_SEV_HIGH
+        )
+        out.append(
+            _exception_entry(
+                code='cash_difference',
+                severity=sev,
+                title='Diferencia de caja',
+                detail=f"Varianza ${float(variance):+.2f} (esperado ${float(row.get('expected') or 0):.2f})",
+                row=row,
+            )
+        )
+
+    if status == OCC_STATUS_WARN:
+        if row.get('counted') is None:
+            out.append(
+                _exception_entry(
+                    code='pending_count',
+                    severity=OCC_SEV_MEDIUM,
+                    title='Arqueo pendiente',
+                    detail='Turno en conciliación / cerrado sin monto contado',
+                    row=row,
+                )
+            )
+        else:
+            out.append(
+                _exception_entry(
+                    code='observations',
+                    severity=OCC_SEV_MEDIUM,
+                    title='Conciliado con observaciones',
+                    detail='Requiere revisión del arqueo',
+                    row=row,
+                )
+            )
+
+    if shift_status == CASH_SHIFT_OPEN:
+        hours = _hours_open(row.get('opened_at'), now=now)
+        if hours >= float(open_hours_threshold):
+            out.append(
+                _exception_entry(
+                    code='shift_open_long',
+                    severity=OCC_SEV_HIGH,
+                    title='Turno abierto demasiado tiempo',
+                    detail=f'Abierto {hours:.1f} h (umbral {open_hours_threshold:g} h)',
+                    row=row,
+                )
+            )
+
+    return out
+
+
+def build_operations_control_excepciones(organization_id: int) -> dict[str, Any]:
+    """Vista Alertas / Excepciones — solo turnos con riesgo (Fase B)."""
+    board = build_operations_control_today(organization_id)
+    now = datetime.utcnow()
+    exceptions: list[dict[str, Any]] = []
+    for row in board['rows']:
+        exceptions.extend(exceptions_for_shift_row(row, now=now))
+
+    exceptions.sort(
+        key=lambda e: (
+            _SEV_RANK.get(e['severity'], 9),
+            -(abs(float(e['variance'])) if e.get('variance') is not None else 0.0),
+            str(e.get('register_name') or ''),
+        )
+    )
+
+    by_sev = {
+        OCC_SEV_CRITICAL: sum(1 for e in exceptions if e['severity'] == OCC_SEV_CRITICAL),
+        OCC_SEV_HIGH: sum(1 for e in exceptions if e['severity'] == OCC_SEV_HIGH),
+        OCC_SEV_MEDIUM: sum(1 for e in exceptions if e['severity'] == OCC_SEV_MEDIUM),
+    }
+    return {
+        **board,
+        'view': 'excepciones',
+        'exceptions': exceptions,
+        'exception_summary': {
+            'total': len(exceptions),
+            **by_sev,
+        },
+    }
+
+
+def build_operations_control_auditoria(organization_id: int) -> dict[str, Any]:
+    """Índice Auditoría — turnos del día con enlace a bitácora."""
+    board = build_operations_control_today(organization_id)
+    rows = []
+    for r in board['rows']:
+        rows.append(
+            {
+                **r,
+                'bitacora_url_path': f"/admin/eposone/control/auditoria/{int(r['shift_id'])}",
+            }
+        )
+    return {
+        **board,
+        'rows': rows,
+        'view': 'auditoria',
+    }
+
+
+def build_shift_bitacora(organization_id: int, shift_id: int) -> dict[str, Any] | None:
+    """Timeline operacional del turno (movimientos + eventos sensibles de pedido)."""
+    oid = int(organization_id)
+    shift = CoreCashShift.query.filter_by(id=int(shift_id), organization_id=oid).first()
+    if shift is None:
+        return None
+
+    meta_map = _register_branch_map(oid)
+    row = shift_control_row(shift, meta=meta_map.get(str(shift.register_ref)))
+    start = shift.opened_at or datetime.utcnow()
+    end = shift.closed_at or datetime.utcnow()
+    if end <= start:
+        end = start + timedelta(seconds=1)
+
+    entries: list[dict[str, Any]] = []
+    entries.append(
+        {
+            'at': shift.opened_at,
+            'kind': 'shift.open',
+            'title': 'Turno abierto',
+            'meta': row['cashier_name'],
+            'amount': _money(shift.opening_balance),
+            'order_id': None,
+            'en1_number': None,
+        }
+    )
+
+    movements = (
+        CoreCashMovement.query.filter_by(organization_id=oid, shift_id=int(shift.id))
+        .order_by(CoreCashMovement.created_at.asc(), CoreCashMovement.id.asc())
+        .all()
+    )
+    for mv in movements:
+        mtype = str(mv.movement_type or '')
+        entries.append(
+            {
+                'at': mv.created_at,
+                'kind': 'cash.movement',
+                'title': _MOVEMENT_TITLES.get(mtype) or mtype.replace('_', ' ').title(),
+                'meta': (mv.notes or '')[:120],
+                'amount': _money(mv.amount),
+                'order_id': None,
+                'en1_number': None,
+            }
+        )
+
+    order_ids = [
+        int(row_id)
+        for (row_id,) in EposoneOrder.query.filter(
+            EposoneOrder.organization_id == oid,
+            EposoneOrder.register_ref == str(shift.register_ref),
+            EposoneOrder.opened_at < end,
+            EposoneOrder.opened_at >= start,
+        )
+        .with_entities(EposoneOrder.id)
+        .all()
+    ]
+    # También pedidos con eventos en la ventana del turno (mismo register)
+    if order_ids:
+        events = (
+            EposoneOrderEvent.query.filter(
+                EposoneOrderEvent.organization_id == oid,
+                EposoneOrderEvent.order_id.in_(order_ids),
+                EposoneOrderEvent.type.in_(list(_BITACORA_ORDER_EVENT_TYPES)),
+                EposoneOrderEvent.occurred_at >= start,
+                EposoneOrderEvent.occurred_at < end,
+            )
+            .order_by(EposoneOrderEvent.occurred_at.asc(), EposoneOrderEvent.sequence.asc())
+            .all()
+        )
+    else:
+        events = []
+
+    order_numbers: dict[int, str] = {}
+    if events:
+        for o in EposoneOrder.query.filter(EposoneOrder.id.in_({int(e.order_id) for e in events})).all():
+            order_numbers[int(o.id)] = str(o.en1_number)
+
+    for ev in events:
+        etype = str(ev.type or '')
+        oid_ord = int(ev.order_id)
+        en1 = order_numbers.get(oid_ord, '')
+        entries.append(
+            {
+                'at': ev.occurred_at,
+                'kind': 'order.event',
+                'title': _ORDER_EVENT_TITLES.get(etype) or etype.replace('.', ' · '),
+                'meta': ev.actor_user_ref or ev.actor_device_uuid or '',
+                'amount': None,
+                'order_id': oid_ord,
+                'en1_number': en1,
+            }
+        )
+
+    if shift.closed_at is not None:
+        entries.append(
+            {
+                'at': shift.closed_at,
+                'kind': 'shift.close',
+                'title': 'Turno cerrado',
+                'meta': row['occ_status_label'],
+                'amount': _money(shift.counted_amount) if shift.counted_amount is not None else None,
+                'order_id': None,
+                'en1_number': None,
+            }
+        )
+
+    def _sort_key(e: dict[str, Any]) -> tuple:
+        at = e.get('at') or datetime.min
+        if getattr(at, 'tzinfo', None) is not None:
+            at = at.replace(tzinfo=None)
+        return (at, str(e.get('kind') or ''), str(e.get('title') or ''))
+
+    entries.sort(key=_sort_key)
+
+    return {
+        'view': 'bitacora',
+        'shift_row': row,
+        'shift': shift,
+        'entries': entries,
+        'exceptions': exceptions_for_shift_row(row, now=datetime.utcnow()),
+        'day_local': None,
+        'timezone': None,
     }

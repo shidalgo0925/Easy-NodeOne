@@ -107,7 +107,13 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                 'fas fa-satellite-dish',
                 url=safe_url_for('eposone.eposone_occ_hoy'),
                 visible=_v_eposone,
-                active_endpoints=('eposone.eposone_occ_hoy', 'eposone.eposone_occ_cierres'),
+                active_endpoints=(
+                    'eposone.eposone_occ_hoy',
+                    'eposone.eposone_occ_cierres',
+                    'eposone.eposone_occ_excepciones',
+                    'eposone.eposone_occ_auditoria',
+                    'eposone.eposone_occ_bitacora',
+                ),
                 active_path_prefixes=('/admin/eposone/control',),
             ),
             AppNavItem(

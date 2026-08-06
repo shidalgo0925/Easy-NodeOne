@@ -36,7 +36,9 @@ body {
   box-shadow: var(--shadow);
   overflow: hidden;
   border: 1px solid #cbd5e1;
-  min-height: 720px;
+  /* Cap to viewport so footer CTA is never clipped on mobile chrome */
+  min-height: min(720px, calc(100dvh - 2.5rem));
+  max-height: calc(100dvh - 2.5rem);
   display: flex;
   flex-direction: column;
 }
@@ -86,6 +88,9 @@ body {
 .content {
   padding: 0.5rem 1.1rem 1.25rem;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .content h2 {
@@ -262,6 +267,10 @@ body {
   gap: 0.45rem;
   border-top: 1px solid var(--ep-line);
   background: #fff;
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
 }
 
 .btn {
@@ -288,7 +297,13 @@ body {
   cursor: pointer;
 }
 
-.screen { display: none; flex: 1; flex-direction: column; }
+.screen {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
 .screen.is-visible { display: flex; }
 
 .code-box {
@@ -313,4 +328,15 @@ body {
 
 @media (min-width: 720px) {
   .ep-page { padding-top: 2rem; }
+  .phone {
+    min-height: 720px;
+    max-height: min(900px, calc(100dvh - 3rem));
+  }
+}
+
+@supports not (height: 100dvh) {
+  .phone {
+    min-height: min(720px, calc(100vh - 2.5rem));
+    max-height: calc(100vh - 2.5rem);
+  }
 }

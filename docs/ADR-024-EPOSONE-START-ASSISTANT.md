@@ -11,7 +11,8 @@
 | Responsable Portal | **CODITO** |
 | Responsable APK | **LOCAL** |
 | Numeración | **No** usar ADR-019 (ocupado por Jerarquía Administrativa). Este es **ADR-024**. |
-| Relacionados | [`EN1_PLATFORM_CONSTITUTION_V1.md`](EN1_PLATFORM_CONSTITUTION_V1.md) · [ADR-023 Trial/Grace](ADR-023-EPOSONE-TRIAL-SUBSCRIPTION-GRACE.md) · Centro legal `/legal/*` · Planes landing EPosOne · handoff [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
+| Relacionados | [`EN1_PLATFORM_CONSTITUTION_V1.md`](EN1_PLATFORM_CONSTITUTION_V1.md) · [ADR-023 Trial/Grace](ADR-023-EPOSONE-TRIAL-SUBSCRIPTION-GRACE.md) · [ADR-028 Plan/overrides sin precio](ADR-028-EPOSONE-PLAN-DEFAULTS-COMMERCIAL-OVERRIDES.md) · Centro legal `/legal/*` · Planes landing EPosOne · handoff [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
+| Norma precio `/start` | **ADR-028:** el asistente muestra plan + beneficios/cupos; **no** precio. El precio sigue en catálogo/contrato/Admin. |
 | Este GO | **GO docs** · **GO diseño** · **GO implementación** · **GO deploy** (prod `/start`). **Pendiente:** `GO Local` (APK / Play Store). |
 
 ---

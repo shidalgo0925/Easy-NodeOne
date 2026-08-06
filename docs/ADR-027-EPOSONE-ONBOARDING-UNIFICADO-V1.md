@@ -6,7 +6,7 @@
 | Título | Onboarding e instalación unificados — Standalone / Connected bajo EN1 |
 | Estado | **Aprobado (contrato P0)** — 6 ago 2026 · **Sin implementación de código en este ADR** |
 | Ámbito | EN1 (comercial + Device API) · EP1/APK (LOCAL implementa UI) |
-| Relacionados | [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-021](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) · [ADR-023](ADR-023-EPOSONE-TRIAL-SUBSCRIPTION-GRACE.md) · [ADR-024](ADR-024-EPOSONE-START-ASSISTANT.md) · [ADR-001](ADR-001-EPOSONE-STANDALONE.md) · [ADR-003](ADR-003-EPOSONE-SYNC.md) |
+| Relacionados | [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-021](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) · [ADR-023](ADR-023-EPOSONE-TRIAL-SUBSCRIPTION-GRACE.md) · [ADR-024](ADR-024-EPOSONE-START-ASSISTANT.md) · [ADR-028](ADR-028-EPOSONE-PLAN-DEFAULTS-COMMERCIAL-OVERRIDES.md) · [ADR-001](ADR-001-EPOSONE-STANDALONE.md) · [ADR-003](ADR-003-EPOSONE-SYNC.md) |
 | Pack contratos | [`eposone-onboarding/`](eposone-onboarding/README.md) |
 
 ---

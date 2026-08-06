@@ -3,7 +3,7 @@
 | Campo | Valor |
 |-------|--------|
 | ID | **EPOSONE-LOGIN-CONTRACT-V1** |
-| Estado | **Contrato P0** — 6 ago 2026 · sin código |
+| Estado | **Contrato P0** — 6 ago 2026 · **HTTP Gate 1 implementado** — ver [`ONBOARDING_LOGIN_HTTP_V1.md`](ONBOARDING_LOGIN_HTTP_V1.md) |
 | ADR | [ADR-027](../ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md) |
 | Uso | Camino **B** (Tengo cuenta) y paso inicial de **D** (Restaurar) |
 | No confundir | Login **cajero** (PIN local Hito 2.5) |

@@ -80,7 +80,7 @@ flowchart TB
 |----------|-------|--------|
 | `modality` + `plan_code` comercial en Device `/config` (+ bootstrap) | EN1 | ✅ 6 ago 2026 — ver [DEVICE_CONFIG_COMMERCIAL_V1.md](DEVICE_CONFIG_COMMERCIAL_V1.md) |
 | Portal instalación mínimo (código, QR, regenerar, devices) | EN1 | ✅ 6 ago 2026 — `/admin/eposone/install` |
-| API Login onboarding (payload § Login Contract) | EN1 | ⏸ pendiente (contrato listo) |
+| API Login onboarding (payload § Login Contract) | EN1 | ✅ 6 ago 2026 — [`ONBOARDING_LOGIN_HTTP_V1.md`](ONBOARDING_LOGIN_HTTP_V1.md) |
 | Trial 15 / Grace 7 sin tercer período | EN1 | ✅ (sin cambio) |
 
 ### Gate 2 — APK onboarding (LOCAL)

@@ -3,7 +3,7 @@
 | Campo | Valor |
 |-------|--------|
 | Fecha | **5 ago 2026** |
-| **Puerta comercial (ADR-024)** | **Asistente de Inicio en PROD** — https://eposone.easytech.services/start · login clientes `/login` · CTA landing «Empieza con EPosOne» · commit `e56bb96` · docs [`ADR-024`](ADR-024-EPOSONE-START-ASSISTANT.md) · diseño [`eposone-start-assistant/`](eposone-start-assistant/DESIGN.md) |
+| **Puerta comercial (ADR-024)** | **Asistente de Inicio en PROD** — https://eposone.easytech.services/start · login clientes `/login` · CTA landing «Empieza con EPosOne» · commit `e56bb96` · docs [`ADR-024`](ADR-024-EPOSONE-START-ASSISTANT.md) · diseño [`eposone-start-assistant/`](eposone-start-assistant/DESIGN.md) · **ADR-028** plan/overrides sin precio ([doc](ADR-028-EPOSONE-PLAN-DEFAULTS-COMMERCIAL-OVERRIDES.md)) — diseño aceptado, sin GO código |
 | **Play Store / APK** | **NO listos para publicar** · EN1 solo tiene embudo web + código de instalación · falta **`GO Local`** (handoff CODITO→LOCAL: login app, código, sync, AAB firmado, ficha Play, URL real de la app) · CTA Play hoy es placeholder (búsqueda) |
 | **Post-demo Mexican Food** | Design Partner #1 · presentación comercial 28 jul · instalación **jueves 30 jul** · freeze features nuevas · SoT: [`EN1_EPOSONE_POST_DEMO_MEXICAN_FOOD_PRIORITIES.md`](EN1_EPOSONE_POST_DEMO_MEXICAN_FOOD_PRIORITIES.md) |
 | **P0 inmediato** | Caja/turnos · sync 100% · estados recibos · **OCC Fase C (Inteligencia)** Operación + Pagos tras ADR-025 · informes/cierres (mismas cifras EN1↔EPosOne) · **BO Turnos:** historial de cierres filtrable por Caja (`c30a264`) |

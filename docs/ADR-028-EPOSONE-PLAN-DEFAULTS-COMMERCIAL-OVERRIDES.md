@@ -344,7 +344,7 @@ Proceso técnico (sin mezclar): código → APK register → bootstrap → cajer
 | Señal | Trabajo |
 |-------|---------|
 | **GO docs** (este) | ✅ ADR-028 |
-| **GO implementación UI `/start` sin precio** | Solo front catálogo público del asistente |
+| **GO implementación UI `/start` sin precio** | ✅ 6 ago 2026 — `plan_public_view` sin price_*; UI cupos |
 | **GO implementación Admin ajustes** | Pantalla + API reason/contract_ref + audit |
 | **GO camino B PENDING** | Flag alta + gate provision + Activar |
 | **GO deploy** | Solo tras validar en Dev EN1 |

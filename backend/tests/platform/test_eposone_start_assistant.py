@@ -18,7 +18,10 @@ class TestRecommendEngine(unittest.TestCase):
         r = recommend_for_business_type('Cafetería')
         self.assertEqual(r['plan_code'], 'business')
         self.assertEqual(r['modality'], 'connected')
-        self.assertIn('39.95', r['price_label'])
+        self.assertNotIn('price_label', r)
+        self.assertNotIn('price_monthly', r)
+        self.assertTrue(any('POS' in line for line in r['capacity_lines']))
+        self.assertIn('3', r['includes_summary'])
 
     def test_mini_super_recommends_starter(self):
         from nodeone.modules.eposone_start.recommend import recommend_for_business_type

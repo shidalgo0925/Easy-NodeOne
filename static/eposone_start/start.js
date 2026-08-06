@@ -101,6 +101,17 @@
   }
 
   function planCardHtml(p) {
+    var lines = p.capacity_lines || [];
+    var bullets =
+      lines.length > 0
+        ? '<ul class="plan-includes">' +
+          lines
+            .map(function (line) {
+              return '<li>' + escapeHtml(line) + '</li>';
+            })
+            .join('') +
+          '</ul>'
+        : '';
     return (
       '<p class="eyebrow">' +
       escapeHtml(p.modality_benefit || '') +
@@ -108,15 +119,13 @@
       '<p style="margin:0.5rem 0 0;font-weight:800;font-size:1.15rem;">' +
       escapeHtml(p.display_name || p.plan_name || '') +
       '</p>' +
-      '<p class="price">' +
-      escapeHtml((p.price_label || '').replace('/mes', '')) +
-      ' <span style="font-size:0.85rem;font-weight:600;color:#64748b;">/ mes</span></p>' +
       '<span class="badge">' +
       escapeHtml(p.trial_badge || '') +
       '</span>' +
       '<p class="muted">' +
       escapeHtml(p.blurb || '') +
       '</p>' +
+      bullets +
       '<p class="muted" style="font-size:0.75rem;">' +
       escapeHtml(p.modality_label || '') +
       '</p>'
@@ -175,13 +184,10 @@
       btn.className = 'card-opt' + (p.plan_code === state.planCode ? ' is-selected' : '');
       btn.innerHTML =
         '<strong>' +
-        escapeHtml(p.plan_name) +
-        '</strong> · ' +
-        escapeHtml(p.price_label) +
-        '<small>' +
-        escapeHtml(p.modality_benefit) +
-        ' · ' +
-        escapeHtml(p.trial_badge) +
+        escapeHtml(p.display_name || p.plan_name) +
+        '</strong><small>' +
+        escapeHtml(p.includes_summary || p.modality_benefit || '') +
+        (p.trial_badge ? ' · ' + escapeHtml(p.trial_badge) : '') +
         '</small>';
       btn.addEventListener('click', function () {
         state.planCode = p.plan_code;
@@ -202,7 +208,7 @@
     for (var i = 0; i < plans.length; i++) {
       if (plans[i].plan_code === state.planCode) return plans[i];
     }
-    return state.recommendation || { plan_name: state.planCode, price_label: '', trial_badge: '' };
+    return state.recommendation || { plan_name: state.planCode, includes_summary: '', trial_badge: '' };
   }
 
   function renderSummary() {
@@ -218,9 +224,10 @@
       escapeHtml(p.modality_benefit || '') +
       '</p>' +
       '<p style="margin:0;font-weight:800;">' +
-      escapeHtml(p.plan_name || '') +
-      ' · ' +
-      escapeHtml(p.price_label || '') +
+      escapeHtml(p.display_name || p.plan_name || '') +
+      '</p>' +
+      '<p class="muted" style="margin:0.35rem 0 0;">' +
+      escapeHtml(p.includes_summary || '') +
       '</p>' +
       '<p style="margin:0.35rem 0 0;"><span class="badge">' +
       escapeHtml(p.trial_badge || '') +

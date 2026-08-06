@@ -72,6 +72,7 @@ EIS v1.0
 | Checklist de conformidad | [`CONFORMITY-CHECKLIST.md`](CONFORMITY-CHECKLIST.md) |
 | Validación cruzada ARP–CODITO–LOCAL | [`VALIDATION-CROSS-ARP-CODITO-LOCAL.md`](VALIDATION-CROSS-ARP-CODITO-LOCAL.md) |
 | Validación productos (histórica S1) | [`VALIDATION-ETS-PRODUCTS.md`](VALIDATION-ETS-PRODUCTS.md) |
+| **Handoff entrega ARP/LOCAL** | [`HANDOFF-ARP-LOCAL.md`](HANDOFF-ARP-LOCAL.md) |
 
 ---
 

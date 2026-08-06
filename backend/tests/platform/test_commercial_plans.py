@@ -27,6 +27,25 @@ class TestCommercialPlans(unittest.TestCase):
         self.assertEqual(plans[0]['trial_days'], 0)
         self.assertEqual(plans[1]['trial_days'], 15)
 
+    def test_operating_modality_maps_local_to_standalone(self):
+        from nodeone.core.platform.commercial_plans import (
+            commercial_context_for_org,
+            operating_modality_for_plan,
+        )
+
+        self.assertEqual(operating_modality_for_plan('standalone'), 'standalone')
+        self.assertEqual(operating_modality_for_plan('starter'), 'connected')
+        self.assertEqual(operating_modality_for_plan('business'), 'connected')
+        with patch(
+            'nodeone.core.platform.commercial_plans.resolve_org_plan_code',
+            return_value='standalone',
+        ):
+            ctx = commercial_context_for_org(5)
+        self.assertEqual(ctx['modality'], 'standalone')
+        self.assertEqual(ctx['operating_modality'], 'standalone')
+        self.assertFalse(ctx['sync_cloud'])
+        self.assertEqual(ctx['plan_code'], 'standalone')
+
     def test_kds_locked_on_starter_available_on_business(self):
         from nodeone.core.platform.commercial_plans import (
             feature_nav_state_for_plan,

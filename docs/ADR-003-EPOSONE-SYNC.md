@@ -4,9 +4,13 @@
 |-------|--------|
 | ID | ADR-003 |
 | Título | Tres modos operativos; un solo producto |
-| Estado | **Aprobado (congelado)** — 9 jul 2026 |
+| Estado | **Aprobado (congelado)** — 9 jul 2026 · **Onboarding de usuario supersedido por [ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md)** (6 ago 2026) |
 | Roadmap | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) |
-| Relacionados | [ADR-001](ADR-001-EPOSONE-STANDALONE.md) · [ADR-002](ADR-002-EPOSONE-DOMAIN.md) · [ADR-004](ADR-004-EPOSONE-MIGRATION.md) |
+| Relacionados | [ADR-001](ADR-001-EPOSONE-STANDALONE.md) · [ADR-002](ADR-002-EPOSONE-DOMAIN.md) · [ADR-004](ADR-004-EPOSONE-MIGRATION.md) · **[ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md)** |
+
+> **Enmienda onboarding (ADR-027):** el flujo de usuario ya **no** ofrece “Modo Local = sin EN1”.  
+> Terminología de producto: **Standalone** / **Connected** (modalidad bajo suscripción EN1).  
+> Este ADR conserva valor técnico para **comportamiento de sync** (on/off); no define caminos de instalación.
 | Sync / offline EN1 | [`EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md`](EN1_PLATFORM_ETAPA6_DOMINIO_COMERCIAL.md) § 6.9 |
 | Alcance de esta fase | **Documentado + Sprint 7:** bridge [`EN1_PLATFORM_EPOSONE_V4_SYNC.md`](EN1_PLATFORM_EPOSONE_V4_SYNC.md) |
 

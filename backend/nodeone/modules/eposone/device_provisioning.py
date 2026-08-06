@@ -650,6 +650,7 @@ class DeviceProvisioningService:
             'currency': full_config.get('currency'),
             'timezone': full_config.get('timezone'),
             'business_name': full_config.get('business_name'),
+            'commercial': full_config.get('commercial'),
         }
 
         products_out: list[dict[str, Any]] = []
@@ -912,6 +913,7 @@ class DeviceProvisioningService:
                 'last_seen_at': _iso(row.last_seen_at),
                 'installation_ready_at': _iso(getattr(row, 'installation_ready_at', None)),
             },
+            'commercial': _commercial_block_for_org(oid),
             'license': _license_block_for_register(oid, str(row.register_ref or '')),
         }
 
@@ -962,4 +964,22 @@ def _license_block_for_register(organization_id: int, register_ref: str) -> dict
             'features': [],
             'limits': {},
             'updated_at': None,
+        }
+
+
+def _commercial_block_for_org(organization_id: int) -> dict[str, Any]:
+    """ADR-027 / Onboarding Gate 1 — modality for APK (not License Engine plan_code)."""
+    try:
+        from nodeone.core.platform.commercial_plans import commercial_context_for_org
+
+        return commercial_context_for_org(int(organization_id), product_code='eposone')
+    except Exception:
+        return {
+            'schema_version': 1,
+            'product_code': 'eposone',
+            'plan_code': 'starter',
+            'plan_name': 'Starter',
+            'modality': 'connected',
+            'operating_modality': 'connected',
+            'sync_cloud': True,
         }

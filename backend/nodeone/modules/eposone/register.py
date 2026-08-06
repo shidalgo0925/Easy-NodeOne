@@ -23,6 +23,10 @@ def register_eposone_blueprints(app) -> None:
         # Hito EN1-01: auth por provisioning code / Bearer dispositivo (sin sesión admin)
         if 'eposone_devices_v1' not in app.blueprints:
             app.register_blueprint(eposone_devices_v1_bp)
+        from nodeone.modules.eposone.onboarding_v1_routes import eposone_onboarding_v1_bp
+
+        if 'eposone_onboarding_v1' not in app.blueprints:
+            app.register_blueprint(eposone_onboarding_v1_bp)
         # Hito 3: Order Domain APIs (Device Bearer / BO session)
         from nodeone.modules.eposone.orders_v1_routes import eposone_orders_v1_bp
 

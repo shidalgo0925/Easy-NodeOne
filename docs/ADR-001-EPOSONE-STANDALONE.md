@@ -4,9 +4,11 @@
 |-------|--------|
 | ID | ADR-001 |
 | Título | EPosOne como producto independiente |
-| Estado | **Aprobado (congelado)** — 9 jul 2026 |
+| Estado | **Aprobado (congelado)** — 9 jul 2026 · **Reinterpretado por [ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md)** (6 ago 2026) |
 | Roadmap | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) |
-| Relacionados | [ADR-002](ADR-002-EPOSONE-DOMAIN.md) · [ADR-003](ADR-003-EPOSONE-SYNC.md) · [ADR-004](ADR-004-EPOSONE-MIGRATION.md) · [ADR-005](ADR-005-EPOSONE-LICENSING-POS.md) |
+| Relacionados | [ADR-002](ADR-002-EPOSONE-DOMAIN.md) · [ADR-003](ADR-003-EPOSONE-SYNC.md) · [ADR-004](ADR-004-EPOSONE-MIGRATION.md) · [ADR-005](ADR-005-EPOSONE-LICENSING-POS.md) · **[ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md)** |
+
+> **Enmienda (ADR-027):** “EPosOne puede vivir solo” = modalidad **Standalone** con cuenta/org/suscripción en EN1 y **sin sync cloud operativa**, no APK sin registro EN1. Onboarding oficial siempre comienza en EN1.
 | Alcance de esta fase | **Solo documentación** — sin código |
 
 ---

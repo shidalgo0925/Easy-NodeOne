@@ -403,6 +403,38 @@ def resolve_org_plan_code(organization_id: int, product_code: str = 'eposone') -
     return 'starter'
 
 
+def operating_modality_for_plan(plan_code: str | None) -> str:
+    """ADR-027 product modality for APK: ``standalone`` | ``connected``.
+
+    Catalog stores ``local`` for standalone plans; never expose ``local`` to devices.
+    """
+    plan = get_commercial_plan(plan_code)
+    raw = str(plan.get('modality') or 'connected').strip().lower()
+    if raw in ('local', 'standalone'):
+        return 'standalone'
+    return 'connected'
+
+
+def commercial_context_for_org(
+    organization_id: int,
+    *,
+    product_code: str = 'eposone',
+) -> dict[str, Any]:
+    """Commercial block for Device config/bootstrap (Onboarding P0 Gate 1)."""
+    plan_code = resolve_org_plan_code(int(organization_id), product_code)
+    plan = get_commercial_plan(plan_code)
+    modality = operating_modality_for_plan(plan_code)
+    return {
+        'schema_version': 1,
+        'product_code': product_code,
+        'plan_code': plan_code,
+        'plan_name': str(plan.get('name') or plan_code),
+        'modality': modality,
+        'operating_modality': modality,
+        'sync_cloud': modality == 'connected',
+    }
+
+
 def feature_nav_state_for_org(
     organization_id: int | None,
     feature: str,

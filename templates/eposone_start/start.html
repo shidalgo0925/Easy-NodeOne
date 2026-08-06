@@ -135,7 +135,8 @@
         </div>
         <div class="footer-cta">
           <a class="btn btn-primary" id="btn-play" href="{{ play_store_url }}" target="_blank" rel="noopener">Descargar en Google Play</a>
-          <button type="button" class="btn btn-secondary" id="btn-show-code">Ver mi código de instalación</button>
+          <a class="btn btn-secondary" id="btn-install-portal" href="{{ url_for('eposone.eposone_install') }}">Abrir panel de instalación</a>
+          <button type="button" class="btn btn-ghost" id="btn-show-code">Ver mi código de instalación</button>
           <button type="button" class="btn btn-ghost" data-next="9">Ver guía de instalación</button>
         </div>
       </section>
@@ -156,7 +157,8 @@
         </div>
         <div class="footer-cta">
           <a class="btn btn-primary" id="btn-play-2" href="{{ play_store_url }}" target="_blank" rel="noopener">Abrir Google Play</a>
-          <button type="button" class="btn btn-secondary" id="btn-show-code-2">Ver mi código</button>
+          <a class="btn btn-secondary" href="{{ url_for('eposone.eposone_install') }}">Panel de instalación</a>
+          <button type="button" class="btn btn-ghost" id="btn-show-code-2">Ver mi código</button>
         </div>
       </section>
     </div>

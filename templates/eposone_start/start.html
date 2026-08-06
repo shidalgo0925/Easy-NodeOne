@@ -6,7 +6,7 @@
   <title>Empieza con EPosOne</title>
   <meta name="description" content="Prepara tu negocio y descarga tu punto de venta en pocos minutos." />
   <link rel="icon" href="{{ url_for('static', filename=brand_favicon) }}" type="image/svg+xml" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='eposone_start/start.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='eposone_start/start.css') }}?v=cta2" />
 </head>
 <body>
   <div class="ep-page">
@@ -166,6 +166,6 @@
   </div>
 
   <script type="application/json" id="bootstrap-data">{{ catalog | tojson }}</script>
-  <script src="{{ url_for('static', filename='eposone_start/start.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='eposone_start/start.js') }}?v=cta2" defer></script>
 </body>
 </html>

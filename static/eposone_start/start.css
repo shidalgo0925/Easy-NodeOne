@@ -36,11 +36,17 @@ body {
   box-shadow: var(--shadow);
   overflow: hidden;
   border: 1px solid #cbd5e1;
-  /* Cap to viewport so footer CTA is never clipped on mobile chrome */
-  min-height: min(720px, calc(100dvh - 2.5rem));
-  max-height: calc(100dvh - 2.5rem);
   display: flex;
   flex-direction: column;
+  /* Cap to viewport; never force min-height above max (clips footer CTAs) */
+  height: auto;
+  min-height: 0;
+  max-height: calc(100dvh - 2.5rem);
+}
+
+.topbar,
+.stage {
+  flex-shrink: 0;
 }
 
 .topbar {
@@ -87,7 +93,7 @@ body {
 
 .content {
   padding: 0.5rem 1.1rem 1.25rem;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -267,9 +273,8 @@ body {
   gap: 0.45rem;
   border-top: 1px solid var(--ep-line);
   background: #fff;
-  flex-shrink: 0;
-  position: sticky;
-  bottom: 0;
+  flex: 0 0 auto;
+  margin-top: auto;
   z-index: 2;
 }
 
@@ -299,7 +304,7 @@ body {
 
 .screen {
   display: none;
-  flex: 1;
+  flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
@@ -329,14 +334,20 @@ body {
 @media (min-width: 720px) {
   .ep-page { padding-top: 2rem; }
   .phone {
-    min-height: 720px;
-    max-height: min(900px, calc(100dvh - 3rem));
+    /* Soft floor only when it fits under max-height */
+    min-height: min(560px, calc(100dvh - 3rem));
+    max-height: min(820px, calc(100dvh - 3rem));
   }
 }
 
 @supports not (height: 100dvh) {
   .phone {
-    min-height: min(720px, calc(100vh - 2.5rem));
     max-height: calc(100vh - 2.5rem);
+  }
+  @media (min-width: 720px) {
+    .phone {
+      min-height: min(560px, calc(100vh - 3rem));
+      max-height: min(820px, calc(100vh - 3rem));
+    }
   }
 }

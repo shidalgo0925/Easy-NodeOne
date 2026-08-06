@@ -6,8 +6,10 @@
 | Nombre comercial del conjunto de contratos | **Connector SDK** (definido *por* el EIS — no es norma aparte) |
 | Versión | **1.0.0** |
 | Estado | **Frozen / Approved** — [`FROZEN.md`](FROZEN.md) |
+| Entrada Gate 0 | [`EIS.md`](EIS.md) |
 | ADR | [`ADR-026`](../../ADR-026-EASY-INTEGRATION-SPECIFICATION-V1.md) |
-| Fecha | 5 ago 2026 |
+| Tag sync LOCAL/ARP | **`eis-v1.0.1`** (`git@github.com:shidalgo0925/Easy-NodeOne.git`) |
+| Fecha | 5–6 ago 2026 |
 | Artefactos | Solo documentación (sin código CODITO) |
 
 ---

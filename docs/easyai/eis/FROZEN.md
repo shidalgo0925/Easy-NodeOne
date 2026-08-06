@@ -30,4 +30,5 @@ El término **Connector SDK** en comunicaciones de producto se refiere a este EI
 
 ## Contenido del paquete
 
-Índice: [`README.md`](README.md)
+Índice: [`README.md`](README.md)  
+Entrega ARP/LOCAL: [`HANDOFF-ARP-LOCAL.md`](HANDOFF-ARP-LOCAL.md) · tag Git `eis-v1.0.0`

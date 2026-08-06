@@ -263,9 +263,10 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                         'install-device',
                         'Instalar dispositivo',
                         'fas fa-mobile-alt',
-                        url=_section('registers') + '?install=1',
+                        url=safe_url_for('eposone.eposone_install'),
                         visible=_v_eposone,
-                        active_path_prefixes=('/admin/eposone/section/registers',),
+                        active_path_prefixes=('/admin/eposone/install',),
+                        active_endpoints=('eposone.eposone_install',),
                     ),
                     AppNavItem(
                         'terminales',

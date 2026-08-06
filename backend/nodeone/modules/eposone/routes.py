@@ -950,23 +950,111 @@ def eposone_issue_provisioning_code():
     oid = resolve_organization_id()
     register_ref = (request.form.get('register_ref') or '').strip()
     redirect_slug = (request.form.get('redirect_slug') or 'terminals').strip()
-    if redirect_slug not in ('terminals', 'registers', 'pos-points'):
+    if redirect_slug not in ('terminals', 'registers', 'pos-points', 'install'):
         redirect_slug = 'terminals'
     if oid is None or not register_ref:
         flash('Falta register_ref (caja).', 'warning')
+        if redirect_slug == 'install':
+            return redirect(url_for('eposone.eposone_install'))
         return redirect(url_for('eposone.eposone_section', slug=redirect_slug))
     try:
         row = DeviceProvisioningService.issue_code_for_register(int(oid), register_ref=register_ref)
         flash(
-            f'Código generado para {register_ref}. Cópialo desde el panel de la caja (válido una sola vez).',
+            f'Código generado para {register_ref}. Cópialo desde el panel (válido una sola vez).',
             'success',
         )
+        if redirect_slug == 'install':
+            return redirect(url_for('eposone.eposone_install', issued=register_ref))
         return redirect(
             url_for('eposone.eposone_section', slug=redirect_slug, issued=register_ref)
         )
     except DeviceProvisioningError as exc:
         flash(f'No se pudo generar código: {exc.code}', 'danger')
+    if redirect_slug == 'install':
+        return redirect(url_for('eposone.eposone_install'))
     return redirect(url_for('eposone.eposone_section', slug=redirect_slug))
+
+
+@eposone_bp.route('/install')
+@login_required
+def eposone_install():
+    """Portal de instalación mínimo — post-/start y BO (Onboarding Gate 1)."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.commercial_plans import (
+        build_mi_plan_payload,
+        commercial_context_for_org,
+    )
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone_start.service import play_store_url
+
+    oid = resolve_organization_id()
+    if oid is None:
+        flash('Seleccioná una empresa para instalar EPosOne.', 'warning')
+        return redirect(url_for('eposone.eposone_home'))
+
+    registers_ctx = _registers_page_context(int(oid))
+    commercial = commercial_context_for_org(int(oid), product_code='eposone')
+    try:
+        plan_payload = build_mi_plan_payload(int(oid))
+    except Exception:
+        plan_payload = {}
+
+    issued = (request.args.get('issued') or '').strip()
+    return render_template(
+        'eposone/install.html',
+        play_store_url=play_store_url(),
+        commercial=commercial,
+        plan=plan_payload.get('plan'),
+        entitlement_state=plan_payload.get('entitlement_state'),
+        register_rows=registers_ctx.get('register_rows') or [],
+        issued_register_ref=issued or None,
+        en1_api_hint=request.url_root.rstrip('/'),
+    )
+
+
+@eposone_bp.route('/install/provisioning-qr.png', methods=['GET'])
+@login_required
+def eposone_install_provisioning_qr():
+    """QR técnico: payload = solo el código de aprovisionamiento (QR Contract V1)."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from flask import Response
+
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.device_provisioning import DeviceProvisioningService
+    from nodeone.modules.qr_generator.services import generate_png_bytes
+
+    oid = resolve_organization_id()
+    register_ref = (request.args.get('register_ref') or '').strip()
+    if oid is None or not register_ref:
+        abort(400)
+    code_row = DeviceProvisioningService.get_active_code_for_register(int(oid), register_ref)
+    code = (getattr(code_row, 'code', None) or '').strip() if code_row is not None else ''
+    if not code:
+        abort(404)
+    try:
+        size = int(request.args.get('size') or 320)
+    except (TypeError, ValueError):
+        size = 320
+    size = max(160, min(size, 1024))
+    png = generate_png_bytes(
+        code,
+        int(size),
+        'M',
+        style={'fill': '#0a0e14', 'bg': '#ffffff', 'border': 2},
+    )
+    safe_ref = ''.join(c if c.isalnum() or c in '-_' else '-' for c in register_ref)
+    return Response(
+        png,
+        mimetype='image/png',
+        headers={
+            'Content-Disposition': f'inline; filename="eposone-provision-{safe_ref}.png"',
+            'Cache-Control': 'private, max-age=60',
+        },
+    )
 
 
 @eposone_bp.route('/registers/<register_ref>/license', methods=['POST'])

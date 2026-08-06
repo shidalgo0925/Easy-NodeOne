@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from nodeone.core.platform.commercial_plans import (
-    format_price,
     get_commercial_plan,
     list_commercial_plans,
 )
@@ -68,10 +67,33 @@ def _activation_label(plan: dict[str, Any]) -> str:
     return 'Activación inmediata'
 
 
+def _capacity_lines(plan: dict[str, Any]) -> list[str]:
+    """Cupos legibles para /start (ADR-028 — sin precio)."""
+    limits = plan.get('resource_limits') or {}
+    lines: list[str] = []
+    pos = limits.get('pos')
+    branches = limits.get('branches')
+    if pos == -1:
+        lines.append('POS ilimitados')
+    elif isinstance(pos, int) and pos > 0:
+        lines.append('1 POS incluido' if pos == 1 else f'Hasta {pos} POS incluidos')
+    if branches == -1:
+        lines.append('Sucursales ilimitadas')
+    elif isinstance(branches, int) and branches > 0:
+        lines.append(
+            '1 sucursal incluida' if branches == 1 else f'Hasta {branches} sucursales'
+        )
+    if (plan.get('modality') or '') != 'local':
+        lines.append('Administración central y sincronización')
+    else:
+        lines.append('Operación local desde un solo punto de venta')
+    return lines
+
+
 def plan_public_view(plan_code: str | None) -> dict[str, Any]:
     plan = get_commercial_plan(plan_code)
     code = plan['code']
-    price = format_price(float(plan['price_monthly']), plan.get('currency') or 'USD')
+    capacity = _capacity_lines(plan)
     return {
         'plan_code': code,
         'plan_name': plan['name'],
@@ -79,14 +101,15 @@ def plan_public_view(plan_code: str | None) -> dict[str, Any]:
         'modality': plan.get('modality') or 'connected',
         'modality_label': 'EPosOne Standalone' if code == 'standalone' else 'EPosOne conectado',
         'modality_benefit': _modality_benefit(plan),
-        'price_monthly': float(plan['price_monthly']),
-        'price_label': f'{price}/mes',
-        'currency': plan.get('currency') or 'USD',
+        # ADR-028: catálogo interno conserva precio; /start no lo expone.
+        'capacity_lines': capacity,
+        'includes_summary': ' · '.join(capacity),
         'trial_days': int(plan.get('trial_days') or 0),
         'trial_badge': _trial_badge(plan),
         'activation_label': _activation_label(plan),
         'blurb': _BLURB.get(code, plan.get('description') or ''),
         'eyebrow': plan.get('eyebrow') or '',
+        'select_cta': 'Seleccionar este plan',
     }
 
 

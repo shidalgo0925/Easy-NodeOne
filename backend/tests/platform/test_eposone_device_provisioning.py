@@ -173,6 +173,13 @@ class TestInstallationBlock(unittest.TestCase):
                 'currency': 'USD',
                 'timezone': 'America/Panama',
                 'business_name': 'Test',
+                'commercial': {
+                    'schema_version': 1,
+                    'plan_code': 'standalone',
+                    'modality': 'standalone',
+                    'operating_modality': 'standalone',
+                    'sync_cloud': False,
+                },
             }
             prod_svc.search.return_value = []
             mock_cp.query.filter_by.return_value.order_by.return_value.first.return_value = None
@@ -196,6 +203,8 @@ class TestInstallationBlock(unittest.TestCase):
         self.assertEqual(payload['config_version'], 3)
         self.assertNotIn('products', payload)
         self.assertIn('ready_acked_at', payload['installation'])
+        self.assertEqual(payload['config']['commercial']['modality'], 'standalone')
+        self.assertFalse(payload['config']['commercial']['sync_cloud'])
 
     def test_ack_installation_ready_persists(self):
         from nodeone.modules.eposone.device_provisioning import DeviceProvisioningService

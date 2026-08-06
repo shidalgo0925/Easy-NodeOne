@@ -3,7 +3,7 @@
 | Campo | Valor |
 |-------|--------|
 | Sprint | **4 — Primer inicio** |
-| Estado | **Dominio EN1 ✅** · **UI APK = Etapa 2 Sprint A** (pendiente en proyecto Android) |
+| Estado | **Histórico / supersedido para onboarding de producto** · ver **[ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md)** + [`eposone-onboarding/`](eposone-onboarding/README.md) (6 ago 2026) · UI “Crear negocio sin EN1” **no oficial** |
 | Roadmap | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) |
 | Etapa 2 Android | [`EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md`](EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md) |
 | ADR | [ADR-003](ADR-003-EPOSONE-SYNC.md) |

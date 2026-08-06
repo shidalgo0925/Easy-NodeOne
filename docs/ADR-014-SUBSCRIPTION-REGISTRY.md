@@ -6,7 +6,7 @@
 | Título | Subscription Registry V1 — relación tenant-producto |
 | Estado | **Aprobado (GO)** — 24 jul 2026 · **Implementado en Dev** |
 | Ámbito | EN1 Platform · Portal ETS (consumidor futuro) · productos ETS |
-| Relacionados | [ADR-012](ADR-012-ETS-ECOSYSTEM-ARCHITECTURE.md) · [ADR-013](ADR-013-PORTAL-ETS-PUNTO-ENTRADA.md) · [ADR-011](ADR-011-PORTAL-ETS-PUNTO-ENTRADA.md) · License Engine V1 |
+| Relacionados | [ADR-012](ADR-012-ETS-ECOSYSTEM-ARCHITECTURE.md) · [ADR-013](ADR-013-PORTAL-ETS-PUNTO-ENTRADA.md) · [ADR-011](ADR-011-PORTAL-ETS-PUNTO-ENTRADA.md) · License Engine V1 · **[ADR-027 Onboarding](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md)** |
 
 ---
 
@@ -64,6 +64,28 @@ Trial: solo EN1 (`create_trial`); la APK no inventa Trial. License Engine sigue 
 
 ---
 
+## Modalidad comercial (enmienda 6 ago 2026 — ADR-027)
+
+Para el producto **`eposone`**, la suscripción (vía entitlement / plan comercial) determina la **modalidad de operación**:
+
+```text
+Cuenta EN1 → Organización → Suscripción EPosOne → Modalidad
+                                              ├─ Standalone
+                                              └─ Connected
+```
+
+| Modalidad | Significado oficial |
+|-----------|---------------------|
+| **Standalone** | Existe cuenta, organización y suscripción en EN1; **no** usa sincronización cloud operativa diaria |
+| **Connected** | Misma cadena comercial; **sí** sincroniza con EN1 |
+
+**SoT de modalidad (de facto):** `ets_product_entitlement.plan_code` → catálogo comercial (`modality` / `standalone` vs planes connected).  
+No existe “Modo Local” como ausencia de suscripción EN1.
+
+La APK **no** inventa modalidad: la recibe de EN1 (exposición Device API = P1). License Engine (caja) no redefine Standalone/Connected.
+
+---
+
 ## Relación con License Engine
 
 Unidireccional y mínima: al `suspend`/`cancel` de producto `eposone` (flag `sync_licenses=True`) se propaga suspensión a licencias de caja activas. No se duplica grace, heartbeat ni offline.
@@ -81,3 +103,4 @@ Portal UI · Marketplace · precios · pagos · branding · menús · DNS portal
 | Fecha | Nota |
 |-------|------|
 | **2026-07-24** | GO + implementación Dev (tabla + servicio + tests) |
+| **2026-08-06** | Enmienda: modalidad Standalone/Connected bajo suscripción (ADR-027); sin “Modo Local” sin EN1 |

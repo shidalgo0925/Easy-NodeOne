@@ -77,66 +77,87 @@ def _ensure_license(engine, dialect: str, tables: set[str], printfn) -> None:
 
 
 def _ensure_token(engine, dialect: str, tables: set[str], printfn) -> None:
-    if 'ets_activation_token' in tables:
+    if 'ets_activation_token' not in tables:
+        if dialect == 'postgresql':
+            ddl = """
+            CREATE TABLE IF NOT EXISTS ets_activation_token (
+                id SERIAL PRIMARY KEY,
+                license_id INTEGER NOT NULL REFERENCES ets_activation_license(id) ON DELETE CASCADE,
+                organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
+                token VARCHAR(64) NOT NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'active',
+                expires_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+                max_uses INTEGER NOT NULL DEFAULT 1,
+                uses_count INTEGER NOT NULL DEFAULT 0,
+                register_ref VARCHAR(64),
+                jti VARCHAR(64) NOT NULL,
+                consumed_at TIMESTAMP WITHOUT TIME ZONE,
+                consumed_device_uuid VARCHAR(128),
+                revoked_at TIMESTAMP WITHOUT TIME ZONE,
+                revoke_reason VARCHAR(200),
+                created_by_user_id INTEGER,
+                bound_email VARCHAR(200),
+                created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+                updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+                CONSTRAINT uq_ets_activation_token_token UNIQUE (token),
+                CONSTRAINT uq_ets_activation_token_jti UNIQUE (jti)
+            );
+            CREATE INDEX IF NOT EXISTS ix_ets_activation_token_license
+                ON ets_activation_token (license_id);
+            CREATE INDEX IF NOT EXISTS ix_ets_activation_token_org
+                ON ets_activation_token (organization_id);
+            CREATE INDEX IF NOT EXISTS ix_ets_activation_token_status
+                ON ets_activation_token (status);
+            CREATE INDEX IF NOT EXISTS ix_ets_activation_token_bound_email
+                ON ets_activation_token (bound_email);
+            """
+        else:
+            ddl = """
+            CREATE TABLE IF NOT EXISTS ets_activation_token (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                license_id INTEGER NOT NULL,
+                organization_id INTEGER NOT NULL,
+                token VARCHAR(64) NOT NULL UNIQUE,
+                status VARCHAR(32) NOT NULL DEFAULT 'active',
+                expires_at DATETIME NOT NULL,
+                max_uses INTEGER NOT NULL DEFAULT 1,
+                uses_count INTEGER NOT NULL DEFAULT 0,
+                register_ref VARCHAR(64),
+                jti VARCHAR(64) NOT NULL UNIQUE,
+                consumed_at DATETIME,
+                consumed_device_uuid VARCHAR(128),
+                revoked_at DATETIME,
+                revoke_reason VARCHAR(200),
+                created_by_user_id INTEGER,
+                bound_email VARCHAR(200),
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+        with engine.begin() as conn:
+            for stmt in ddl.strip().split(';'):
+                s = stmt.strip()
+                if s:
+                    conn.execute(text(s))
         if printfn:
-            printfn('ets_activation_token: ya existe')
+            printfn('ets_activation_token: tabla creada')
         return
-    if dialect == 'postgresql':
-        ddl = """
-        CREATE TABLE IF NOT EXISTS ets_activation_token (
-            id SERIAL PRIMARY KEY,
-            license_id INTEGER NOT NULL REFERENCES ets_activation_license(id) ON DELETE CASCADE,
-            organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
-            token VARCHAR(64) NOT NULL,
-            status VARCHAR(32) NOT NULL DEFAULT 'active',
-            expires_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
-            max_uses INTEGER NOT NULL DEFAULT 1,
-            uses_count INTEGER NOT NULL DEFAULT 0,
-            register_ref VARCHAR(64),
-            jti VARCHAR(64) NOT NULL,
-            consumed_at TIMESTAMP WITHOUT TIME ZONE,
-            consumed_device_uuid VARCHAR(128),
-            revoked_at TIMESTAMP WITHOUT TIME ZONE,
-            revoke_reason VARCHAR(200),
-            created_by_user_id INTEGER,
-            created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
-            updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
-            CONSTRAINT uq_ets_activation_token_token UNIQUE (token),
-            CONSTRAINT uq_ets_activation_token_jti UNIQUE (jti)
-        );
-        CREATE INDEX IF NOT EXISTS ix_ets_activation_token_license
-            ON ets_activation_token (license_id);
-        CREATE INDEX IF NOT EXISTS ix_ets_activation_token_org
-            ON ets_activation_token (organization_id);
-        CREATE INDEX IF NOT EXISTS ix_ets_activation_token_status
-            ON ets_activation_token (status);
-        """
-    else:
-        ddl = """
-        CREATE TABLE IF NOT EXISTS ets_activation_token (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            license_id INTEGER NOT NULL,
-            organization_id INTEGER NOT NULL,
-            token VARCHAR(64) NOT NULL UNIQUE,
-            status VARCHAR(32) NOT NULL DEFAULT 'active',
-            expires_at DATETIME NOT NULL,
-            max_uses INTEGER NOT NULL DEFAULT 1,
-            uses_count INTEGER NOT NULL DEFAULT 0,
-            register_ref VARCHAR(64),
-            jti VARCHAR(64) NOT NULL UNIQUE,
-            consumed_at DATETIME,
-            consumed_device_uuid VARCHAR(128),
-            revoked_at DATETIME,
-            revoke_reason VARCHAR(200),
-            created_by_user_id INTEGER,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-        """
-    with engine.begin() as conn:
-        for stmt in ddl.strip().split(';'):
-            s = stmt.strip()
-            if s:
-                conn.execute(text(s))
-    if printfn:
-        printfn('ets_activation_token: tabla creada')
+
+    # Tabla existente: asegurar bound_email (ADR-035 v1.4)
+    cols = {c['name'] for c in inspect(engine).get_columns('ets_activation_token')}
+    if 'bound_email' not in cols:
+        with engine.begin() as conn:
+            if dialect == 'postgresql':
+                conn.execute(text('ALTER TABLE ets_activation_token ADD COLUMN IF NOT EXISTS bound_email VARCHAR(200)'))
+                conn.execute(
+                    text(
+                        'CREATE INDEX IF NOT EXISTS ix_ets_activation_token_bound_email '
+                        'ON ets_activation_token (bound_email)'
+                    )
+                )
+            else:
+                conn.execute(text('ALTER TABLE ets_activation_token ADD COLUMN bound_email VARCHAR(200)'))
+        if printfn:
+            printfn('ets_activation_token: columna bound_email añadida')
+    elif printfn:
+        printfn('ets_activation_token: ya existe')

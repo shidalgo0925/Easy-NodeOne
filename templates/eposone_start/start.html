@@ -6,7 +6,7 @@
   <title>Empieza con EPosOne</title>
   <meta name="description" content="Prepara tu negocio y descarga tu punto de venta en pocos minutos." />
   <link rel="icon" href="{{ url_for('static', filename=brand_favicon) }}" type="image/svg+xml" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='eposone_start/start.css') }}?v=ux4" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='eposone_start/start.css') }}?v=ux5" />
 </head>
 <body>
   <div class="ep-page">
@@ -159,21 +159,23 @@
           </div>
           <div class="reco install-ready" id="ready-banner" hidden>
             <p class="eyebrow">Listo</p>
-            <p class="muted" style="margin:0.4rem 0 0;">Tu EPosOne está listo. Continuá para descargar e instalar.</p>
-          </div>
-          <div id="other-device-block" hidden style="margin-top:1rem;">
-            <p class="eyebrow">¿Registraste desde el teléfono?</p>
-            <p class="muted">Podés activar EPosOne en otra tablet escaneando este código con la app.</p>
-            <img id="activation-qr-img" class="help-qr" alt="QR para activar en otra tablet" width="180" height="180" hidden />
+            <p class="muted" style="margin:0.4rem 0 0;">Tu EPosOne está listo. Anotá tu código de activación y descargá la app.</p>
           </div>
           <div class="code-box" id="code-box" hidden></div>
+          <p class="muted" id="activation-code-hint" hidden style="margin-top:0.5rem;">
+            En la app: introducí tu correo y este código de activación, luego tocá ACTIVAR.
+          </p>
+          <div id="other-device-block" hidden style="margin-top:1rem;">
+            <p class="eyebrow">¿Otra tablet?</p>
+            <p class="muted">Usá el mismo correo y código de activación (o pedí un código nuevo desde tu cuenta).</p>
+          </div>
           <div class="code-box" id="cashier-pin-box" hidden></div>
         </div>
         <div class="footer-cta">
           <button type="button" class="btn btn-primary" id="btn-go-install" hidden>Continuar a instalar</button>
           <button type="button" class="btn btn-secondary" id="btn-check-verify">Ya verifiqué · Continuar</button>
-          <button type="button" class="btn btn-secondary" id="btn-other-tablet" hidden>Activar en otra tablet</button>
-          <button type="button" class="btn btn-ghost" id="btn-show-code" hidden>¿Problemas para activar?</button>
+          <button type="button" class="btn btn-secondary" id="btn-other-tablet" hidden>Usar en otra tablet</button>
+          <button type="button" class="btn btn-ghost" id="btn-show-code" hidden>Ver código de activación</button>
         </div>
       </section>
 
@@ -223,16 +225,19 @@
           </div>
 
           <div class="install-panel" id="install-panel-5" hidden>
-            <p class="muted"><strong>ABRIR EPOSONE</strong></p>
+            <p class="muted"><strong>ABRIR Y ACTIVAR EPOSONE</strong></p>
             <ol class="steps">
               <li>Tocá <strong>Abrir EPosOne</strong>.</li>
-              <li>La app recibe la activación sola — no copies códigos.</li>
-              <li>Seguí el asistente en la tablet hasta tu primera venta.</li>
+              <li>Introducí tu <strong>correo</strong> y el <strong>código de activación</strong>.</li>
+              <li>Tocá <strong>ACTIVAR</strong> y seguí el asistente hasta tu primera venta.</li>
             </ol>
             <div class="code-box" id="activation-token-box" hidden style="margin-top:0.75rem;"></div>
+            <p class="muted" id="activation-code-hint-2" hidden style="margin-top:0.5rem;">
+              También lo enviamos a tu correo.
+            </p>
             <div id="other-device-install" hidden style="margin-top:1rem;">
-              <p class="eyebrow">Activar en otra tablet</p>
-              <img id="activation-qr-img-2" class="help-qr" alt="QR activación" width="180" height="180" />
+              <p class="eyebrow">Otra tablet</p>
+              <p class="muted">Mismo correo + mismo código de activación.</p>
             </div>
           </div>
 
@@ -277,8 +282,8 @@
           <a class="btn btn-primary" id="btn-open-ep1" href="#" hidden>ABRIR EPOSONE</a>
           <button type="button" class="btn btn-secondary" id="btn-android-blocked" hidden>Android bloqueó la instalación</button>
           <button type="button" class="btn btn-ghost" id="btn-back-install" hidden>Volver a instalar</button>
-          <button type="button" class="btn btn-ghost" id="btn-other-tablet-2" hidden>Activar en otra tablet</button>
-          <button type="button" class="btn btn-ghost" id="btn-show-code-2" hidden>¿Problemas para activar?</button>
+          <button type="button" class="btn btn-ghost" id="btn-other-tablet-2" hidden>Usar en otra tablet</button>
+          <button type="button" class="btn btn-ghost" id="btn-show-code-2" hidden>Ver código de activación</button>
         </div>
       </section>
     </div>
@@ -286,6 +291,6 @@
   </div>
 
   <script type="application/json" id="bootstrap-data">{{ catalog | tojson }}</script>
-  <script src="{{ url_for('static', filename='eposone_start/start.js') }}?v=ux4" defer></script>
+  <script src="{{ url_for('static', filename='eposone_start/start.js') }}?v=ux5" defer></script>
 </body>
 </html>

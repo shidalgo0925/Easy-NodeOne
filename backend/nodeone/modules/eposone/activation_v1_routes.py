@@ -1,4 +1,4 @@
-"""API v1 Activación — ADR-035 v1.3 (validate / redeem tipados / emisión)."""
+"""API v1 Activación — ADR-035 v1.4 (validate / redeem email+código / reissue)."""
 
 from __future__ import annotations
 
@@ -80,6 +80,44 @@ def activation_create_license():
     }), 201
 
 
+@eposone_activation_v1_bp.route('/reissue', methods=['POST'])
+@login_required
+def activation_reissue():
+    """Reemite código Standalone sobre la misma licencia (ADR-035 v1.4)."""
+    body = request.get_json(silent=True) or {}
+    try:
+        oid = int(body.get('organization_id') or 0)
+        if oid <= 0:
+            # Inferir org del usuario si no viene
+            oid = int(getattr(current_user, 'organization_id', 0) or 0)
+        if oid <= 0:
+            raise ActivationError(
+                'activation_token_invalid',
+                http_status=400,
+                message='organization_id_required',
+            )
+        email = (body.get('email') or getattr(current_user, 'email', '') or '').strip().lower()
+        if not email:
+            raise ActivationError(
+                'activation_credential_missing',
+                http_status=400,
+                message='email_required',
+            )
+        send_email = bool(body.get('send_email', True))
+        data = ActivationService.reissue_standalone_for_organization(
+            organization_id=oid,
+            bound_email=email,
+            user_id=getattr(current_user, 'id', None),
+            send_email=send_email,
+            organization_name=body.get('organization_name'),
+        )
+    except ActivationError as exc:
+        return _err(exc)
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'activation_token_invalid'}), 400
+    return jsonify({'ok': True, **data}), 201
+
+
 @eposone_activation_v1_bp.route('/tokens', methods=['POST'])
 @login_required
 def activation_issue_token():
@@ -95,6 +133,7 @@ def activation_issue_token():
             register_ref=body.get('register_ref'),
             user_id=getattr(current_user, 'id', None),
             ops_ready=body.get('ops_ready'),
+            bound_email=body.get('bound_email') or getattr(current_user, 'email', None),
         )
     except ActivationError as exc:
         return _err(exc)
@@ -128,7 +167,7 @@ def activation_revoke_license(license_id: int):
 @eposone_activation_v1_bp.route('/tokens/<int:token_id>/qr.png', methods=['GET'])
 @login_required
 def activation_token_qr(token_id: int):
-    """QR técnico = App Link (ADR-035 v1.3), no /start."""
+    """QR técnico = App Link (secundario ADR-035 v1.4), no /start."""
     from models.ets_activation_license import EtsActivationLicense
     from models.ets_activation_token import EtsActivationToken
 

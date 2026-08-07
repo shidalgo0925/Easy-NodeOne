@@ -289,6 +289,30 @@
     return ref ? '/activate/' + encodeURIComponent(ref) + '/qr.png?size=180' : '';
   }
 
+  function activationCode(result) {
+    var act = activationPayload(result);
+    return act.activation_code || act.manual_code || act.token || '';
+  }
+
+  function showActivationCode(force) {
+    var code = activationCode(state.result);
+    var show = !!code && (force !== false);
+    ['code-box', 'code-box-guide', 'activation-token-box'].forEach(function (id) {
+      var el = $(id);
+      if (!el) return;
+      if (show) {
+        el.textContent = code;
+        el.hidden = false;
+      } else {
+        el.hidden = true;
+      }
+    });
+    ['activation-code-hint', 'activation-code-hint-2'].forEach(function (id) {
+      var el = $(id);
+      if (el) el.hidden = !show;
+    });
+  }
+
   function applyReadyUi(verified) {
     state.emailVerified = !!verified;
     var waiting = $('verify-waiting');
@@ -303,6 +327,7 @@
     if (checkBtn) checkBtn.hidden = !!verified;
     if (other) other.hidden = !verified;
     if (showCode) showCode.hidden = !verified;
+    if (verified) showActivationCode(true);
   }
 
   function renderWow(result) {
@@ -326,16 +351,9 @@
       if (play) play.href = apkUrl;
     }
     var openEp1 = $('btn-open-ep1');
-    var dl = activationDeepLink(result);
-    if (openEp1 && dl) openEp1.href = dl;
-    var qr = activationQrUrl(result);
-    ['activation-qr-img', 'activation-qr-img-2'].forEach(function (id) {
-      var img = $(id);
-      if (img && qr) {
-        img.src = qr;
-        img.hidden = false;
-      }
-    });
+    if (openEp1) {
+      openEp1.href = 'eposone://';
+    }
   }
 
   function pollReadyStatus(cb) {
@@ -393,29 +411,11 @@
     var block2 = $('other-device-install');
     if (block) block.hidden = !show;
     if (block2) block2.hidden = !show;
-    var qr = activationQrUrl(state.result);
-    ['activation-qr-img', 'activation-qr-img-2'].forEach(function (id) {
-      var img = $(id);
-      if (img && qr) {
-        img.src = qr;
-        img.hidden = !show;
-      }
-    });
+    if (show) showActivationCode(true);
   }
 
   function toggleManualFallback(show) {
-    var act = activationPayload(state.result);
-    var code = act.manual_code || act.token;
-    ['code-box', 'code-box-guide', 'activation-token-box'].forEach(function (id) {
-      var el = $(id);
-      if (!el) return;
-      if (code && show) {
-        el.textContent = code;
-        el.hidden = false;
-      } else {
-        el.hidden = true;
-      }
-    });
+    showActivationCode(!!show || !!state.emailVerified);
   }
 
   /* —— Password (P0.24) —— */
@@ -567,8 +567,7 @@
     if (openEp1) {
       openEp1.hidden = state.installBlocked || step !== 5;
       openEp1.textContent = 'ABRIR EPOSONE';
-      var dlHref = activationDeepLink(state.result) || activationAppLink(state.result);
-      if (dlHref) openEp1.href = dlHref;
+      openEp1.href = 'eposone://';
     }
     if (blocked) blocked.hidden = state.installBlocked || step !== 4;
     if (backInstall) backInstall.hidden = !state.installBlocked;
@@ -576,6 +575,7 @@
     if (other2) other2.hidden = state.installBlocked || step !== 5;
     var show2 = $('btn-show-code-2');
     if (show2) show2.hidden = state.installBlocked || step !== 5;
+    if (step === 5 && !state.installBlocked) showActivationCode(true);
   }
 
   function startDownload() {

@@ -1,168 +1,108 @@
-# ADR-035 — Activation Model (Licencia → Token → transporte)
+# ADR-035 — Activation Model (Licencia → Credencial → transporte)
 
 | Campo | Valor |
 |-------|--------|
 | ID | **ADR-035** |
-| Título | Modelo de activación — Licencia, credencial, App Link/QR, vigencia y seguridad |
-| Estado | **ACCEPTED (arquitectura)** — 7 ago 2026 |
-| Versión | **1.3** |
+| Título | Modelo de activación — Licencia, código de activación, email, vigencia |
+| Estado | **ACCEPTED (arquitectura)** |
+| Versión | **1.4** |
 | Fecha | Agosto 2026 |
-| Autor | Arquitectura EN1 / EPosOne · CODITO + contrato para LOCAL |
-| Impacto | EN1 · Portal ETS · EPosOne APK |
-| Implementación de código | Autorizada con GO de implementación (Standalone rediseño appdev) |
-| Pregunta rectora | **¿Qué es la orden de activación y cómo llega de forma segura al dispositivo sin que el usuario copie códigos?** |
-| Complementa | [ADR-032](ADR-032-PRODUCT-IMPLEMENTATION-MODEL.md) · [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) |
-| Consumidores | [ADR-033](ADR-033-STANDALONE-ONBOARDING-ASSISTANT.md) · [ADR-034](ADR-034-CONNECTED-PROVISIONING-FLOW.md) |
-| Gate | [EN1_COMMERCIAL_IMPLEMENTATION_GATE.md](EN1_COMMERCIAL_IMPLEMENTATION_GATE.md) (**LIBERADO**) |
+| Autor | Arquitectura EN1 / EPosOne · CODITO + contrato LOCAL |
+| Pregunta rectora | **¿Cómo activa el usuario Standalone sin conceptos de provisioning?** |
+| Complementa | ADR-031 · ADR-032 · ADR-033 · ADR-034 |
+| Gate | EN1_COMMERCIAL_IMPLEMENTATION_GATE (**LIBERADO**) |
 
 ---
 
-## 0. Enmienda v1.3 (Standalone UX)
+## 0. Enmienda v1.4 (Standalone UX definitiva)
 
-Esta versión **enmienda** v1.2 en transporte Standalone. No cambia el modelo Licencia → credencial → redeem.
-
-| # | Norma v1.3 |
-|---|------------|
-| A | Para el usuario Standalone el concepto es solo **Instalar y activar EPosOne**. Provisioning/token/caja/Register/URL EN1 no son UX principal. |
-| B | **Transporte #1 (Standalone):** Activation **App Link** HTTPS `…/activate/<activation_ref>`. |
-| C | **Transporte #2 (Standalone):** **QR de activación** = la **misma** URL App Link (misma autorización). |
-| D | **Fallback:** código alfanumérico `manual_code` solo recuperación / interrupción. Nunca CTA principal. |
-| E | Credenciales **tipadas** en HTTP: `activation_ref` **o** `manual_code`. **Prohibido** clasificar por longitud. |
-| F | URL/QR llevan solo `activation_ref` opaco de un solo uso (p. ej. `jti`). **No** poner `manual_code` en URL/QR. |
-| G | Separación intacta: QR comercial = `/start`; QR activación = transporte técnico. |
-| H | Connected/ADR-034 no se desarrolla aquí; camino aislado. |
+| # | Norma |
+|---|--------|
+| A | Standalone UX canónica: **correo + código de activación** (6 dígitos). |
+| B | Léxico: solo **“Código de activación de EPosOne”**. Nunca “aprovisionamiento / caja / register / bootstrap” en Standalone. |
+| C | EP1 pantalla: Correo + Código + ACTIVAR → `POST …/redeem` con `email` + `activation_code` + `device_uuid`. |
+| D | Email post-verify: código + CTA **Descargar EPosOne**. |
+| E | Reemisión sobre la **misma** licencia/org (reinstalación / otra tablet). No crear otra empresa. |
+| F | Provisioning Connected (ADR-034) aislado. |
+| G | App Link / deep link / `activation_ref` quedan **secundarios** (no UX principal Standalone). |
 
 ---
 
 ## 1. Contrato canónico
 
 ```text
-Licencia válida → autorización / credencial → transporte → EP1 consume (redeem)
-```
-
-```text
-Contrato → Suscripción → Licencia (orden) → Credencial (activation_ref + manual_code)
-  → App Link | QR | mail | fallback manual → EP1
+Licencia válida → código de activación (bound email) → email/web → EP1 (email+código) → redeem → claims
 ```
 
 ---
 
-## 2. Decisiones inequívocas
+## 2. Credencial Standalone
 
-| # | Norma |
-|---|--------|
-| 1 | **QR comercial** = embudo `/start` (registro Cliente/Org/Contrato…). **No** activa dispositivos. |
-| 2 | **QR de activación** = **solo transporte** de `activation_ref` (App Link). **No** es orden comercial. |
-| 3 | La **Licencia** es la orden de activación. |
-| 4 | La **credencial** que EP1 canjea es `activation_ref` (preferida) o `manual_code` (fallback). |
-| 5 | EP1 conoce la modalidad por claims: `modality` ∈ {`standalone`,`connected`} + `implementation_strategy`. **No pregunta al usuario.** |
-| 6 | Standalone: emitir sin árbol ops EN1. Connected: solo si `ops_ready` (ADR-034). |
-
----
-
-## 3. Qué recibe EP1 (claims mínimos post-`redeem`)
-
-| Campo | Uso en EP1 |
-|-------|------------|
-| `license_id` | Ancla local |
-| `organization_id` | Contexto comercial |
-| `product_code` | Debe ser `eposone` |
-| **`modality`** | `standalone` → ADR-033 · `connected` → ADR-034 |
-| **`implementation_strategy`** | `self_serve` \| `assisted` |
-| `register_ref` | Connected; ausente/ignorado en Standalone |
-| `license_expires_at` | Vigencia comercial |
-| `provisioning_hint` | Standalone: `standalone_assistant`; Connected: register |
-
----
-
-## 4. Credencial — TTL, uso, errores
-
-| Regla | Valor |
+| Campo | Valor |
 |-------|--------|
-| TTL | Independiente de licencia; default **14 días** (7–30) |
-| Uso | Default **un solo uso** → `consumed` tras redeem OK |
-| Reutilización | Solo política explícita / re-emisión |
-| Expiración | `expires_at` UTC; skew ±5 min |
-| Revocación ref | `revoked`; invalida App Link y `manual_code` de esa fila |
-| Revocación licencia | Invalida todos tokens pendientes |
-| Rate limit | EN1 limita intentos por ref/IP |
-
-### Errores tipados
-
-| `error` | HTTP | EP1 |
-|---------|------|-----|
-| `activation_credential_missing` | 400 | Falta credencial tipada |
-| `activation_credential_ambiguous` | 400 | Envió `activation_ref` y `manual_code` juntos |
-| `activation_token_invalid` | 400/401 | Reingresar / escanear de nuevo |
-| `activation_token_expired` | 400 | Pedir re-emisión |
-| `activation_token_used` | 409 | Pedir re-emisión / soporte |
-| `activation_token_revoked` | 403 | Soporte |
-| `license_revoked` / `license_expired` | 403 | Soporte / renovar |
-| `ops_not_ready` | 409 | Solo Connected |
-| `product_mismatch` | 400 | App incorrecta |
-| `modality_mismatch` | 409 | Flujo APK incorrecto |
+| `activation_code` | 6 dígitos numéricos |
+| `bound_email` | Email del titular (case-insensitive) |
+| TTL | Default **14 días** (7–30) |
+| Uso | Default **1** → `consumed` |
+| Rate limit | Por email/IP en validate/redeem |
 
 ---
 
-## 5. Transporte Standalone (canónico)
-
-```text
-App Link:  https://<host-eposone>/activate/<activation_ref>
-Deep link: eposone://activate/<activation_ref>
-QR:        encode(App Link)   # misma autorización
-Fallback:  manual_code (UI oculta / email pie)
-```
-
-- Host conceptual prod: `eposone.easytech.services` (despliegue = GO aparte).
-- Host appdev: `eposone-dev.easynodeone.com`.
-
-**Nunca** tratar el QR de activación como `/start`.
-
----
-
-## 6. HTTP
-
-Emisión: `/api/v1/activation/licenses|tokens` (+ QR App Link).
-
-Device:
+## 3. HTTP Standalone (canónico)
 
 ```http
 POST /api/v1/activation/validate
 POST /api/v1/activation/redeem
 ```
 
-Body tipado (exactamente uno):
-
 ```json
-{ "activation_ref": "<jti>", "device_uuid": "<uuid>", "product_code": "eposone" }
+{
+  "email": "user@example.com",
+  "activation_code": "482731",
+  "device_uuid": "<uuid>",
+  "product_code": "eposone"
+}
 ```
 
-o
+(`device_uuid` requerido solo en redeem.)
 
-```json
-{ "manual_code": "XXXX-XXXX-XXXX", "device_uuid": "<uuid>", "product_code": "eposone" }
-```
+### Errores
 
-Puente legacy: campo `token` solo → se interpreta como `manual_code` (no por longitud).
+| error | HTTP |
+|-------|------|
+| `activation_credential_missing` | 400 |
+| `activation_credential_ambiguous` | 400 |
+| `activation_code_invalid` | 401 |
+| `activation_code_expired` | 400 |
+| `activation_code_used` | 409 |
+| `activation_code_revoked` | 403 |
+| `email_mismatch` | 403 |
+| `license_revoked` / `license_expired` | 403 |
+| `product_mismatch` | 400 |
 
----
+### Claims post-redeem
 
-## 7. Licencia (resumen)
-
-Estados: `issued` · `active` · `suspended` · `revoked` · `expired` · `renewed`.
-
----
-
-## 8. Enmiendas / precedencia
-
-| Doc | Efecto |
-|-----|--------|
-| ADR-035 v1.2 | Transporte “token en query” queda **enmendado** para Standalone → App Link path + `activation_ref`. |
-| Pack QR onboarding | Comercial `/start` vs activación App Link. |
-| ADR-027 / ADR-021 | Misma distinción; redeem antes de register cuando aplique. |
+`modality=standalone` · `implementation_strategy=self_serve` · `provisioning_hint.next=standalone_assistant` → ADR-033.
 
 ---
 
-## 9. Estado
+## 4. Reemisión
 
-**ACCEPTED (arquitectura)** — 7 ago 2026 · **v1.3**.
+`POST /api/v1/activation/reissue` (usuario autenticado de la org, o flujo asistido):
+
+- Revoca códigos `active` de la licencia Standalone
+- Emite nuevo código 6 dígitos
+- Reenvía email
+- Misma org/licencia
+
+---
+
+## 5. Precedencia
+
+v1.4 **enmienda** v1.3 para UX Standalone (email+código). Connected sin cambio de alcance.
+
+---
+
+## 6. Estado
+
+**ACCEPTED** — Agosto 2026 · **v1.4**.

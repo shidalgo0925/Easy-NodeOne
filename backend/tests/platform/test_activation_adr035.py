@@ -1,4 +1,4 @@
-"""Tests ADR-035 Fase 1 — ActivationService + HTTP redeem/validate."""
+"""Tests ADR-035 v1.4 — ActivationService + HTTP redeem/validate/reissue."""
 
 from __future__ import annotations
 
@@ -32,6 +32,7 @@ class TestActivationService(unittest.TestCase):
         self.ctx = self.app.app_context()
         self.ctx.push()
         suffix = uuid.uuid4().hex[:10]
+        self.email = f'act{suffix}@example.com'
         self.org = SaasOrganization(name=f'ActTest {suffix}', subdomain=f'act{suffix}')
         self.db.session.add(self.org)
         self.db.session.commit()
@@ -60,32 +61,36 @@ class TestActivationService(unittest.TestCase):
             self.db.session.rollback()
         self.ctx.pop()
 
-    def _standalone_token(self):
+    def _standalone_token(self, *, email: str | None = None):
         from nodeone.core.platform.activation_service import ActivationService
 
         with patch('nodeone.core.platform.activation_service._audit'):
             return ActivationService.issue_for_organization_standalone(
                 organization_id=self.oid,
                 user_id=1,
+                bound_email=email or self.email,
             )
 
-    def test_standalone_redeem_returns_modality(self):
+    def test_standalone_issues_six_digit_code(self):
+        issued = self._standalone_token()
+        self.assertEqual(issued['modality'], 'standalone')
+        code = issued['activation_code']
+        self.assertTrue(code and code.isdigit() and len(code) == 6)
+        self.assertEqual(issued['bound_email'], self.email)
+        self.assertEqual(issued['redeem']['credential_fields'], ['email', 'activation_code'])
+        self.assertEqual(issued['transport']['ux_primary'], 'email_activation_code')
+        self.assertIn('apk_url', issued)
+
+    def test_standalone_redeem_email_code(self):
         from nodeone.core.platform.activation_service import ActivationService
 
         issued = self._standalone_token()
-        self.assertEqual(issued['modality'], 'standalone')
-        self.assertEqual(issued['implementation_strategy'], 'self_serve')
-        self.assertIn('activation_ref', issued)
-        self.assertIn('manual_code', issued)
-        self.assertIn('app_link', issued)
-        self.assertTrue(issued['app_link'].endswith('/activate/' + issued['activation_ref']))
-        self.assertTrue(issued['deep_link'].startswith('eposone://activate/'))
-        self.assertNotIn('?token=', issued['deep_link'])
-        self.assertEqual(issued['transport']['commercial_qr'], '/start')
-        self.assertEqual(issued['redeem']['path'], '/api/v1/activation/redeem')
         with patch('nodeone.core.platform.activation_service._audit'):
             claims = ActivationService.redeem(
-                activation_ref=issued['activation_ref'],
+                credentials={
+                    'email': self.email,
+                    'activation_code': issued['activation_code'],
+                },
                 device_uuid='device-standalone-1',
             )
         self.assertTrue(claims['ok'])
@@ -93,9 +98,23 @@ class TestActivationService(unittest.TestCase):
         self.assertEqual(claims['implementation_strategy'], 'self_serve')
         self.assertEqual(claims['organization_id'], self.oid)
         self.assertEqual(claims['provisioning_hint']['next'], 'standalone_assistant')
-        self.assertIsNone(claims.get('register_ref'))
 
-    def test_redeem_by_manual_code(self):
+    def test_email_mismatch(self):
+        from nodeone.core.platform.activation_service import ActivationError, ActivationService
+
+        issued = self._standalone_token()
+        with self.assertRaises(ActivationError) as ctx:
+            ActivationService.redeem(
+                credentials={
+                    'email': 'other@example.com',
+                    'activation_code': issued['activation_code'],
+                },
+                device_uuid='d',
+            )
+        self.assertEqual(ctx.exception.code, 'email_mismatch')
+        self.assertEqual(ctx.exception.http_status, 403)
+
+    def test_redeem_by_manual_code_legacy(self):
         from nodeone.core.platform.activation_service import ActivationService
 
         issued = self._standalone_token()
@@ -103,6 +122,18 @@ class TestActivationService(unittest.TestCase):
             claims = ActivationService.redeem(
                 manual_code=issued['manual_code'],
                 device_uuid='device-manual-1',
+            )
+        self.assertTrue(claims['ok'])
+        self.assertEqual(claims['modality'], 'standalone')
+
+    def test_redeem_by_activation_ref_secondary(self):
+        from nodeone.core.platform.activation_service import ActivationService
+
+        issued = self._standalone_token()
+        with patch('nodeone.core.platform.activation_service._audit'):
+            claims = ActivationService.redeem(
+                activation_ref=issued['activation_ref'],
+                device_uuid='device-ref-1',
             )
         self.assertTrue(claims['ok'])
         self.assertEqual(claims['modality'], 'standalone')
@@ -121,6 +152,21 @@ class TestActivationService(unittest.TestCase):
             )
         self.assertEqual(ctx.exception.code, 'activation_credential_ambiguous')
 
+    def test_activation_code_ambiguous_with_ref(self):
+        from nodeone.core.platform.activation_service import ActivationError, ActivationService
+
+        issued = self._standalone_token()
+        with self.assertRaises(ActivationError) as ctx:
+            ActivationService.redeem(
+                credentials={
+                    'email': self.email,
+                    'activation_code': issued['activation_code'],
+                    'activation_ref': issued['activation_ref'],
+                },
+                device_uuid='d',
+            )
+        self.assertEqual(ctx.exception.code, 'activation_credential_ambiguous')
+
     def test_credential_missing(self):
         from nodeone.core.platform.activation_service import ActivationError, ActivationService
 
@@ -128,17 +174,36 @@ class TestActivationService(unittest.TestCase):
             ActivationService.validate(credentials={})
         self.assertEqual(ctx.exception.code, 'activation_credential_missing')
 
-    def test_double_redeem_fails(self):
+    def test_email_without_code_missing(self):
+        from nodeone.core.platform.activation_service import ActivationError, ActivationService
+
+        with self.assertRaises(ActivationError) as ctx:
+            ActivationService.validate(credentials={'email': self.email})
+        self.assertEqual(ctx.exception.code, 'activation_credential_missing')
+
+    def test_double_redeem_code_used(self):
         from nodeone.core.platform.activation_service import ActivationError, ActivationService
 
         issued = self._standalone_token()
         with patch('nodeone.core.platform.activation_service._audit'):
-            ActivationService.redeem(token=issued['token'], device_uuid='d1')
+            ActivationService.redeem(
+                credentials={
+                    'email': self.email,
+                    'activation_code': issued['activation_code'],
+                },
+                device_uuid='d1',
+            )
             with self.assertRaises(ActivationError) as ctx:
-                ActivationService.redeem(token=issued['token'], device_uuid='d2')
-        self.assertEqual(ctx.exception.code, 'activation_token_used')
+                ActivationService.redeem(
+                    credentials={
+                        'email': self.email,
+                        'activation_code': issued['activation_code'],
+                    },
+                    device_uuid='d2',
+                )
+        self.assertEqual(ctx.exception.code, 'activation_code_used')
 
-    def test_expired_token(self):
+    def test_expired_code(self):
         from models.ets_activation_token import EtsActivationToken
         from nodeone.core.platform.activation_service import ActivationError, ActivationService
 
@@ -147,18 +212,30 @@ class TestActivationService(unittest.TestCase):
         row.expires_at = datetime.utcnow() - timedelta(days=1)
         self.db.session.commit()
         with self.assertRaises(ActivationError) as ctx:
-            ActivationService.redeem(token=issued['token'], device_uuid='d1')
-        self.assertEqual(ctx.exception.code, 'activation_token_expired')
+            ActivationService.redeem(
+                credentials={
+                    'email': self.email,
+                    'activation_code': issued['activation_code'],
+                },
+                device_uuid='d1',
+            )
+        self.assertEqual(ctx.exception.code, 'activation_code_expired')
 
-    def test_revoked_token(self):
+    def test_revoked_code(self):
         from nodeone.core.platform.activation_service import ActivationError, ActivationService
 
         issued = self._standalone_token()
         with patch('nodeone.core.platform.activation_service._audit'):
             ActivationService.revoke_token(int(issued['token_id']), reason='test')
             with self.assertRaises(ActivationError) as ctx:
-                ActivationService.redeem(token=issued['token'], device_uuid='d1')
-        self.assertEqual(ctx.exception.code, 'activation_token_revoked')
+                ActivationService.redeem(
+                    credentials={
+                        'email': self.email,
+                        'activation_code': issued['activation_code'],
+                    },
+                    device_uuid='d1',
+                )
+        self.assertEqual(ctx.exception.code, 'activation_code_revoked')
 
     def test_revoked_license(self):
         from nodeone.core.platform.activation_service import ActivationError, ActivationService
@@ -167,7 +244,13 @@ class TestActivationService(unittest.TestCase):
         with patch('nodeone.core.platform.activation_service._audit'):
             ActivationService.revoke_license(int(issued['license_id']), reason='test')
             with self.assertRaises(ActivationError) as ctx:
-                ActivationService.redeem(token=issued['token'], device_uuid='d1')
+                ActivationService.redeem(
+                    credentials={
+                        'email': self.email,
+                        'activation_code': issued['activation_code'],
+                    },
+                    device_uuid='d1',
+                )
         self.assertEqual(ctx.exception.code, 'license_revoked')
 
     def test_validate_ok_does_not_consume(self):
@@ -175,9 +258,16 @@ class TestActivationService(unittest.TestCase):
 
         issued = self._standalone_token()
         with patch('nodeone.core.platform.activation_service._audit'):
-            v1 = ActivationService.validate(token=issued['token'])
-            v2 = ActivationService.validate(token=issued['token'])
-            claims = ActivationService.redeem(token=issued['token'], device_uuid='d1')
+            v1 = ActivationService.validate(
+                credentials={'email': self.email, 'activation_code': issued['activation_code']}
+            )
+            v2 = ActivationService.validate(
+                credentials={'email': self.email, 'activation_code': issued['activation_code']}
+            )
+            claims = ActivationService.redeem(
+                credentials={'email': self.email, 'activation_code': issued['activation_code']},
+                device_uuid='d1',
+            )
         self.assertTrue(v1['ok'])
         self.assertTrue(v2['ok'])
         self.assertEqual(claims['modality'], 'standalone')
@@ -214,17 +304,36 @@ class TestActivationService(unittest.TestCase):
         self.assertEqual(claims['modality'], 'connected')
         self.assertEqual(claims['register_ref'], 'reg-main')
         self.assertEqual(claims['provisioning_hint']['next'], 'devices_register')
+        # Connected sigue formato legado XXXX-XXXX-XXXX
+        self.assertIn('-', issued['token'])
 
-    def test_reissue_revokes_previous(self):
+    def test_reissue_same_license_revokes_previous(self):
         from nodeone.core.platform.activation_service import ActivationError, ActivationService
 
         with patch('nodeone.core.platform.activation_service._audit'):
             first = self._standalone_token()
-            second = ActivationService.reissue_token(license_id=int(first['license_id']))
+            second = ActivationService.reissue_standalone_for_organization(
+                organization_id=self.oid,
+                bound_email=self.email,
+            )
+            self.assertEqual(first['license_id'], second['license_id'])
+            self.assertNotEqual(first['activation_code'], second['activation_code'])
             with self.assertRaises(ActivationError) as ctx:
-                ActivationService.redeem(token=first['token'], device_uuid='d1')
-            self.assertEqual(ctx.exception.code, 'activation_token_revoked')
-            claims = ActivationService.redeem(token=second['token'], device_uuid='d1')
+                ActivationService.redeem(
+                    credentials={
+                        'email': self.email,
+                        'activation_code': first['activation_code'],
+                    },
+                    device_uuid='d1',
+                )
+            self.assertEqual(ctx.exception.code, 'activation_code_revoked')
+            claims = ActivationService.redeem(
+                credentials={
+                    'email': self.email,
+                    'activation_code': second['activation_code'],
+                },
+                device_uuid='d1',
+            )
         self.assertEqual(claims['modality'], 'standalone')
 
     def test_product_mismatch(self):
@@ -233,19 +342,23 @@ class TestActivationService(unittest.TestCase):
         issued = self._standalone_token()
         with self.assertRaises(ActivationError) as ctx:
             ActivationService.redeem(
-                token=issued['token'],
+                credentials={
+                    'email': self.email,
+                    'activation_code': issued['activation_code'],
+                },
                 device_uuid='d1',
                 product_code='other',
             )
         self.assertEqual(ctx.exception.code, 'product_mismatch')
 
-    def test_http_redeem(self):
+    def test_http_redeem_email_code(self):
         issued = self._standalone_token()
         with self.app.test_client() as c:
             r = c.post(
                 '/api/v1/activation/redeem',
                 json={
-                    'activation_ref': issued['activation_ref'],
+                    'email': self.email,
+                    'activation_code': issued['activation_code'],
                     'device_uuid': 'http-device-1',
                     'product_code': 'eposone',
                 },
@@ -257,18 +370,34 @@ class TestActivationService(unittest.TestCase):
 
     def test_http_double_redeem(self):
         issued = self._standalone_token()
+        body = {
+            'email': self.email,
+            'activation_code': issued['activation_code'],
+            'device_uuid': 'd1',
+        }
         with self.app.test_client() as c:
-            r1 = c.post(
-                '/api/v1/activation/redeem',
-                json={'token': issued['token'], 'device_uuid': 'd1'},
-            )
+            r1 = c.post('/api/v1/activation/redeem', json=body)
             r2 = c.post(
                 '/api/v1/activation/redeem',
-                json={'token': issued['token'], 'device_uuid': 'd2'},
+                json={**body, 'device_uuid': 'd2'},
             )
         self.assertEqual(r1.status_code, 200)
         self.assertEqual(r2.status_code, 409)
-        self.assertEqual(r2.get_json()['error'], 'activation_token_used')
+        self.assertEqual(r2.get_json()['error'], 'activation_code_used')
+
+    def test_http_email_mismatch(self):
+        issued = self._standalone_token()
+        with self.app.test_client() as c:
+            r = c.post(
+                '/api/v1/activation/redeem',
+                json={
+                    'email': 'wrong@example.com',
+                    'activation_code': issued['activation_code'],
+                    'device_uuid': 'd1',
+                },
+            )
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(r.get_json()['error'], 'email_mismatch')
 
 
 if __name__ == '__main__':

@@ -77,12 +77,22 @@ Organización
 Una Organización **sin** sucursales ni cajas sigue siendo una Organización completa.  
 Simplemente **aún no tiene** recursos operacionales.
 
-### Rol de la organización “Easy Technology Services”
+### Rol del proveedor comercial (ETS / EN1)
+
+**Organización canónica del proveedor en producción:**
+
+| Campo | Valor |
+|-------|--------|
+| `saas_organization.id` | **1** |
+| Nombre | **Easy NodeOne Producción** |
+| `subdomain` | `none` |
+| Marca comercial | Easy Technology Services (ETS) |
 
 - Es el **proveedor comercial** (administra clientes, contratos, ventas, licencias, pagos, renovaciones).
 - **No** es el contenedor de los datos operacionales de Café Amor, Mexican Food, etc.
-- Cada cliente tiene **su propia Organización**.
-
+- Cada cliente tiene **su propia Organización** (id ≠ 1).
+- En docs y producto se puede decir “ETS” / “Easy Technology Services”; en BD el tenant proveedor es **#1 Easy NodeOne Producción**.
+- **No** mezclar operación de clientes dentro de la org #1.
 ---
 
 ## 4. Entidades y definiciones
@@ -236,7 +246,7 @@ flowchart TB
 | Contrato → Suscripción | 1→N (productos) |
 | Suscripción → Licencia / entitlement | 1→1 o 1→N según producto |
 | Organización → Recursos operacionales | 0→N (cero es válido) |
-| ETS (proveedor) → Clientes | 1→N (administración comercial; no mezcla operación) |
+| ETS (proveedor) → Clientes | 1→N — proveedor = org **#1 Easy NodeOne Producción**; cada cliente su org; no mezcla operación |
 
 ---
 

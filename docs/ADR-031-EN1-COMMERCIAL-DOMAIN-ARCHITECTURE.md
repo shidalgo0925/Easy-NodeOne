@@ -4,13 +4,13 @@
 |-------|--------|
 | ID | **ADR-031** |
 | Título | Modelo Comercial de EN1 — Arquitectura Base (Dominio Comercial) |
-| Estado | **PROPOSED** — pendiente aprobación Arquitectura / Ana / Prog1 |
+| Estado | **Aprobado (arquitectura)** — 7 ago 2026 · GO usuario |
 | Fecha | Agosto 2026 |
 | Autor | Arquitectura EN1 |
-| Implementación | **NO autorizada** hasta aprobación formal |
+| Implementación de código | **NO autorizada** por este ADR — requiere GO de implementación por fases |
 | Nota de numeración | El borrador de Arquitectura se etiquetó “ADR-029”; en este repo **ADR-029** ya es [Organization Context Resolver](ADR-029-ORGANIZATION-CONTEXT-RESOLVER-V2.md). Este ADR queda como **031**. |
 | Complementa | [EN1_MODELO_COMERCIAL_V1.md](EN1_MODELO_COMERCIAL_V1.md) |
-| A enmendar *después* de aprobación | [ADR-022](ADR-022-EN1-MULTIPRODUCT-COMMERCIAL-MODEL.md) · [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-016](ADR-016-COMMERCIAL-LICENSING-V2-ENTITLEMENT.md) · [ADR-024](ADR-024-EPOSONE-START-ASSISTANT.md) · [ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md) · [ADR-028](ADR-028-EPOSONE-PLAN-DEFAULTS-COMMERCIAL-OVERRIDES.md) · [ADR-017](ADR-017-CUSTOMER-ENTRY-POINT-PRODUCT-PORTAL.md) |
+| Enmiendas derivadas | [ADR-022](ADR-022-EN1-MULTIPRODUCT-COMMERCIAL-MODEL.md) · [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-016](ADR-016-COMMERCIAL-LICENSING-V2-ENTITLEMENT.md) · [ADR-024](ADR-024-EPOSONE-START-ASSISTANT.md) · [ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md) · [ADR-028](ADR-028-EPOSONE-PLAN-DEFAULTS-COMMERCIAL-OVERRIDES.md) |
 
 ---
 
@@ -308,7 +308,8 @@ Revisar en fases: ADR-022, ADR-014, ADR-016, ADR-024, ADR-027, ADR-028 (y alinea
 
 ## 24. Estado
 
-**PROPOSED**
+**Aprobado (arquitectura)** — 7 ago 2026.
 
 Define la arquitectura conceptual del Dominio Comercial de EN1.  
-**No** autoriza cambios en código, contratos HTTP, modelos de datos ni ADR existentes hasta aprobación formal por Arquitectura.
+**No** autoriza por sí solo cambios en código, contratos HTTP ni modelos de datos: esos requieren **GO de implementación** por fases.  
+Las enmiendas de ADR-022 / 014 / 016 / 024 / 027 / 028 quedan subordinadas a este ADR.

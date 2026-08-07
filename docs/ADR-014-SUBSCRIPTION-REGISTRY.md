@@ -6,7 +6,20 @@
 | Título | Subscription Registry V1 — relación tenant-producto |
 | Estado | **Aprobado (GO)** — 24 jul 2026 · **Implementado en Dev** |
 | Ámbito | EN1 Platform · Portal ETS (consumidor futuro) · productos ETS |
-| Relacionados | [ADR-012](ADR-012-ETS-ECOSYSTEM-ARCHITECTURE.md) · [ADR-013](ADR-013-PORTAL-ETS-PUNTO-ENTRADA.md) · [ADR-011](ADR-011-PORTAL-ETS-PUNTO-ENTRADA.md) · License Engine V1 · **[ADR-027 Onboarding](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md)** |
+| Relacionados | [ADR-012](ADR-012-ETS-ECOSYSTEM-ARCHITECTURE.md) · [ADR-013](ADR-013-PORTAL-ETS-PUNTO-ENTRADA.md) · [ADR-011](ADR-011-PORTAL-ETS-PUNTO-ENTRADA.md) · License Engine V1 · **[ADR-027 Onboarding](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md)** · **[ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md)** |
+| Enmienda | **7 ago 2026 — ADR-031:** Suscripción cuelga de **Contrato**; no es raíz comercial |
+
+---
+
+## Enmienda ADR-031 (7 ago 2026)
+
+| Antes | Ahora |
+|-------|--------|
+| Subscription Registry responde “¿qué productos tiene este tenant?” sobre `organization_id` | Misma pregunta operativa hoy; **modelo canónico:** Suscripción bajo **Contrato** del Cliente |
+| Producto ≠ Suscripción ≠ Licencia | Se mantiene; se añaden **Cliente** y **Contrato** como capas comerciales superiores |
+| Una fila por `(organization_id, product_code)` | Sigue válida como proyección/implementación actual; el diseño futuro ancla la suscripción al Contrato |
+
+**Qué no cambia aún:** tabla `ets_product_subscription` y código existente — requieren GO de implementación.
 
 ---
 

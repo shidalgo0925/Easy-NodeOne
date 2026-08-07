@@ -14,11 +14,18 @@
 
 | Doc | Contenido |
 |-----|-----------|
+| [ONBOARDING_FLOW_V2.md](ONBOARDING_FLOW_V2.md) | Flujo oficial P0 (sin login en `/start`) |
+| [ORGANIZATION_RESOLVER_V2.md](ORGANIZATION_RESOLVER_V2.md) | Orden de resolución + pending |
+| [COMMERCIAL_OVERRIDE_MODEL.md](COMMERCIAL_OVERRIDE_MODEL.md) | Plan vs overrides (ADR-028) |
+| [INSTALLATION_PORTAL_V2.md](INSTALLATION_PORTAL_V2.md) | Cupos POS en panel install |
+| [SUBSCRIPTION_STATE_MACHINE.md](SUBSCRIPTION_STATE_MACHINE.md) | Estados ↔ provision |
 | [DEVICE_LIFECYCLE_V1.md](DEVICE_LIFECYCLE_V1.md) | Estados + eventos device |
 | [ONBOARDING_CONTRACT_V2.md](ONBOARDING_CONTRACT_V2.md) | Ciclo único + caminos A–D |
 | [LOGIN_CONTRACT_V1.md](LOGIN_CONTRACT_V1.md) | Login EN1 = resolver contexto |
 | [RESTORE_CONTRACT_V1.md](RESTORE_CONTRACT_V1.md) | Camino D |
 | [QR_CONTRACT_V1.md](QR_CONTRACT_V1.md) | QR → solo provision code |
+
+ADRs P0: [ADR-028](../ADR-028-EPOSONE-PLAN-DEFAULTS-COMMERCIAL-OVERRIDES.md) · [ADR-029](../ADR-029-ORGANIZATION-CONTEXT-RESOLVER-V2.md) · [ADR-030](../ADR-030-SUBSCRIPTION-LIFECYCLE-V2.md) · entitlements SoT [ADR-016](../ADR-016-COMMERCIAL-LICENSING-V2-ENTITLEMENT.md).
 
 ---
 

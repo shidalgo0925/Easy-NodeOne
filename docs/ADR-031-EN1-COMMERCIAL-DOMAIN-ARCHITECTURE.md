@@ -9,7 +9,7 @@
 | Autor | Arquitectura EN1 |
 | Implementación de código | **NO autorizada** por este ADR — requiere GO de implementación por fases |
 | Nota de numeración | El borrador de Arquitectura se etiquetó “ADR-029”; en este repo **ADR-029** ya es [Organization Context Resolver](ADR-029-ORGANIZATION-CONTEXT-RESOLVER-V2.md). Este ADR queda como **031**. |
-| Complementa | [EN1_MODELO_COMERCIAL_V1.md](EN1_MODELO_COMERCIAL_V1.md) · implementación operativa: [ADR-032](ADR-032-PRODUCT-IMPLEMENTATION-MODEL.md) (**PROPOSED**) |
+| Complementa | [EN1_MODELO_COMERCIAL_V1.md](EN1_MODELO_COMERCIAL_V1.md) · implementación: [ADR-032](ADR-032-PRODUCT-IMPLEMENTATION-MODEL.md) · asistente Standalone: [ADR-033](ADR-033-STANDALONE-ONBOARDING-ASSISTANT.md) |
 | Enmiendas derivadas | [ADR-022](ADR-022-EN1-MULTIPRODUCT-COMMERCIAL-MODEL.md) · [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-016](ADR-016-COMMERCIAL-LICENSING-V2-ENTITLEMENT.md) · [ADR-024](ADR-024-EPOSONE-START-ASSISTANT.md) · [ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md) · [ADR-028](ADR-028-EPOSONE-PLAN-DEFAULTS-COMMERCIAL-OVERRIDES.md) |
 
 ---

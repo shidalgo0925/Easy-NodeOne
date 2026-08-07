@@ -4,44 +4,35 @@
 |-------|--------|
 | ID | **ADR-032** |
 | Título | Implementación Autogestionada (Standalone) e Implementación Asistida (Connected) |
-| Estado | **PROPOSED** — pendiente revisión / aprobación Arquitectura |
-| Versión | 1.0 |
+| Estado | **PROPOSED** — pendiente aprobación formal (terminología Licencia/Token/QR enmendada) |
+| Versión | 1.1 |
 | Fecha | Agosto 2026 |
 | Autor | Arquitectura EN1 / EPosOne |
 | Impacto | EN1 · Portal ETS · EPosOne APK |
 | Implementación de código | **NO autorizada** — documento de arquitectura únicamente |
+| Pregunta rectora | **¿Quién implementa el producto?** |
 | Complementa | [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) (dominio comercial) |
+| Detalle Standalone (asistente) | [ADR-033](ADR-033-STANDALONE-ONBOARDING-ASSISTANT.md) (**PROPOSED**) |
+| Próximos (planificados) | ADR-034 Connected Provisioning Flow · ADR de Activación (Licencia → Token → QR) |
 | Relacionados | [ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md) · [ADR-024](ADR-024-EPOSONE-START-ASSISTANT.md) · [ADR-021](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) · [ADR-001](ADR-001-EPOSONE-STANDALONE.md) · [EN1_MODELO_COMERCIAL_V1.md](EN1_MODELO_COMERCIAL_V1.md) |
 
 ---
 
 ## 1. Objetivo
 
-Definir el **modelo oficial de implementación** de los productos comercializados por Easy Technology Services (ETS).
+Definir las **dos estrategias oficiales de implementación** de productos ETS y **quién** las ejecuta.
 
-Este ADR complementa el [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) (Modelo Comercial) y establece **cómo un producto contratado se convierte en un producto operativo**.
+Este ADR complementa el [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md). **No** especifica pantallas del asistente Standalone ni el flujo detallado de provisioning Connected: eso vive en ADR dedicados (033 / 034).
 
 ---
 
 ## 2. Problema
 
-Hasta ahora EN1 asumía que registrar un cliente implicaba iniciar inmediatamente la implementación técnica.
-
-Ejemplo histórico:
-
-```text
-Registro → Organización → Provisioning → Bootstrap → Operación
-```
-
-Ese modelo obliga a todos los clientes a seguir el mismo flujo, independientemente de la modalidad contratada.
-
-Esto genera complejidad innecesaria para clientes **Standalone**.
+EN1 asumía que registrar un cliente implicaba iniciar de inmediato la implementación técnica (`Registro → Org → Provisioning → Bootstrap → Operación`), forzando el mismo camino a Standalone y Connected.
 
 ---
 
-## 3. Principio arquitectónico
-
-### Comercial ≠ Implementación
+## 3. Principio: Comercial ≠ Implementación
 
 El **registro comercial** finaliza cuando el cliente obtiene:
 
@@ -49,304 +40,145 @@ El **registro comercial** finaliza cuando el cliente obtiene:
 Cliente → Organización → Contrato → Suscripción → Licencia
 ```
 
-La **implementación** comienza únicamente cuando el producto contratado debe ponerse en operación.
+La **implementación** comienza solo cuando el producto debe ponerse en operación.
 
 ---
 
-## 4. Estrategias de implementación
+## 4. Estrategias
 
-Todo producto deberá definir una **estrategia de implementación**.
+| Estrategia | Modalidad típica (EPosOne) | ¿Quién implementa? |
+|------------|----------------------------|--------------------|
+| **Autogestionada** | Standalone | **Cliente** |
+| **Asistida** | Connected | **Easy Technology Services** |
 
-Actualmente se definen dos:
-
-| Estrategia | Modalidad típica (EPosOne) | Responsable principal |
-|------------|----------------------------|------------------------|
-| **Autogestionada** | Standalone | Cliente |
-| **Asistida** | Connected | Easy Technology Services |
+Todo producto ETS debe declarar su estrategia.
 
 ---
 
-## 5. Implementación Autogestionada
+## 5. Implementación Autogestionada (Standalone)
 
-### Aplica para
+**Responsable:** el cliente.  
+**ETS aporta:** licencia, token de activación, documentación, soporte (opcional).
 
-EPosOne **Standalone**.
-
-### Responsable principal
-
-El **cliente**.
-
-Easy Technology Services únicamente proporciona:
-
-- licencia  
-- activación  
-- documentación  
-- soporte (opcional)  
-
-### Flujo
+### Flujo (alto nivel)
 
 ```text
-Landing EPosOne
-  → Seleccionar Standalone
-  → Registro
-  → Verificación de correo
-  → Contrato
-  → Suscripción
+Registro comercial (ADR-031)
   → Licencia
-  → QR de activación
-  → Descarga APK
-  → Escanear QR
-  → Activación
-  → Asistente local
+  → Token de activación
+  → Entrega del token (QR / correo / enlace / copia manual)
+  → APK activa con el token
+  → Asistente local (detalle: ADR-033)
   → Operación
 ```
 
-### El asistente local
+### EN1 NO crea automáticamente
 
-La APK deberá permitir configurar completamente el negocio.
+Sucursales, POS, cajas, cajeros, inventario cloud, bootstrap cloud.  
+La Organización queda como **entidad comercial** (ADR-031).
 
-Como mínimo:
-
-- Empresa  
-- Moneda  
-- Impuestos  
-- Categorías  
-- Productos  
-- Clientes (opcional)  
-- Caja inicial  
-- Cajero administrador  
-- Impresora  
-- Configuración general  
-
-Una vez completado el asistente, el cliente podrá comenzar a vender.
-
-### EN1 NO crea (Standalone)
-
-En modalidad Standalone **NO** deberán crearse automáticamente:
-
-- sucursales  
-- POS  
-- cajas  
-- cajeros  
-- inventario cloud  
-- bootstrap cloud  
-
-La Organización existe únicamente como **entidad comercial** (ADR-031).
-
-### Recursos de ayuda
-
-El asistente ofrecerá:
-
-**Recursos gratuitos**
-
-- Manual PDF  
-- Videos  
-- Base de conocimiento  
-- Preguntas frecuentes  
-
-**Servicios profesionales**
-
-- Instalación remota  
-- Instalación presencial  
-- Migración de datos  
-- Capacitación  
-
-Estos servicios podrán estar:
-
-- incluidos en el plan  
-- contratados posteriormente  
+El detalle del asistente local, ayuda y servicios profesionales embebidos en la APK: **[ADR-033](ADR-033-STANDALONE-ONBOARDING-ASSISTANT.md)**.
 
 ---
 
-## 6. Implementación Asistida
+## 6. Implementación Asistida (Connected)
 
-### Aplica para
+**Responsable:** Easy Technology Services.
 
-EPosOne **Connected**.
-
-### Responsable principal
-
-**Easy Technology Services**.
-
-### Flujo
+### Flujo (alto nivel)
 
 ```text
-Registro
-  → Correo verificado
-  → Contrato
-  → Suscripción
+Registro comercial (ADR-031)
   → Licencia
   → Asignación a implementación
-  → Configuración EN1
-  → Sucursal
-  → POS
-  → Caja
-  → Cajeros
-  → Código de activación
-  → Descarga APK
-  → Provisioning
-  → Bootstrap
-  → Operación
+  → Configuración operacional en EN1 (Sucursal → POS → Caja → Cajeros)
+  → Token de activación
+  → Entrega del token
+  → APK → Provisioning → Bootstrap → Operación
 ```
+
+El detalle del aprovisionamiento Connected: **ADR-034** (pendiente de redacción).
 
 ---
 
-## 7. Código / QR de activación
+## 7. Activación: Licencia → Token → QR
 
-El QR deja de representar únicamente un código.
-
-Representa una **orden de activación**.
-
-Debe indicar como mínimo:
-
-| Campo | Rol |
-|-------|-----|
-| producto | qué producto se activa |
-| modalidad | Standalone / Connected |
-| estrategia de implementación | Autogestionada / Asistida |
-| licencia | derecho de uso |
-| código | token de activación |
-| expiración | vigencia de la orden |
-| firma | integridad / autenticidad |
-
-### Ejemplo lógico
-
-**Standalone**
+Cadena canónica (desacoplada del QR):
 
 ```text
-Producto: EPosOne
-Modalidad: Standalone
-Implementación: Autogestionada
+Contrato
+  → Suscripción
+  → Licencia                 ← derecho / orden de activación
+  → Token de Activación      ← referencia usable
+  → QR / correo / enlace / copia  ← medios de transporte
+  → APK
 ```
 
-**Connected**
+| Concepto | Rol |
+|----------|-----|
+| **Licencia** | Portadora del derecho de uso y de la **orden de activación** (producto, modalidad, estrategia, vigencia, firma) |
+| **Token de activación** | Referencia operable derivada de la licencia; puede enviarse por correo, enlace o copia manual |
+| **QR** | **Solo** representación gráfica del token (o de una URL que lo contiene). **No** es la orden |
 
-```text
-Producto: EPosOne
-Modalidad: Connected
-Implementación: Asistida
-```
+Ventajas del desacople: el mismo token sirve sin QR; el modelo no depende de un canal visual.
+
+El contrato HTTP/payload del token y la firma: **ADR de Activación** (planificado; no ampliar este documento).
 
 ---
 
 ## 8. Comportamiento de la APK
 
-La APK **NO** preguntará al usuario qué modalidad utilizar.
-
-La modalidad será determinada por la **activación**.
-
-Según esa información la APK ejecutará automáticamente el flujo correspondiente.
+La APK **no** pregunta la modalidad al usuario.  
+La modalidad y la estrategia salen de la **activación** (licencia vía token). La APK ejecuta el flujo Autogestionado o Asistido según esa información.
 
 ---
 
 ## 9. Responsabilidades
 
-### Cliente
-
-- Instalar APK  
-- Completar asistente Standalone  
-- Mantener su información  
-- Solicitar soporte cuando lo requiera  
-
-### Easy Technology Services
-
-- Administrar clientes  
-- Administrar contratos  
-- Emitir licencias  
-- Proveer documentación  
-- Brindar soporte  
-- Ejecutar implementaciones asistidas cuando correspondan  
+| Actor | Hace |
+|-------|------|
+| **Cliente** | Instala APK; completa asistente Standalone (ADR-033); mantiene datos; pide soporte |
+| **ETS** | Clientes, contratos, licencias, tokens, documentación, soporte; ejecuta implementaciones asistidas |
 
 ---
 
 ## 10. Servicios profesionales
 
-La implementación es un **servicio independiente** del producto.
-
-Puede estar:
-
-- incluida en determinados planes  
-- contratada posteriormente  
-
-Esto permite ofrecer distintos niveles de acompañamiento **sin modificar el producto**.
+La implementación asistida / acompañamiento es un **servicio independiente** del producto: puede ir incluido en el plan o contratarse después, sin cambiar el producto.
 
 ---
 
-## 11. Beneficios
+## 11. Principios
 
-### Standalone (Autogestionada)
-
-- instalación inmediata  
-- menor costo  
-- sin intervención de EasyTech  
-- escalable  
-- onboarding sencillo  
-
-### Connected (Asistida)
-
-- implementación profesional  
-- integración completa con EN1  
-- sincronización  
-- multi-sucursal  
-- administración centralizada  
+1. Este ADR responde solo: **¿quién implementa?**  
+2. Estrategias: Autogestionada o Asistida.  
+3. Registro comercial termina antes de la implementación.  
+4. Licencia = orden; Token = referencia; QR = transporte.  
+5. La APK elige el flujo desde la activación, no desde una pregunta al usuario.  
+6. Standalone no requiere infraestructura ops en EN1 para empezar.  
+7. Connected requiere implementación ETS antes del aprovisionamiento.  
+8. Detalle de pantallas / provisioning → ADR-033 / ADR-034, no aquí.
 
 ---
 
-## 12. Principios
+## 12. Impacto esperado (sin implementar)
 
-1. Todo producto define su estrategia de implementación.  
-2. La implementación puede ser **Autogestionada** o **Asistida**.  
-3. El registro comercial finaliza **antes** de iniciar cualquier implementación.  
-4. La APK determina automáticamente el flujo de implementación a partir de la activación.  
-5. Standalone **no** requiere infraestructura operacional en EN1 para comenzar a operar.  
-6. Connected requiere implementación previa antes del aprovisionamiento.  
-7. Los servicios de implementación son independientes del licenciamiento del producto.  
+| Equipo | Analizar contra |
+|--------|-----------------|
+| **LOCAL** | [ADR-033](ADR-033-STANDALONE-ONBOARDING-ASSISTANT.md) · activación por token |
+| **CODITO** | ADR-034 (cuando exista) · emisión Licencia/Token · integración ADR-031 |
 
 ---
 
-## 13. Impacto esperado
+## 13. Fuera de alcance
 
-### CODITO (EN1)
-
-**Analizar** (no implementar):
-
-- modelo de activación  
-- emisión del QR  
-- información contenida en la licencia  
-- separación entre activación e implementación  
-- integración con ADR-031  
-
-### LOCAL (EPosOne)
-
-**Analizar** (no implementar):
-
-- asistente Standalone  
-- activación mediante QR  
-- flujo autogestionado  
-- comportamiento según modalidad  
-- integración futura con el nuevo contrato de activación  
+No autoriza cambios en `/start`, bootstrap, provisioning, eliminación de código, ni enmiendas de otros ADR.  
+No especifica el asistente Standalone ni el provisioning Connected en detalle.
 
 ---
 
-## 14. Fuera de alcance
+## 14. Estado
 
-Este ADR **no autoriza**:
+**PROPOSED** (v1.1 — terminología Licencia / Token / QR; alcance reducido a estrategias).
 
-- cambios en `/start`  
-- cambios en bootstrap  
-- cambios en provisioning  
-- eliminación de código  
-- refactorizaciones  
-- modificaciones de ADR anteriores  
-
-Su único propósito es definir el **modelo arquitectónico de implementación** para que CODITO y LOCAL trabajen sobre una misma visión.
-
----
-
-## 15. Estado
-
-**PROPOSED**
-
-Pendiente de revisión y aprobación por Arquitectura antes de cualquier implementación de código.
-
-Tras la aprobación formal: enmiendas derivadas (si aplica) a ADR-024 / 027 / 021 y contrato de activación — **solo con GO explícito**.
+Pendiente de **aprobación formal**. Tras aprobar: no ampliar este ADR; continuar con ADR-033 / 034 / Activación bajo GO explícito.

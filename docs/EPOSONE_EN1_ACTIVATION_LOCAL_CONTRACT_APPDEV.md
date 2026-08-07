@@ -17,7 +17,7 @@
 |-----|-------------|--------------------|
 | **QR comercial (appdev)** | `https://eposone-dev.easynodeone.com/start` (silo Dev EN1 `:9101`) | **No** — solo embudo registro |
 | **APIs / APK (appdev)** | `https://appdev.easynodeone.com/…` | redeem/validate/APK |
-| **Transporte técnico** | token · `eposone://activate?token=…` · `https://appdev…/activate?token=…` · QR PNG del token | **Sí** — credencial ADR-035 |
+| **Transporte técnico** | token · `eposone://activate?token=…` · `https://eposone-dev.easynodeone.com/activate?token=…` · QR PNG del token | **Sí** — credencial ADR-035 |
 
 Notas:
 - `appdev.easynodeone.com` es superficie **EN1** (portal); `/start` allí responde 404 a propósito.
@@ -46,7 +46,7 @@ Respuesta relevante de `complete` (201):
     "implementation_strategy": "self_serve",
     "expires_at": "…Z",
     "max_uses": 1,
-    "activate_url": "https://appdev.easynodeone.com/activate?token=EN1A…",
+    "activate_url": "https://eposone-dev.easynodeone.com/activate?token=EN1A…",
     "deep_link": "eposone://activate?token=EN1A…",
     "transport": {
       "commercial_qr": "/start",
@@ -69,6 +69,8 @@ Respuesta relevante de `complete` (201):
 
 P0 appdev: `/start` **siempre** emite activación **Standalone** (sin árbol ops), aunque el plan comercial sea connected. Connected ops = ADR-034 (fuera de alcance).
 
+`activate_url` debe vivir en host superficie **eposone** (`eposone-dev…`), no en `appdev` (EN1). Redeem/validate/APK sí en `appdev` o el mismo host eposone-dev (mismo backend).
+
 ---
 
 ## 3. Cómo EP1 recibe la activación
@@ -85,10 +87,11 @@ eposone://activate?token=<TOKEN>
 ### 3.2 HTTPS puente (misma credencial)
 
 ```text
-GET https://appdev.easynodeone.com/activate?token=<TOKEN>
+GET https://eposone-dev.easynodeone.com/activate?token=<TOKEN>
 ```
 
-Página puente intenta redirigir al deep link y muestra el token para copia manual.
+Página puente intenta redirigir al deep link y muestra el token para copia manual.  
+(`appdev.easynodeone.com/activate` → 404: no es superficie EPosOne.)
 
 ### 3.3 Copia manual
 

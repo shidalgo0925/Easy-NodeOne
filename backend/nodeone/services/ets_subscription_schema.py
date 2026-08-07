@@ -13,6 +13,7 @@ def ensure_ets_product_subscription_schema(db, engine, printfn=None) -> None:
     if 'ets_product_subscription' in tables:
         if printfn:
             printfn('ets_product_subscription: ya existe')
+        # contract_id lo añade ensure_ets_commercial_schema (depende de ets_commercial_contract)
         return
 
     if dialect == 'postgresql':
@@ -27,6 +28,7 @@ def ensure_ets_product_subscription_schema(db, engine, printfn=None) -> None:
             trial_ends_at TIMESTAMP WITHOUT TIME ZONE,
             reason VARCHAR(200),
             metadata_json TEXT,
+            contract_id INTEGER,
             created_by_user_id INTEGER,
             updated_by_user_id INTEGER,
             created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
@@ -54,6 +56,7 @@ def ensure_ets_product_subscription_schema(db, engine, printfn=None) -> None:
             trial_ends_at DATETIME,
             reason VARCHAR(200),
             metadata_json TEXT,
+            contract_id INTEGER,
             created_by_user_id INTEGER,
             updated_by_user_id INTEGER,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -154,5 +154,140 @@ class TestStartRoutes(unittest.TestCase):
             self.assertTrue(r.get_json()['ok'])
 
 
+class TestCommercialRegistration(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        from app import app, db
+        from nodeone.services.ets_commercial_schema import ensure_ets_commercial_schema
+        from nodeone.services.ets_entitlement_schema import ensure_ets_product_entitlement_schema
+        from nodeone.services.ets_subscription_schema import ensure_ets_product_subscription_schema
+
+        cls.app = app
+        cls.db = db
+        with app.app_context():
+            ensure_ets_product_subscription_schema(db, db.engine)
+            ensure_ets_product_entitlement_schema(db, db.engine)
+            ensure_ets_commercial_schema(db, db.engine)
+
+    def setUp(self):
+        import uuid
+
+        from models.saas import SaasOrganization
+        from models.users import User
+
+        self.ctx = self.app.app_context()
+        self.ctx.push()
+        suffix = uuid.uuid4().hex[:10]
+        self.org = SaasOrganization(
+            name=f'CommTest {suffix}',
+            subdomain=f'comm{suffix}',
+        )
+        self.db.session.add(self.org)
+        self.db.session.flush()
+        self.user = User(
+            email=f'comm{suffix}@example.test',
+            first_name='Test',
+            last_name='User',
+            organization_id=int(self.org.id),
+            is_active=True,
+        )
+        self.user.set_password('password12345')
+        self.db.session.add(self.user)
+        self.db.session.commit()
+        self.oid = int(self.org.id)
+        self.uid = int(self.user.id)
+
+    def tearDown(self):
+        from models.ets_commercial_contract import EtsCommercialContract
+        from models.ets_commercial_customer import EtsCommercialCustomer
+        from models.ets_product_subscription import EtsProductSubscription
+        from models.saas import SaasOrganization
+        from models.users import User
+
+        try:
+            EtsProductSubscription.query.filter_by(organization_id=self.oid).delete(
+                synchronize_session=False
+            )
+            EtsCommercialContract.query.filter_by(organization_id=self.oid).delete(
+                synchronize_session=False
+            )
+            EtsCommercialCustomer.query.filter_by(organization_id=self.oid).delete(
+                synchronize_session=False
+            )
+            User.query.filter_by(id=self.uid).delete(synchronize_session=False)
+            SaasOrganization.query.filter_by(id=self.oid).delete(synchronize_session=False)
+            self.db.session.commit()
+        except Exception:
+            self.db.session.rollback()
+        self.ctx.pop()
+
+    def test_customer_contract_and_link(self):
+        from models.ets_product_subscription import EtsProductSubscription
+        from nodeone.core.platform.commercial_registration import (
+            ensure_customer_and_contract,
+            link_subscription_to_contract,
+            plan_modality,
+        )
+        from nodeone.core.platform.subscription_registry import SubscriptionRegistry
+
+        self.assertEqual(plan_modality('business'), 'connected')
+        self.assertEqual(plan_modality('standalone'), 'standalone')
+
+        commercial = ensure_customer_and_contract(
+            organization_id=self.oid,
+            user_id=self.uid,
+            display_name='Ana Pérez',
+            email=self.user.email,
+            country='Panamá',
+            product_code='eposone',
+            plan_code='business',
+        )
+        self.assertTrue(commercial['customer_id'])
+        self.assertTrue(commercial['contract_id'])
+        self.assertTrue(str(commercial['contract_number']).startswith('CTR-'))
+        self.assertEqual(commercial['modality'], 'connected')
+
+        from datetime import datetime, timedelta
+        from unittest.mock import patch
+
+        with patch('nodeone.core.platform.subscription_registry._audit'):
+            SubscriptionRegistry.create_trial(
+                self.oid,
+                'eposone',
+                datetime.utcnow() + timedelta(days=7),
+                user_id=self.uid,
+                sync_licenses=False,
+            )
+        link_subscription_to_contract(
+            organization_id=self.oid,
+            product_code='eposone',
+            contract_id=int(commercial['contract_id']),
+        )
+        row = EtsProductSubscription.query.filter_by(
+            organization_id=self.oid, product_code='eposone'
+        ).first()
+        self.assertIsNotNone(row)
+        self.assertEqual(int(row.contract_id), int(commercial['contract_id']))
+
+    def test_issue_install_code_is_org_level(self):
+        from unittest.mock import patch
+
+        from nodeone.modules.eposone_start.service import _issue_install_code
+
+        with patch(
+            'nodeone.modules.eposone.device_provisioning.DeviceProvisioningService.ensure_provisioning_code',
+            return_value='ORG-CODE-99',
+        ) as mock_code:
+            with patch(
+                'nodeone.core.master.org_unit.OrgUnitService.create'
+            ) as mock_create:
+                info = _issue_install_code(self.oid, 'Negocio')
+        self.assertEqual(info['kind'], 'organization')
+        self.assertEqual(info['code'], 'ORG-CODE-99')
+        self.assertIsNone(info['register_ref'])
+        mock_code.assert_called_once()
+        mock_create.assert_not_called()
+
+
 if __name__ == '__main__':
     unittest.main()

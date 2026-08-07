@@ -34,6 +34,13 @@ class EtsProductSubscription(db.Model):
 
     reason = db.Column(db.String(200), nullable=True)
     metadata_json = db.Column(db.Text, nullable=True)
+    # ADR-031: Suscripción bajo Contrato (nullable = legado / transición)
+    contract_id = db.Column(
+        db.Integer,
+        db.ForeignKey('ets_commercial_contract.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True,
+    )
     created_by_user_id = db.Column(db.Integer, nullable=True)
     updated_by_user_id = db.Column(db.Integer, nullable=True)
 

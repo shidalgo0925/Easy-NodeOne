@@ -98,7 +98,8 @@ class EmailService:
             if auth_user and '@' in auth_user and sender_email.lower() != auth_user.lower():
                 if not reply_to:
                     reply_to = sender_email
-                sender = ('EPosOne', auth_user)
+                # String form — más compatible con Flask-Mail que la tupla (name, email)
+                sender = f'EPosOne <{auth_user}>'
                 logger.info(
                     'MAIL From alineado a cuenta SMTP %s (sender config era %s)',
                     auth_user,
@@ -115,7 +116,7 @@ class EmailService:
                     html=html_content,
                     body=text_content,
                     sender=sender,
-                    reply_to=reply_to if isinstance(reply_to, list) else ([reply_to] if reply_to else None)
+                    reply_to=reply_to[0] if isinstance(reply_to, list) and reply_to else reply_to,
                 )
                 if attachments:
                     for att in attachments:

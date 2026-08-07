@@ -36,6 +36,8 @@ class EtsActivationToken(db.Model):
     revoked_at = db.Column(db.DateTime, nullable=True)
     revoke_reason = db.Column(db.String(200), nullable=True)
     created_by_user_id = db.Column(db.Integer, nullable=True)
+    # ADR-035 v1.4 — email del titular al que se emitió el código Standalone
+    bound_email = db.Column(db.String(200), nullable=True, index=True)
 
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

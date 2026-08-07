@@ -21,7 +21,7 @@ ADR-033 + ADR-035 + ADR-034 ACCEPTED  →  COMMERCIAL IMPLEMENTATION GATE OPEN
 | **032** | Modelo de Implementación | **ACCEPTED** |
 | **033** | Asistente Standalone | **ACCEPTED** v1.2 |
 | **034** | Connected Provisioning | **ACCEPTED** v1.2 |
-| **035** | Licencia → App Link / QR / redeem | **ACCEPTED** v1.3 |
+| **035** | Licencia → código activación (email+código) | **ACCEPTED** v1.4 |
 
 ---
 

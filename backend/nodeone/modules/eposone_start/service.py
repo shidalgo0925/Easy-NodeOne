@@ -395,6 +395,7 @@ def complete_start(
             contract_id=int(commercial['contract_id']),
             subscription_id=sub_info.get('subscription_id'),
             user_id=int(user.id),
+            bound_email=str(user.email or ''),
             public_base=public_base,
             metadata={
                 'source': 'eposone_start_assistant',
@@ -429,7 +430,7 @@ def complete_start(
         pass
 
     plan_view = plan_public_view(plan)
-    act_ref = (activation_info or {}).get('activation_ref')
+    act_code = (activation_info or {}).get('activation_code') or (activation_info or {}).get('manual_code')
     act_token_id = (activation_info or {}).get('token_id')
     ready_token = None
     try:
@@ -466,7 +467,7 @@ def complete_start(
         'Acceso creado',
         'Negocio registrado',
         'Te enviamos un correo para verificar' if verification_sent else 'Revisá tu correo para verificar',
-        'Autorización Standalone preparada' if act_ref else 'Autorización en preparación',
+        'Código de activación listo' if act_code else 'Activación en preparación',
     ]
 
     return {
@@ -497,14 +498,14 @@ def complete_start(
         # Activación solo se expone al cliente tras verificar (ready-status).
         'activation': activation_info if email_verified else None,
         'installation': {
-            'code': None,
-            'kind': 'activation_ref' if act_ref else None,
+            'code': act_code if email_verified else None,
+            'kind': 'activation_code' if act_code else None,
             'register_ref': None,
             'legacy_provisioning_code': code_info.get('code'),
             'message': (
-                'Después de verificar tu correo podrás instalar y activar EPosOne.'
+                'Después de verificar tu correo te enviaremos el código de activación y el enlace de descarga.'
                 if not email_verified
-                else 'Instalá y activá EPosOne en tu dispositivo.'
+                else 'Descargá EPosOne e introducí tu correo y código de activación en la app.'
             ),
             'cashier': {
                 'display_name': None,
@@ -573,14 +574,16 @@ def ready_status(*, ready_token: str, public_base: str | None = None) -> dict[st
                 activation = ActivationService._token_public(tok, lic, public_base=public_base)
 
     out['activation'] = activation
+    act_code = (activation or {}).get('activation_code') or (activation or {}).get('manual_code')
     out['installation'] = {
-        'kind': 'activation_ref' if activation else None,
-        'message': 'Instalá y activá EPosOne. No necesitás copiar ningún código.',
+        'kind': 'activation_code' if act_code else None,
+        'code': act_code,
+        'message': 'Descargá EPosOne. En la app introducí tu correo y el código de activación.',
     }
     out['wow'] = {
         'title': 'Tu EPosOne está listo',
-        'subtitle': 'Descargá, instalá y abrí EPosOne en tu dispositivo Android.',
-        'checks': ['Correo verificado', 'Negocio listo', 'Listo para instalar'],
+        'subtitle': 'Descargá la app e introducí tu correo y código de activación.',
+        'checks': ['Correo verificado', 'Negocio listo', 'Código de activación listo'],
     }
     return out
 
@@ -591,23 +594,27 @@ def send_standalone_ready_email(
     organization_name: str,
     activation: dict[str, Any],
 ) -> bool:
-    """Email de continuidad tras verificar correo."""
+    """Email de continuidad tras verificar correo (código + descarga)."""
     try:
         from app import email_service
         from email_templates import get_eposone_ready_install_email
 
         if not email_service:
             return False
+        code = str(activation.get('activation_code') or activation.get('manual_code') or '') or None
+        apk = str(activation.get('apk_url') or activation.get('app_link') or '')
         html = get_eposone_ready_install_email(
             user,
-            app_link=str(activation.get('app_link') or ''),
+            app_link=apk,
+            apk_url=apk,
             business_name=organization_name,
-            manual_code=str(activation.get('manual_code') or '') or None,
+            activation_code=code,
+            manual_code=code,
             organization_name='EPosOne',
         )
         return bool(
             email_service.send_email(
-                subject='Tu EPosOne está listo para instalar',
+                subject='Tu EPosOne está listo',
                 recipients=[user.email],
                 html_content=html,
                 email_type='eposone_ready_install',

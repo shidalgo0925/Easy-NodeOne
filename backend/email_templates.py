@@ -1014,44 +1014,51 @@ def get_crm_activity_reminder_email(
 def get_eposone_ready_install_email(
     user,
     *,
-    app_link: str,
+    app_link: str = '',
     business_name: str | None = None,
     manual_code: str | None = None,
+    activation_code: str | None = None,
+    apk_url: str | None = None,
     organization_name=None,
     base_url=None,
     contact_email=None,
     org_tagline=None,
 ):
-    """Email de continuidad Standalone: instalar y activar (ADR-035 v1.3)."""
+    """Email de continuidad Standalone: código de activación + descarga (ADR-035 v1.4)."""
     b = _merge_branding(organization_name, base_url, contact_email, org_tagline)
     name = html_module.escape(str(getattr(user, 'first_name', '') or 'hola').strip() or 'hola')
     biz = html_module.escape((business_name or 'tu negocio').strip() or 'tu negocio')
-    link = html_module.escape((app_link or '').strip())
-    manual_block = ''
-    if manual_code:
-        mc = html_module.escape(str(manual_code).strip())
-        manual_block = f"""
-        <p style="margin-top:24px;font-size:13px;color:#667;">
-          <strong>Activación manual / recuperación</strong> (solo si no podés abrir el enlace):
-          <code style="letter-spacing:0.06em;">{mc}</code>
+    email = html_module.escape(str(getattr(user, 'email', '') or '').strip())
+    code = (activation_code or manual_code or '').strip()
+    code_esc = html_module.escape(code) if code else ''
+    download = html_module.escape((apk_url or app_link or '').strip())
+    code_block = ''
+    if code_esc:
+        code_block = f"""
+        <p style="margin:24px 0 8px;font-size:14px;color:#334;">Tu <strong>código de activación</strong>:</p>
+        <p style="margin:0 0 20px;font-size:32px;letter-spacing:0.28em;font-weight:800;color:#001a4b;font-family:ui-monospace,Menlo,Consolas,monospace;">
+          {code_esc}
+        </p>
+        <p style="font-size:14px;color:#445;">
+          Al abrir EPosOne, introducí tu correo (<strong>{email}</strong>) y este código, luego tocá <strong>ACTIVAR</strong>.
         </p>
         """
     content = f"""
-    <h1 style="color:#001a4b;font-size:22px;">Tu EPosOne está listo para instalar</h1>
+    <h1 style="color:#001a4b;font-size:22px;">Tu EPosOne está listo</h1>
     <p>Hola {name},</p>
-    <p>El registro de <strong>{biz}</strong> ya está listo. Instalá y activá EPosOne en tu tablet o celular Android.</p>
+    <p>El registro de <strong>{biz}</strong> ya está listo. Descargá EPosOne e instalalo en tu tablet o celular Android.</p>
+    {code_block}
     <p style="margin:28px 0;">
-      <a href="{link}" style="background:#001a4b;color:#fff;padding:14px 22px;text-decoration:none;border-radius:8px;font-weight:700;">
-        INSTALAR Y ACTIVAR EPOSONE
+      <a href="{download}" style="background:#001a4b;color:#fff;padding:14px 22px;text-decoration:none;border-radius:8px;font-weight:700;">
+        Descargar EPosOne
       </a>
     </p>
     <p style="font-size:14px;color:#445;">Si el botón no funciona, abrí este enlace en el dispositivo donde instalarás la app:<br>
-      <a href="{link}">{link}</a>
+      <a href="{download}">{download}</a>
     </p>
-    {manual_block}
     """
     return get_email_template_base(
-        'Tu EPosOne está listo para instalar',
+        'Tu EPosOne está listo',
         content,
         year=datetime.now().year,
         organization_name=b['organization_name'] or 'EPosOne',

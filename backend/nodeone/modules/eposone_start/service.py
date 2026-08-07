@@ -347,7 +347,7 @@ def complete_start(
         last_name=last_name,
         country=ctry[:100],
         organization_id=int(org.id),
-        is_admin=True,
+        is_admin=False,
         email_verified=False,
         is_active=True,
     )
@@ -396,6 +396,13 @@ def complete_start(
 
     cashier_name = first_name or 'Cajero principal'
     cashier_info = _seed_default_cashier(int(org.id), cashier_name)
+
+    try:
+        from nodeone.services.organization_context_resolver import set_pending_initial_organization
+
+        set_pending_initial_organization(int(user.id), int(org.id))
+    except Exception:
+        pass
 
     # Sin login_user: evita sesión colgada / branding de otro tenant en el host EPosOne.
     try:

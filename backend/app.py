@@ -2976,6 +2976,18 @@ def ensure_user_last_selected_organization_id_column():
         print(f'⚠️ ensure_user_last_selected_organization_id_column: {e}')
 
 
+def ensure_user_pending_initial_organization_columns():
+    """ADR-029: pending org post-/start para primer login."""
+    try:
+        from nodeone.services.organization_context_resolver import (
+            ensure_pending_initial_organization_columns,
+        )
+
+        ensure_pending_initial_organization_columns()
+    except Exception as e:
+        print(f'⚠️ ensure_user_pending_initial_organization_columns: {e}')
+
+
 def ensure_benefit_icon_color_columns():
     """Añadir columnas icon y color a benefit si no existen."""
     try:
@@ -3416,6 +3428,7 @@ def bootstrap_nodeone_schema():
             print(f'⚠️ migrate_legacy_tenant_email_logos_to_uploads: {e}')
         ensure_must_change_password_column()
         ensure_user_last_selected_organization_id_column()
+        ensure_user_pending_initial_organization_columns()
         ensure_email_log_columns()  # Asegurar columnas antes de crear datos de muestra
         ensure_benefit_icon_color_columns()
         try:

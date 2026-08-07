@@ -59,6 +59,11 @@ class User(UserMixin, db.Model):
     last_selected_organization_id = db.Column(
         db.Integer, db.ForeignKey('saas_organization.id', ondelete='SET NULL'), nullable=True
     )
+    # ADR-029: org creada en /start — primer login debe resolver aquí (no last_selected).
+    pending_initial_organization_id = db.Column(
+        db.Integer, db.ForeignKey('saas_organization.id', ondelete='SET NULL'), nullable=True
+    )
+    pending_initial_organization_at = db.Column(db.DateTime, nullable=True)
     # Fase 10e: vínculo opcional User → Contact (en1_contact). Ver Etapa 10 modelo maestro.
     linked_contact_id = db.Column(
         db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True, index=True

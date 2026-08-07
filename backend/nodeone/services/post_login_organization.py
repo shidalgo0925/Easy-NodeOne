@@ -143,6 +143,27 @@ def finalize_post_login_organization(user, req):
     if not orgs:
         return 'error', 'No hay empresas activas disponibles para tu cuenta.'
 
+    # ADR-029 P0.1: pending post-/start gana a last_selected / heurística de catálogo.
+    try:
+        from nodeone.services.organization_context_resolver import (
+            peek_pending_initial_organization,
+            consume_pending_initial_organization,
+        )
+
+        pending_peek = peek_pending_initial_organization(user)
+        if pending_peek and any(int(o.id) == int(pending_peek) for o in orgs):
+            pending = consume_pending_initial_organization(user)
+            if pending and any(int(o.id) == int(pending) for o in orgs):
+                M.session['organization_id'] = int(pending)
+                M.session.pop('require_org_selection', None)
+                save_last_selected_organization(user, int(pending))
+                return 'ok', None
+        elif pending_peek:
+            # Pending apunta a org no elegible: limpiar para no bloquear forever
+            consume_pending_initial_organization(user)
+    except Exception:
+        pass
+
     raw_pick = (req.form.get('organization_id') or req.form.get('saas_organization_id') or '').strip()
     if raw_pick and getattr(user, 'is_admin', False):
         try:

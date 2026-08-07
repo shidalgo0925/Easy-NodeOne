@@ -1655,12 +1655,20 @@ def absolute_site_url(path: str = '') -> str:
 
 @app.route('/favicon.ico')
 def favicon_ico():
-    """Los navegadores piden /favicon.ico por defecto; servimos el SVG del producto."""
-    return send_from_directory(
-        os.path.join(app.static_folder, 'images'),
-        'favicon.svg',
-        mimetype='image/svg+xml',
-    )
+    """Favicon del host/producto actual (BrandContext / nav), no un SVG genérico fijo."""
+    rel = (get_nav_logo() or 'images/logo-eposone.svg').lstrip('/')
+    directory, _, filename = rel.rpartition('/')
+    if not filename:
+        directory, filename = 'images', 'logo-eposone.svg'
+    static_root = app.static_folder or ''
+    folder = os.path.join(static_root, directory) if directory else static_root
+    path = os.path.join(folder, filename)
+    if not os.path.isfile(path):
+        folder = os.path.join(static_root, 'images')
+        filename = 'logo-eposone.svg'
+    ext = filename.rsplit('.', 1)[-1].lower()
+    mime = 'image/svg+xml' if ext == 'svg' else 'image/png'
+    return send_from_directory(folder, filename, mimetype=mime)
 
 
 @app.route('/manifest.webmanifest')

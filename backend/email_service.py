@@ -79,6 +79,33 @@ class EmailService:
                     sender = 'noreply@example.com'
             except Exception:
                 sender = 'noreply@example.com'
+
+        # Gmail (y la mayoría de SMTP) rechazan/spoofean si From ≠ cuenta autenticada.
+        # Usar MAIL_USERNAME como envelope From y dejar el sender configurado en Reply-To.
+        try:
+            from flask import current_app, has_app_context
+            import re
+
+            auth_user = ''
+            if has_app_context():
+                auth_user = (current_app.config.get('MAIL_USERNAME') or '').strip()
+            sender_email = ''
+            if isinstance(sender, tuple) and len(sender) >= 2:
+                sender_email = str(sender[1] or '').strip()
+            else:
+                m = re.search(r'[\w.+-]+@[\w.-]+', str(sender or ''))
+                sender_email = m.group(0) if m else str(sender or '').strip()
+            if auth_user and '@' in auth_user and sender_email.lower() != auth_user.lower():
+                if not reply_to:
+                    reply_to = sender_email
+                sender = ('EPosOne', auth_user)
+                logger.info(
+                    'MAIL From alineado a cuenta SMTP %s (sender config era %s)',
+                    auth_user,
+                    sender_email,
+                )
+        except Exception:
+            pass
         
         for attempt in range(self.max_retries):
             try:

@@ -255,6 +255,16 @@
         el.hidden = true;
       }
     });
+    var pinBox = $('cashier-pin-box');
+    var cashier = result.installation && result.installation.cashier;
+    if (pinBox) {
+      if (cashier && cashier.pin) {
+        pinBox.textContent = 'PIN cajero: ' + cashier.pin;
+        pinBox.hidden = false;
+      } else {
+        pinBox.hidden = true;
+      }
+    }
     if (result.play_store_url) {
       $('btn-play').href = result.play_store_url;
       $('btn-play-2').href = result.play_store_url;

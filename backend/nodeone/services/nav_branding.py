@@ -93,12 +93,15 @@ def _authenticated_tenant_nav_preferred() -> bool:
 def get_nav_logo():
     import app as M
 
-    # Tenant logueado en host de producto: logo de admin (organization_settings), no EPosOne.
+    # Tenant logueado en host de producto: logo de admin (organization_settings).
     if _authenticated_tenant_nav_preferred():
         rel = nav_theme_logo_relpath()
         if rel:
             return rel
-        # Sin logo de org: fallback de sistema / plataforma (nunca BrandContext del producto).
+        # Sin logo de org: BrandContext del producto (EPosOne), no logo de plataforma/otro tenant.
+        brand_logo = brand_context_logo_relpath()
+        if brand_logo:
+            return brand_logo
         if M.single_tenant_default_only() and os.environ.get('NODEONE_NAV_USE_PLATFORM_LOGO', '1').strip().lower() not in (
             '0', 'false', 'no', 'off',
         ):
@@ -124,7 +127,10 @@ def get_nav_logo_cache_key():
     if _authenticated_tenant_nav_preferred():
         rel = nav_theme_logo_relpath()
         if not rel:
-            if M.single_tenant_default_only() and os.environ.get('NODEONE_NAV_USE_PLATFORM_LOGO', '1').strip().lower() not in (
+            brand_logo = brand_context_logo_relpath()
+            if brand_logo:
+                rel = brand_logo
+            elif M.single_tenant_default_only() and os.environ.get('NODEONE_NAV_USE_PLATFORM_LOGO', '1').strip().lower() not in (
                 '0', 'false', 'no', 'off',
             ):
                 rel = platform_nav_logo_relpath()

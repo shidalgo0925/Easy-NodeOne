@@ -250,6 +250,30 @@ def _issue_install_code(organization_id: int, business_name: str) -> dict[str, A
         }
 
 
+def _seed_default_cashier(organization_id: int, display_name: str) -> dict[str, Any]:
+    """Cajero inicial + PIN (mostrado una vez en /start). Fallo suave: no aborta el alta."""
+    import secrets
+
+    from nodeone.modules.eposone.cashier_service import CashierService
+
+    pin = ''.join(secrets.choice('0123456789') for _ in range(4))
+    while pin in ('0000', '1111', '1234'):
+        pin = ''.join(secrets.choice('0123456789') for _ in range(4))
+    name = (display_name or 'Cajero principal').strip()[:80] or 'Cajero principal'
+    try:
+        dto = CashierService.create(
+            int(organization_id),
+            {'display_name': name, 'pin': pin},
+        )
+        return {
+            'cashier_id': int(dto.id),
+            'display_name': dto.display_name,
+            'pin': pin,
+        }
+    except Exception:
+        return {'cashier_id': None, 'display_name': None, 'pin': None}
+
+
 def complete_start(
     *,
     full_name: str,
@@ -264,8 +288,10 @@ def complete_start(
     accept_eula: bool,
     ip_address: str | None = None,
 ) -> dict[str, Any]:
-    """Crea acceso + org + trial/activación + entitlement + código de instalación."""
-    from flask_login import login_user
+    """Crea acceso + org + trial/activación + entitlement + código + cajero inicial.
+
+    No inicia sesión web: el asistente es comercial; el panel BO pide login explícito.
+    """
     from models.saas import SaasOrganization
     from models.users import User
     from nodeone.core.db import db
@@ -368,12 +394,32 @@ def complete_start(
             'pos_ref': None,
         }
 
+    cashier_name = first_name or 'Cajero principal'
+    cashier_info = _seed_default_cashier(int(org.id), cashier_name)
+
+    # Sin login_user: evita sesión colgada / branding de otro tenant en el host EPosOne.
     try:
-        login_user(user)
+        from flask_login import current_user, logout_user
+
+        if getattr(current_user, 'is_authenticated', False):
+            logout_user()
     except Exception:
         pass
 
     plan_view = plan_public_view(plan)
+    checks = [
+        'Acceso creado',
+        'Negocio preparado',
+        sub_info.get('activation_label') or 'Plan listo',
+        'Código de instalación listo' if code_info.get('code') else 'Código en preparación',
+    ]
+    if cashier_info.get('pin'):
+        checks.append(
+            f"Cajero «{cashier_info.get('display_name') or cashier_name}» · PIN {cashier_info['pin']}"
+        )
+    else:
+        checks.append('Cajero: créalo en el panel EN1 antes de operar')
+
     return {
         'ok': True,
         'organization_id': int(org.id),
@@ -393,16 +439,21 @@ def complete_start(
                 if code_info.get('code')
                 else 'Tu código se está generando. Espera un momento o actualiza.'
             ),
+            'cashier': {
+                'display_name': cashier_info.get('display_name'),
+                'pin': cashier_info.get('pin'),
+                'message': (
+                    'Anota el PIN del cajero: lo usarás en la tablet (no es el código de instalación).'
+                    if cashier_info.get('pin')
+                    else None
+                ),
+            },
         },
         'play_store_url': play_store_url(),
+        'session': {'logged_in': False},
         'wow': {
             'title': '¡Bienvenido a EPosOne!',
-            'subtitle': 'Tu negocio ya está preparado.',
-            'checks': [
-                'Acceso creado',
-                'Negocio preparado',
-                sub_info.get('activation_label') or 'Plan listo',
-                'Código de instalación listo' if code_info.get('code') else 'Código en preparación',
-            ],
+            'subtitle': 'Tu negocio ya está preparado. Anota código y PIN; luego inicia sesión solo si vas al panel web.',
+            'checks': checks,
         },
     }

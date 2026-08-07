@@ -75,13 +75,17 @@ class TestActivationService(unittest.TestCase):
         issued = self._standalone_token()
         self.assertEqual(issued['modality'], 'standalone')
         self.assertEqual(issued['implementation_strategy'], 'self_serve')
-        self.assertIn('deep_link', issued)
-        self.assertTrue(issued['deep_link'].startswith('eposone://activate?token='))
+        self.assertIn('activation_ref', issued)
+        self.assertIn('manual_code', issued)
+        self.assertIn('app_link', issued)
+        self.assertTrue(issued['app_link'].endswith('/activate/' + issued['activation_ref']))
+        self.assertTrue(issued['deep_link'].startswith('eposone://activate/'))
+        self.assertNotIn('?token=', issued['deep_link'])
         self.assertEqual(issued['transport']['commercial_qr'], '/start')
         self.assertEqual(issued['redeem']['path'], '/api/v1/activation/redeem')
         with patch('nodeone.core.platform.activation_service._audit'):
             claims = ActivationService.redeem(
-                token=issued['token'],
+                activation_ref=issued['activation_ref'],
                 device_uuid='device-standalone-1',
             )
         self.assertTrue(claims['ok'])
@@ -90,6 +94,39 @@ class TestActivationService(unittest.TestCase):
         self.assertEqual(claims['organization_id'], self.oid)
         self.assertEqual(claims['provisioning_hint']['next'], 'standalone_assistant')
         self.assertIsNone(claims.get('register_ref'))
+
+    def test_redeem_by_manual_code(self):
+        from nodeone.core.platform.activation_service import ActivationService
+
+        issued = self._standalone_token()
+        with patch('nodeone.core.platform.activation_service._audit'):
+            claims = ActivationService.redeem(
+                manual_code=issued['manual_code'],
+                device_uuid='device-manual-1',
+            )
+        self.assertTrue(claims['ok'])
+        self.assertEqual(claims['modality'], 'standalone')
+
+    def test_credential_ambiguous(self):
+        from nodeone.core.platform.activation_service import ActivationError, ActivationService
+
+        issued = self._standalone_token()
+        with self.assertRaises(ActivationError) as ctx:
+            ActivationService.redeem(
+                credentials={
+                    'activation_ref': issued['activation_ref'],
+                    'manual_code': issued['manual_code'],
+                },
+                device_uuid='d',
+            )
+        self.assertEqual(ctx.exception.code, 'activation_credential_ambiguous')
+
+    def test_credential_missing(self):
+        from nodeone.core.platform.activation_service import ActivationError, ActivationService
+
+        with self.assertRaises(ActivationError) as ctx:
+            ActivationService.validate(credentials={})
+        self.assertEqual(ctx.exception.code, 'activation_credential_missing')
 
     def test_double_redeem_fails(self):
         from nodeone.core.platform.activation_service import ActivationError, ActivationService
@@ -208,7 +245,7 @@ class TestActivationService(unittest.TestCase):
             r = c.post(
                 '/api/v1/activation/redeem',
                 json={
-                    'token': issued['token'],
+                    'activation_ref': issued['activation_ref'],
                     'device_uuid': 'http-device-1',
                     'product_code': 'eposone',
                 },

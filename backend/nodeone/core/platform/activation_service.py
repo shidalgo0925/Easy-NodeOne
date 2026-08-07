@@ -1,5 +1,6 @@
-"""Activación EN1 — ADR-035 v1.2 (Licencia → Token → redeem).
+"""Activación EN1 — ADR-035 v1.3 (Licencia → credencial → App Link / redeem).
 
+Standalone: App Link + QR con activation_ref; manual_code solo fallback.
 No crea árbol ops Standalone. Connected exige ops_ready (register_ref + unidad).
 """
 
@@ -49,33 +50,78 @@ def _norm_strategy(raw: str | None, *, modality: str) -> str:
 
 
 def _token_string() -> str:
-    # Formato legible: XXXX-XXXX-XXXX (hex)
+    # Fallback manual legible: XXXX-XXXX-XXXX (hex) — nunca en URL/QR
     raw = secrets.token_hex(6).upper()
     return f'{raw[0:4]}-{raw[4:8]}-{raw[8:12]}'
 
 
-def _activate_url(token: str, *, public_base: str | None = None) -> str:
+def _public_base(public_base: str | None = None) -> str:
     base = (public_base or os.environ.get('NODEONE_EPOSONE_PUBLIC_BASE') or '').strip().rstrip('/')
     if not base:
         base = 'https://eposone.easytech.services'
-    return f'{base}/activate?token={token}'
+    return base
 
 
-def _deep_link(token: str) -> str:
-    """Esquema EP1 — transporte técnico (no QR comercial /start)."""
-    return f'eposone://activate?token={token}'
+def _app_link(activation_ref: str, *, public_base: str | None = None) -> str:
+    ref = (activation_ref or '').strip()
+    return f'{_public_base(public_base)}/activate/{ref}'
 
 
-def activation_transport(token: str, *, public_base: str | None = None) -> dict[str, Any]:
-    """Contrato de transporte para LOCAL / UI /start."""
-    t = (token or '').strip()
+def _deep_link(activation_ref: str) -> str:
+    """Esquema EP1 — misma autorización que App Link (no QR comercial /start)."""
+    ref = (activation_ref or '').strip()
+    return f'eposone://activate/{ref}'
+
+
+def activation_transport(
+    *,
+    activation_ref: str,
+    manual_code: str,
+    public_base: str | None = None,
+) -> dict[str, Any]:
+    """Contrato de transporte ADR-035 v1.3 para LOCAL / UI /start."""
+    ref = (activation_ref or '').strip()
+    code = (manual_code or '').strip()
+    app_link = _app_link(ref, public_base=public_base)
     return {
-        'token': t,
-        'activate_url': _activate_url(t, public_base=public_base),
-        'deep_link': _deep_link(t),
+        'activation_ref': ref,
+        'manual_code': code,
+        # aliases legacy (UI antigua)
+        'token': code,
+        'app_link': app_link,
+        'activate_url': app_link,
+        'deep_link': _deep_link(ref),
+        'qr_url': f'/activate/{ref}/qr.png',
         'commercial_entry': '/start',
         'technical_only': True,
     }
+
+
+def parse_activation_credentials(body: dict[str, Any] | None) -> tuple[str, str]:
+    """Devuelve (kind, value) con kind in {'activation_ref','manual_code'}.
+
+    Tipado estricto: exactamente uno de activation_ref | manual_code.
+    Puente legacy: solo ``token`` → manual_code (sin heurística de longitud).
+    """
+    data = body or {}
+    ref = (data.get('activation_ref') or '').strip()
+    manual = (data.get('manual_code') or '').strip()
+    legacy = (data.get('token') or '').strip()
+
+    if ref and manual:
+        raise ActivationError('activation_credential_ambiguous', http_status=400)
+    if ref and legacy:
+        raise ActivationError('activation_credential_ambiguous', http_status=400)
+    if manual and legacy and manual.upper() != legacy.upper():
+        raise ActivationError('activation_credential_ambiguous', http_status=400)
+
+    if ref:
+        return 'activation_ref', ref
+    if manual:
+        return 'manual_code', manual
+    if legacy:
+        return 'manual_code', legacy
+    raise ActivationError('activation_credential_missing', http_status=400)
 
 
 def _audit(organization_id: int | None, event_type: str, payload: dict[str, Any]) -> None:
@@ -353,11 +399,22 @@ class ActivationService:
     def validate(
         cls,
         *,
-        token: str,
+        token: str | None = None,
+        activation_ref: str | None = None,
+        manual_code: str | None = None,
         product_code: str | None = None,
+        credentials: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Pre-check sin consumir."""
-        lic, tok = cls._resolve_token(token, product_code=product_code)
+        body = dict(credentials or {})
+        if activation_ref is not None:
+            body['activation_ref'] = activation_ref
+        if manual_code is not None:
+            body['manual_code'] = manual_code
+        if token is not None:
+            body.setdefault('token', token)
+        kind, value = parse_activation_credentials(body)
+        lic, tok = cls._resolve_credential(kind, value, product_code=product_code)
         _license_usable(lic)
         _token_row_usable(tok, consume=False)
         claims = _claims_from(lic, tok)
@@ -369,13 +426,24 @@ class ActivationService:
     def redeem(
         cls,
         *,
-        token: str,
+        token: str | None = None,
         device_uuid: str,
+        activation_ref: str | None = None,
+        manual_code: str | None = None,
         product_code: str | None = None,
+        credentials: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         from nodeone.core.db import db
 
-        lic, tok = cls._resolve_token(token, product_code=product_code)
+        body = dict(credentials or {})
+        if activation_ref is not None:
+            body['activation_ref'] = activation_ref
+        if manual_code is not None:
+            body['manual_code'] = manual_code
+        if token is not None:
+            body.setdefault('token', token)
+        kind, value = parse_activation_credentials(body)
+        lic, tok = cls._resolve_credential(kind, value, product_code=product_code)
         _license_usable(lic)
         _token_row_usable(tok, consume=True)
         du = (device_uuid or '').strip()
@@ -396,7 +464,13 @@ class ActivationService:
         _audit(
             int(lic.organization_id),
             'activation.token_redeemed',
-            {'token_id': tok.id, 'license_id': lic.id, 'device_uuid': du, 'modality': lic.modality},
+            {
+                'token_id': tok.id,
+                'license_id': lic.id,
+                'device_uuid': du,
+                'modality': lic.modality,
+                'credential_kind': kind,
+            },
         )
         claims = _claims_from(lic, tok)
         claims['ok'] = True
@@ -404,17 +478,31 @@ class ActivationService:
         return claims
 
     @classmethod
-    def _resolve_token(cls, token: str, *, product_code: str | None):
+    def get_by_activation_ref(cls, activation_ref: str, *, product_code: str | None = None):
+        return cls._resolve_credential('activation_ref', activation_ref, product_code=product_code)
+
+    @classmethod
+    def _resolve_credential(cls, kind: str, value: str, *, product_code: str | None):
         from models.ets_activation_license import EtsActivationLicense
         from models.ets_activation_token import EtsActivationToken
 
-        code = (token or '').strip().upper()
-        if not code:
+        raw = (value or '').strip()
+        if not raw:
             raise ActivationError('activation_token_invalid', http_status=401)
-        tok = EtsActivationToken.query.filter_by(token=code).first()
-        if tok is None:
-            # intentar sin normalizar por si guardamos mixed
-            tok = EtsActivationToken.query.filter_by(token=(token or '').strip()).first()
+
+        tok = None
+        if kind == 'activation_ref':
+            tok = EtsActivationToken.query.filter_by(jti=raw).first()
+            if tok is None:
+                tok = EtsActivationToken.query.filter_by(jti=raw.lower()).first()
+        elif kind == 'manual_code':
+            code = raw.upper()
+            tok = EtsActivationToken.query.filter_by(token=code).first()
+            if tok is None:
+                tok = EtsActivationToken.query.filter_by(token=raw).first()
+        else:
+            raise ActivationError('activation_credential_missing', http_status=400)
+
         if tok is None:
             raise ActivationError('activation_token_invalid', http_status=401)
         lic = EtsActivationLicense.query.get(int(tok.license_id))
@@ -426,11 +514,23 @@ class ActivationService:
         return lic, tok
 
     @classmethod
+    def _resolve_token(cls, token: str, *, product_code: str | None):
+        """Compat: resolve por manual_code (legacy)."""
+        return cls._resolve_credential('manual_code', token, product_code=product_code)
+
+    @classmethod
     def _token_public(cls, tok, lic, *, public_base: str | None = None) -> dict[str, Any]:
-        transport = activation_transport(tok.token, public_base=public_base)
+        ref = str(tok.jti or '')
+        transport = activation_transport(
+            activation_ref=ref,
+            manual_code=str(tok.token or ''),
+            public_base=public_base,
+        )
         return {
             'token_id': int(tok.id),
-            'token': tok.token,
+            'activation_ref': ref,
+            'manual_code': str(tok.token or ''),
+            'token': str(tok.token or ''),  # legacy alias = manual_code
             'license_id': int(lic.id),
             'organization_id': int(lic.organization_id),
             'product_code': str(lic.product_code),
@@ -439,19 +539,23 @@ class ActivationService:
             'expires_at': tok.expires_at.isoformat() + 'Z' if tok.expires_at else None,
             'max_uses': int(tok.max_uses),
             'register_ref': tok.register_ref,
-            'activate_url': transport['activate_url'],
+            'app_link': transport['app_link'],
+            'activate_url': transport['app_link'],
             'deep_link': transport['deep_link'],
-            'qr_path': f'/api/v1/activation/tokens/{int(tok.id)}/qr.png',
+            'qr_path': transport['qr_url'],
+            'qr_url': transport['qr_url'],
             'transport': {
                 'commercial_qr': '/start',
-                'technical_qr': 'token_only',
-                'activate_url': transport['activate_url'],
+                'technical_qr': 'app_link',
+                'app_link': transport['app_link'],
                 'deep_link': transport['deep_link'],
+                'activation_ref': ref,
             },
             'redeem': {
                 'method': 'POST',
                 'path': '/api/v1/activation/redeem',
                 'validate_path': '/api/v1/activation/validate',
+                'credential_fields': ['activation_ref', 'manual_code'],
             },
         }
 

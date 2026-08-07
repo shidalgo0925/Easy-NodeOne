@@ -1,15 +1,19 @@
-"""Rutas públicas Asistente de Inicio EPosOne — /start + API."""
+"""Rutas públicas Asistente de Inicio EPosOne — /start + API + App Link."""
 
 from __future__ import annotations
 
-from flask import Blueprint, abort, jsonify, render_template, request
+from flask import Blueprint, Response, abort, jsonify, make_response, redirect, render_template, request, url_for
 
 from nodeone.modules.eposone_start.recommend import catalog_payload, recommend_for_business_type
 from nodeone.modules.eposone_start.service import (
     StartAssistantError,
     complete_start,
     download_cta_label,
+    mark_ready_email_sent_flag,
     play_store_url,
+    ready_status,
+    send_standalone_ready_email,
+    should_send_ready_email,
 )
 
 eposone_start_bp = Blueprint('eposone_start', __name__)
@@ -29,7 +33,18 @@ def _require_eposone_surface() -> None:
         abort(404)
 
 
+def _public_base_from_request() -> str | None:
+    xf_proto = (request.headers.get('X-Forwarded-Proto') or '').split(',')[0].strip()
+    xf_host = (request.headers.get('X-Forwarded-Host') or '').split(',')[0].strip()
+    if xf_host:
+        scheme = xf_proto or 'https'
+        return f'{scheme}://{xf_host}'.rstrip('/')
+    root = (request.url_root or '').rstrip('/')
+    return root or None
+
+
 @eposone_start_bp.route('/start')
+@eposone_start_bp.route('/start/ready')
 def start_assistant():
     """SPA del Asistente de Inicio (solo superficie producto EPosOne)."""
     _require_eposone_surface()
@@ -41,6 +56,8 @@ def start_assistant():
         play_store_url=download_url,
         download_cta_label=download_cta_label(download_url),
         brand_favicon='images/logo-eposone.svg',
+        initial_ready_token=(request.args.get('ready_token') or '').strip() or None,
+        start_path=request.path,
     )
 
 
@@ -60,17 +77,6 @@ def start_recommend():
     else:
         business_type = request.args.get('business_type')
     return jsonify(recommend_for_business_type(business_type))
-
-
-def _public_base_from_request() -> str | None:
-    """Base pública preferida (proxy) para activate_url / transporte."""
-    xf_proto = (request.headers.get('X-Forwarded-Proto') or '').split(',')[0].strip()
-    xf_host = (request.headers.get('X-Forwarded-Host') or '').split(',')[0].strip()
-    if xf_host:
-        scheme = xf_proto or 'https'
-        return f'{scheme}://{xf_host}'.rstrip('/')
-    root = (request.url_root or '').rstrip('/')
-    return root or None
 
 
 @eposone_start_bp.route('/api/public/eposone-start/complete', methods=['POST'])
@@ -96,7 +102,18 @@ def start_complete():
             or None,
             public_base=public_base,
         )
-        return jsonify(result), 201
+        resp = make_response(jsonify(result), 201)
+        if result.get('ready_token'):
+            resp.set_cookie(
+                'eposone_ready_token',
+                result['ready_token'],
+                max_age=7 * 24 * 3600,
+                httponly=False,
+                samesite='Lax',
+                secure=request.is_secure,
+                path='/',
+            )
+        return resp
     except StartAssistantError as exc:
         return jsonify({'ok': False, 'error': exc.code, 'message': exc.message}), exc.http_status
     except Exception:
@@ -115,23 +132,127 @@ def start_complete():
         )
 
 
-@eposone_start_bp.route('/activate')
-def start_activate_bridge():
-    """Puente HTTPS → deep link EP1 (transporte técnico ADR-035; no es QR comercial)."""
+@eposone_start_bp.route('/api/public/eposone-start/ready-status', methods=['GET'])
+def start_ready_status():
     _require_eposone_surface()
-    token = (request.args.get('token') or '').strip()
-    deep_link = f'eposone://activate?token={token}' if token else ''
+    token = (
+        (request.args.get('ready_token') or '').strip()
+        or (request.cookies.get('eposone_ready_token') or '').strip()
+    )
+    if not token:
+        return jsonify({'ok': False, 'error': 'ready_token_missing', 'message': 'Falta sesión de instalación.'}), 400
+    try:
+        result = ready_status(ready_token=token, public_base=_public_base_from_request())
+        if result.get('email_verified') and result.get('activation') and should_send_ready_email(
+            int(result['user_id'])
+        ):
+            from models.saas import SaasOrganization
+            from models.users import User
+
+            user = User.query.get(int(result['user_id']))
+            org = SaasOrganization.query.get(int(result['organization_id']))
+            if user and org:
+                if send_standalone_ready_email(
+                    user=user,
+                    organization_name=str(org.name or ''),
+                    activation=result['activation'],
+                ):
+                    mark_ready_email_sent_flag(int(user.id))
+        return jsonify(result), 200
+    except StartAssistantError as exc:
+        return jsonify({'ok': False, 'error': exc.code, 'message': exc.message}), exc.http_status
+
+
+@eposone_start_bp.route('/activate')
+def start_activate_bridge_legacy():
+    """Legacy ?token=manual_code → redirect a path si resolvemos jti; si no, UI fallback."""
+    _require_eposone_surface()
+    legacy = (request.args.get('token') or '').strip()
+    if legacy:
+        try:
+            from nodeone.core.platform.activation_service import ActivationService
+
+            _lic, tok = ActivationService._resolve_credential('manual_code', legacy, product_code='eposone')
+            if tok and tok.jti:
+                return redirect(url_for('eposone_start.start_activate_ref', activation_ref=tok.jti))
+        except Exception:
+            pass
     return render_template(
         'eposone_start/activate.html',
-        token=token,
-        deep_link=deep_link,
+        activation_ref='',
+        app_link='',
+        deep_link='',
+        manual_mode=True,
         brand_favicon='images/logo-eposone.svg',
+    )
+
+
+@eposone_start_bp.route('/activate/<activation_ref>')
+def start_activate_ref(activation_ref: str):
+    """App Link HTTPS — transporte técnico ADR-035 v1.3 (no QR comercial)."""
+    _require_eposone_surface()
+    ref = (activation_ref or '').strip()
+    app_link = ''
+    deep_link = f'eposone://activate/{ref}' if ref else ''
+    modality = None
+    status = None
+    try:
+        from nodeone.core.platform.activation_service import ActivationService
+
+        lic, tok = ActivationService.get_by_activation_ref(ref)
+        pub = ActivationService._token_public(tok, lic, public_base=_public_base_from_request())
+        app_link = pub.get('app_link') or ''
+        deep_link = pub.get('deep_link') or deep_link
+        modality = pub.get('modality')
+        status = getattr(tok, 'status', None)
+    except Exception:
+        pass
+    return render_template(
+        'eposone_start/activate.html',
+        activation_ref=ref,
+        app_link=app_link or f'{(_public_base_from_request() or "").rstrip("/")}/activate/{ref}',
+        deep_link=deep_link,
+        modality=modality,
+        token_status=status,
+        manual_mode=False,
+        brand_favicon='images/logo-eposone.svg',
+    )
+
+
+@eposone_start_bp.route('/activate/<activation_ref>/qr.png')
+def start_activate_qr(activation_ref: str):
+    """QR de activación = App Link (misma autorización)."""
+    _require_eposone_surface()
+    from nodeone.modules.qr_generator.services import generate_png_bytes
+
+    ref = (activation_ref or '').strip()
+    if not ref:
+        abort(404)
+    try:
+        size = int(request.args.get('size') or 320)
+    except (TypeError, ValueError):
+        size = 320
+    size = max(160, min(size, 1024))
+    base = (_public_base_from_request() or '').rstrip('/')
+    app_link = f'{base}/activate/{ref}'
+    png = generate_png_bytes(
+        app_link,
+        int(size),
+        'M',
+        style={'fill': '#001a4b', 'bg': '#ffffff', 'border': 2},
+    )
+    return Response(
+        png,
+        mimetype='image/png',
+        headers={
+            'Cache-Control': 'no-store',
+            'Content-Disposition': f'inline; filename=eposone-activate-{ref[:12]}.png',
+        },
     )
 
 
 @eposone_start_bp.route('/start/install-help')
 def start_install_help():
-    """Guía pública de instalación Android (QR de ayuda — no descarga APK)."""
     _require_eposone_surface()
     return render_template(
         'eposone_start/install_help.html',
@@ -142,10 +263,7 @@ def start_install_help():
 
 @eposone_start_bp.route('/start/install-help/qr.png')
 def start_install_help_qr():
-    """QR de ayuda: URL de la guía (nunca el APK)."""
     _require_eposone_surface()
-    from flask import Response
-
     from nodeone.modules.qr_generator.services import generate_png_bytes
 
     try:

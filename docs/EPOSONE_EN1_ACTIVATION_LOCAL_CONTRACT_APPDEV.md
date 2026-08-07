@@ -1,131 +1,55 @@
-# Contrato appdev — Activación Standalone (ADR-035) para LOCAL
+# Contrato appdev — Activación Standalone ADR-035 v1.3 (HANDOFF LOCAL)
 
 | Campo | Valor |
 |-------|--------|
-| Entorno | **appdev** (Dev EN1) — **NO PROD** |
-| Base URL | `https://appdev.easynodeone.com` |
+| Entorno | **appdev** — **NO PROD** |
+| Superficie EPosOne | `https://eposone-dev.easynodeone.com` |
+| APIs / APK | mismo silo Dev (`easynodeone-dev` :9101); también vía `https://appdev.easynodeone.com` para redeem/APK |
 | Fecha | 2026-08-07 |
-| ADRs | ADR-033 v1.2 · ADR-035 v1.2 |
+| ADRs | ADR-033 v1.2 · **ADR-035 v1.3** |
 | Emisor | CODITO (EN1) |
 | Consumidor | LOCAL (EP1 APK) |
 
 ---
 
-## 1. Separación comercial vs técnica
+## HANDOFF LOCAL
 
-| Qué | URL / forma | Activa dispositivo |
-|-----|-------------|--------------------|
-| **QR comercial (appdev)** | `https://eposone-dev.easynodeone.com/start` (silo Dev EN1 `:9101`) | **No** — solo embudo registro |
-| **APIs / APK (appdev)** | `https://appdev.easynodeone.com/…` | redeem/validate/APK |
-| **Transporte técnico** | token · `eposone://activate?token=…` · `https://eposone-dev.easynodeone.com/activate?token=…` · QR PNG del token | **Sí** — credencial ADR-035 |
+Todo lo que EP1 necesita sin inferir contratos.
 
-Notas:
-- `appdev.easynodeone.com` es superficie **EN1** (portal); `/start` allí responde 404 a propósito.
-- Superficie producto EPosOne en Dev: host `eposone-dev.easynodeone.com` (mismo backend `easynodeone-dev`).
-- EP1 **no** debe tratar `/start` como activación.
+### 1. Separación
 
----
+| Qué | Forma | Activa |
+|-----|-------|--------|
+| QR comercial | `https://eposone-dev.easynodeone.com/start` | No |
+| App Link (principal) | `https://eposone-dev.easynodeone.com/activate/<activation_ref>` | Sí |
+| Deep link | `eposone://activate/<activation_ref>` | Sí |
+| QR activación | encode(App Link) — misma `activation_ref` | Sí |
+| Fallback manual | `manual_code` `XXXX-XXXX-XXXX` | Sí (recuperación) |
 
-## 2. Camino web (appdev) que entrega el token
+**Prod (documentado, no desplegado aquí):** `https://eposone.easytech.services/activate/<activation_ref>`
 
-```text
-https://eposone-dev.easynodeone.com/start
-  → registro → POST /api/public/eposone-start/complete
-  → activation { token, modality=standalone, deep_link, activate_url }
-  → Descargar APK (appdev static) → Instalar → Abrir EPosOne (deep_link)
-```
+### 2. Credenciales tipadas (obligatorio)
 
-Respuesta relevante de `complete` (201):
+`POST /api/v1/activation/validate` y `…/redeem` — **exactamente uno**:
 
 ```json
-{
-  "ok": true,
-  "activation": {
-    "token": "EN1A…",
-    "modality": "standalone",
-    "implementation_strategy": "self_serve",
-    "expires_at": "…Z",
-    "max_uses": 1,
-    "activate_url": "https://eposone-dev.easynodeone.com/activate?token=EN1A…",
-    "deep_link": "eposone://activate?token=EN1A…",
-    "transport": {
-      "commercial_qr": "/start",
-      "technical_qr": "token_only",
-      "activate_url": "…",
-      "deep_link": "…"
-    },
-    "redeem": {
-      "method": "POST",
-      "path": "/api/v1/activation/redeem",
-      "validate_path": "/api/v1/activation/validate"
-    }
-  },
-  "installation": {
-    "code": "<mismo token>",
-    "kind": "activation_token"
-  }
-}
+{ "activation_ref": "<jti hex 32>", "device_uuid": "<uuid>", "product_code": "eposone" }
 ```
 
-P0 appdev: `/start` **siempre** emite activación **Standalone** (sin árbol ops), aunque el plan comercial sea connected. Connected ops = ADR-034 (fuera de alcance).
+o
 
-`activate_url` debe vivir en host superficie **eposone** (`eposone-dev…`), no en `appdev` (EN1). Redeem/validate/APK sí en `appdev` o el mismo host eposone-dev (mismo backend).
-
----
-
-## 3. Cómo EP1 recibe la activación
-
-### 3.1 Preferido — deep link
-
-```text
-eposone://activate?token=<TOKEN>
+```json
+{ "manual_code": "XXXX-XXXX-XXXX", "device_uuid": "<uuid>", "product_code": "eposone" }
 ```
 
-- Intent filter Android: scheme `eposone`, host `activate`, query `token`.
-- Al abrir, EP1 toma `token` y llama `validate` → `redeem` (no reinventar claims).
+- **Prohibido** clasificar por longitud.
+- Legacy: solo campo `token` → se interpreta como `manual_code`.
+- Ambos campos → `activation_credential_ambiguous` (400).
+- Ninguno → `activation_credential_missing` (400).
 
-### 3.2 HTTPS puente (misma credencial)
+Validate: mismo body **sin** `device_uuid`.
 
-```text
-GET https://eposone-dev.easynodeone.com/activate?token=<TOKEN>
-```
-
-Página puente intenta redirigir al deep link y muestra el token para copia manual.  
-(`appdev.easynodeone.com/activate` → 404: no es superficie EPosOne.)
-
-### 3.3 Copia manual
-
-Usuario pega el token en la pantalla de activación del asistente Standalone (ADR-033).
-
----
-
-## 4. Endpoints device (appdev)
-
-Base: `https://appdev.easynodeone.com`
-
-### Validate (no consume)
-
-```http
-POST /api/v1/activation/validate
-Content-Type: application/json
-
-{ "token": "<TOKEN>", "product_code": "eposone" }
-```
-
-### Redeem (consume, default 1 uso)
-
-```http
-POST /api/v1/activation/redeem
-Content-Type: application/json
-
-{
-  "token": "<TOKEN>",
-  "device_uuid": "<uuid-estable-del-dispositivo>",
-  "product_code": "eposone"
-}
-```
-
-### Response 200 (redeem OK) — claims mínimos
+### 3. Claims post-redeem 200
 
 ```json
 {
@@ -142,66 +66,66 @@ Content-Type: application/json
   "subscription_id": 67,
   "token_id": 9,
   "token_expires_at": "…Z",
-  "provisioning_hint": {
-    "next": "standalone_assistant",
-    "adr": "ADR-033"
-  }
+  "provisioning_hint": { "next": "standalone_assistant", "adr": "ADR-033" }
 }
 ```
 
-Con `modality=standalone` EP1 **entra ADR-033** (asistente local). **No** pregunta Standalone vs Connected. **No** exige `register_ref`.
+Si `modality=standalone` → arrancar **ADR-033**. **No** Register/Bootstrap Connected.
 
----
+### 4. App Link / Intent (LOCAL)
 
-## 5. Errores tipados (EP1)
+1. Android App Links / intent filter: HTTPS host eposone + path `/activate/*`.
+2. Scheme opcional: `eposone://activate/<activation_ref>`.
+3. Extraer `activation_ref` del path (no query `token`).
+4. `validate` → `redeem` con `{ activation_ref, device_uuid }`.
+5. QR scan: leer URL App Link → misma ref.
 
-| `error` | HTTP | Acción EP1 |
-|---------|------|------------|
-| `activation_token_invalid` | 401 | Reingresar token |
-| `activation_token_expired` | 400 | Pedir nuevo token (re-emisión web/soporte) |
-| `activation_token_used` | 409 | No reintentar a ciegas; pedir re-emisión |
-| `activation_token_revoked` | 403 | Soporte |
-| `license_revoked` / `license_expired` | 403 | Soporte / renovar |
-| `ops_not_ready` | 409 | Solo Connected (no aplica Standalone) |
-| `product_mismatch` | 400 | App incorrecta |
-| `modality_mismatch` | 409 | Flujo APK incorrecto |
+### 5. TTL / single-use / reemisión / revocación
 
-Cuerpo error:
+| Regla | Valor |
+|-------|--------|
+| TTL | 14 días (7–30) |
+| max_uses | 1 → `consumed` |
+| Re-emisión | admin / soporte emite nuevo token (nueva ref) |
+| Revoke token | invalida App Link + manual_code |
+| Revoke license | invalida todos pendientes |
 
-```json
-{ "ok": false, "error": "activation_token_used", "message": "…" }
-```
+### 6. Errores
 
----
+| error | HTTP |
+|-------|------|
+| `activation_credential_missing` | 400 |
+| `activation_credential_ambiguous` | 400 |
+| `activation_token_invalid` | 401 |
+| `activation_token_expired` | 400 |
+| `activation_token_used` | 409 |
+| `activation_token_revoked` | 403 |
+| `license_revoked` / `license_expired` | 403 |
+| `product_mismatch` | 400 |
+| `modality_mismatch` | 409 |
+| `ops_not_ready` | 409 (solo Connected) |
 
-## 6. Vigencia y reutilización
-
-| Regla | Valor appdev |
-|-------|----------------|
-| TTL token | 14 días (rango 7–30) |
-| `max_uses` | 1 (default) → tras redeem OK queda `consumed` |
-| Reutilización | Solo con re-emisión o política `max_uses>1` |
-| Skew reloj | ±5 min |
-| QR técnico | regenerable mientras token `active` (`/api/v1/activation/tokens/<id>/qr.png`, auth admin) |
-
----
-
-## 7. APK
+### 7. Flujo web EN1 (contexto)
 
 ```text
-https://appdev.easynodeone.com/static/apk/eposone/EPosOne.apk
+/start → registro → verify email (gate) → listo
+  → DESCARGAR → INSTALAR → ABRIR (App Link)
+  → opcional QR otra tablet
+  → fallback manual oculto
 ```
 
+### 8. APK
+
+`https://appdev.easynodeone.com/static/apk/eposone/EPosOne.apk`  
+(o mismo path en host eposone-dev)
+
+### 9. No hacer
+
+- No enviar Standalone a Connect/Register/Bootstrap.
+- No usar `/start` como activación.
+- No poner `manual_code` en URL/QR.
+- No heurística `length >= 20`.
+
 ---
 
-## 8. Checklist LOCAL
-
-1. Registrar deep link `eposone://activate?token=`.
-2. Parsear token desde intent / entrada manual.
-3. `POST …/validate` luego `POST …/redeem` contra **appdev**.
-4. Si `modality=standalone` → asistente ADR-033 (sin árbol EN1).
-5. No usar `/start` ni provisioning code legacy como camino canónico (bridge legacy opcional).
-
----
-
-*Fuente de verdad arquitectura: ADR-035 v1.2. Este doc es el contrato operativo de **appdev** para handoff LOCAL.*
+*Fuente: ADR-035 v1.3. Contrato operativo appdev para LOCAL.*

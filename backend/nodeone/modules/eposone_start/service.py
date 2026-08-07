@@ -429,15 +429,44 @@ def complete_start(
         pass
 
     plan_view = plan_public_view(plan)
-    act_token = (activation_info or {}).get('token')
+    act_ref = (activation_info or {}).get('activation_ref')
+    act_token_id = (activation_info or {}).get('token_id')
+    ready_token = None
+    try:
+        from nodeone.modules.eposone_start.ready_session import issue_ready_token
+
+        ready_token = issue_ready_token(
+            user_id=int(user.id),
+            organization_id=int(org.id),
+            activation_token_id=int(act_token_id) if act_token_id else None,
+        )
+    except Exception:
+        ready_token = None
+
+    verification_sent = False
+    try:
+        from app import send_verification_email
+
+        # Preferir next hacia /start/ready en el enlace de verificación
+        ok_mail, _err = send_verification_email(user)
+        verification_sent = bool(ok_mail)
+        if verification_sent and getattr(user, 'email_verification_token', None) and ready_token:
+            try:
+                from nodeone.core.db import db as _db
+
+                # Reescribir URL guardada no aplica; el verify-email redirige por pending_initial
+                _db.session.add(user)
+            except Exception:
+                pass
+    except Exception:
+        verification_sent = False
+
+    email_verified = bool(getattr(user, 'email_verified', False))
     checks = [
         'Acceso creado',
-        'Cliente y contrato registrados',
-        sub_info.get('activation_label') or 'Plan listo',
-        'Token de activación listo' if act_token else (
-            'Código de instalación listo' if code_info.get('code') else 'Código en preparación'
-        ),
-        'Implementación operativa diferida (sin sucursal/caja aún)',
+        'Negocio registrado',
+        'Te enviamos un correo para verificar' if verification_sent else 'Revisá tu correo para verificar',
+        'Autorización Standalone preparada' if act_ref else 'Autorización en preparación',
     ]
 
     return {
@@ -449,6 +478,10 @@ def complete_start(
         'business_type': btype,
         'country': ctry,
         'plan': plan_view,
+        'requires_email_verification': not email_verified,
+        'email_verified': email_verified,
+        'verification_email_sent': verification_sent,
+        'ready_token': ready_token,
         'commercial': {
             'customer_id': commercial['customer_id'],
             'contract_id': commercial['contract_id'],
@@ -459,49 +492,150 @@ def complete_start(
         'implementation': {
             'status': 'deferred',
             'ops_tree_created': False,
-            'message': (
-                'El registro comercial está listo. Sucursal, POS y caja se crean '
-                'en la fase de implementación (no en este alta).'
-            ),
+            'message': 'La configuración de caja se completa en la app EPosOne.',
         },
-        'activation': activation_info,
+        # Activación solo se expone al cliente tras verificar (ready-status).
+        'activation': activation_info if email_verified else None,
         'installation': {
-            'code': act_token or code_info.get('code'),
-            'kind': 'activation_token' if act_token else (code_info.get('kind') or 'organization'),
+            'code': None,
+            'kind': 'activation_ref' if act_ref else None,
             'register_ref': None,
             'legacy_provisioning_code': code_info.get('code'),
             'message': (
-                'Guarda este token de activación: lo usarás al abrir EPosOne (ADR-035).'
-                if act_token
-                else (
-                    'Guarda este código: lo necesitarás al abrir EPosOne en tu dispositivo.'
-                    if code_info.get('code')
-                    else 'Tu código se está generando. Espera un momento o actualiza.'
-                )
+                'Después de verificar tu correo podrás instalar y activar EPosOne.'
+                if not email_verified
+                else 'Instalá y activá EPosOne en tu dispositivo.'
             ),
             'cashier': {
                 'display_name': None,
                 'pin': None,
-                'message': (
-                    'El cajero se crea en el asistente Standalone (ADR-033) '
-                    'o en la implementación Connected.'
-                ),
+                'message': 'El cajero se crea en el asistente de la app.',
             },
         },
         'play_store_url': play_store_url(),
         'download_cta_label': download_cta_label(),
         'session': {'logged_in': False},
         'wow': {
-            'title': '¡Bienvenido a EPosOne!',
+            'title': 'Revisá tu correo',
             'subtitle': (
-                'Tu registro comercial está listo. Anota el token de activación; '
-                'la configuración de caja se completa en el asistente de la app.'
-                if act_token
-                else (
-                    'Tu registro comercial está listo. Anota el código de instalación; '
-                    'la configuración de caja se completa en la implementación.'
-                )
+                f'Te enviamos un enlace a {user.email}. Verificá tu correo para continuar e instalar EPosOne.'
+                if not email_verified
+                else 'Tu EPosOne está listo para instalar.'
             ),
             'checks': checks,
         },
     }
+
+
+def ready_status(*, ready_token: str, public_base: str | None = None) -> dict[str, Any]:
+    """Estado post-registro: solo entrega activación si el correo está verificado."""
+    from models.ets_activation_license import EtsActivationLicense
+    from models.ets_activation_token import EtsActivationToken
+    from models.users import User
+    from nodeone.core.platform.activation_service import ActivationService
+    from nodeone.modules.eposone_start.ready_session import load_ready_token
+
+    try:
+        payload = load_ready_token(ready_token)
+    except ValueError as exc:
+        raise StartAssistantError(str(exc), 'Sesión de instalación inválida o vencida.', http_status=401) from exc
+
+    user = User.query.get(int(payload['uid']))
+    if user is None:
+        raise StartAssistantError('ready_token_invalid', 'Sesión de instalación inválida.', http_status=401)
+
+    verified = bool(getattr(user, 'email_verified', False))
+    out: dict[str, Any] = {
+        'ok': True,
+        'email': user.email,
+        'email_verified': verified,
+        'requires_email_verification': not verified,
+        'organization_id': int(payload['oid']),
+        'user_id': int(user.id),
+        'play_store_url': play_store_url(),
+        'download_cta_label': download_cta_label(),
+    }
+    if not verified:
+        out['activation'] = None
+        out['wow'] = {
+            'title': 'Revisá tu correo',
+            'subtitle': f'Te enviamos un enlace a {user.email}. Verificá para continuar.',
+        }
+        return out
+
+    activation = None
+    aid = payload.get('aid')
+    if aid:
+        tok = EtsActivationToken.query.get(int(aid))
+        if tok is not None and int(tok.organization_id) == int(payload['oid']):
+            lic = EtsActivationLicense.query.get(int(tok.license_id))
+            if lic is not None:
+                activation = ActivationService._token_public(tok, lic, public_base=public_base)
+
+    out['activation'] = activation
+    out['installation'] = {
+        'kind': 'activation_ref' if activation else None,
+        'message': 'Instalá y activá EPosOne. No necesitás copiar ningún código.',
+    }
+    out['wow'] = {
+        'title': 'Tu EPosOne está listo',
+        'subtitle': 'Descargá, instalá y abrí EPosOne en tu dispositivo Android.',
+        'checks': ['Correo verificado', 'Negocio listo', 'Listo para instalar'],
+    }
+    return out
+
+
+def send_standalone_ready_email(
+    *,
+    user,
+    organization_name: str,
+    activation: dict[str, Any],
+) -> bool:
+    """Email de continuidad tras verificar correo."""
+    try:
+        from app import email_service
+        from email_templates import get_eposone_ready_install_email
+
+        if not email_service:
+            return False
+        html = get_eposone_ready_install_email(
+            user,
+            app_link=str(activation.get('app_link') or ''),
+            business_name=organization_name,
+            manual_code=str(activation.get('manual_code') or '') or None,
+            organization_name='EPosOne',
+        )
+        return bool(
+            email_service.send_email(
+                subject='Tu EPosOne está listo para instalar',
+                recipients=[user.email],
+                html_content=html,
+                email_type='eposone_ready_install',
+                related_entity_type='user',
+                related_entity_id=int(user.id),
+                recipient_id=int(user.id),
+                recipient_name=f'{user.first_name} {user.last_name}',
+            )
+        )
+    except Exception:
+        return False
+
+
+def mark_ready_email_sent_flag(user_id: int) -> None:
+    """Evita reenviar el mail de continuidad en cada visita a /start/ready."""
+    try:
+        from flask import session
+
+        session['eposone_ready_email_sent'] = int(user_id)
+    except Exception:
+        pass
+
+
+def should_send_ready_email(user_id: int) -> bool:
+    try:
+        from flask import session
+
+        return int(session.get('eposone_ready_email_sent') or 0) != int(user_id)
+    except Exception:
+        return True
+

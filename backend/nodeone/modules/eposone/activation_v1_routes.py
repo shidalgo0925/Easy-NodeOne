@@ -1,4 +1,4 @@
-"""API v1 Activación — ADR-035 (validate / redeem / emisión)."""
+"""API v1 Activación — ADR-035 v1.3 (validate / redeem tipados / emisión)."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ def activation_validate():
     body = request.get_json(silent=True) or {}
     try:
         data = ActivationService.validate(
-            token=str(body.get('token') or ''),
+            credentials=body,
             product_code=body.get('product_code') or 'eposone',
         )
     except ActivationError as exc:
@@ -38,7 +38,7 @@ def activation_redeem():
     body = request.get_json(silent=True) or {}
     try:
         data = ActivationService.redeem(
-            token=str(body.get('token') or ''),
+            credentials=body,
             device_uuid=str(body.get('device_uuid') or ''),
             product_code=body.get('product_code') or 'eposone',
         )
@@ -128,7 +128,7 @@ def activation_revoke_license(license_id: int):
 @eposone_activation_v1_bp.route('/tokens/<int:token_id>/qr.png', methods=['GET'])
 @login_required
 def activation_token_qr(token_id: int):
-    """QR técnico = transporte del activate_url (no /start)."""
+    """QR técnico = App Link (ADR-035 v1.3), no /start."""
     from models.ets_activation_license import EtsActivationLicense
     from models.ets_activation_token import EtsActivationToken
 
@@ -142,10 +142,10 @@ def activation_token_qr(token_id: int):
     try:
         import qrcode
 
-        img = qrcode.make(pub['activate_url'])
+        img = qrcode.make(pub['app_link'])
         buf = io.BytesIO()
         img.save(buf, format='PNG')
         buf.seek(0)
         return send_file(buf, mimetype='image/png', download_name=f'activation-{token_id}.png')
     except Exception:
-        return jsonify({'ok': False, 'error': 'qr_unavailable', 'activate_url': pub['activate_url']}), 501
+        return jsonify({'ok': False, 'error': 'qr_unavailable', 'app_link': pub['app_link']}), 501

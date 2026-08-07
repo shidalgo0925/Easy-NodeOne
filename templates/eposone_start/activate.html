@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Activar EPosOne</title>
   <link rel="icon" href="{{ url_for('static', filename=brand_favicon) }}" type="image/svg+xml" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='eposone_start/start.css') }}?v=ux3" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='eposone_start/start.css') }}?v=ux4" />
 </head>
 <body class="start-body">
   <div class="shell">
@@ -13,26 +13,30 @@
       <img src="{{ url_for('static', filename='images/logo-eposone.svg') }}" alt="EPosOne" height="36" />
     </header>
     <main class="card">
-      <h1>Activar EPosOne</h1>
-      {% if token %}
-      <p class="lead">Este enlace es el transporte técnico de activación (ADR-035). No es el QR comercial de registro.</p>
-      <p class="muted">Si tenés la app instalada, abrila con el botón. Si no, copiá el token e ingresalo en EP1.</p>
-      <div class="code-box" id="token-box">{{ token }}</div>
+      <h1>Abrir EPosOne</h1>
+      {% if activation_ref and not manual_mode %}
+      <p class="lead">Si ya instalaste la app, abrila para continuar la activación. No hace falta copiar ningún código.</p>
+      {% if token_status and token_status != 'active' %}
+      <p class="muted">Esta activación ya no está disponible ({{ token_status }}). Pedí una nueva desde el asistente.</p>
+      {% endif %}
       <div class="footer-cta" style="margin-top:1rem;">
-        <a class="btn btn-primary" id="btn-open-ep1" href="{{ deep_link }}">Abrir EPosOne</a>
-        <a class="btn btn-secondary" href="/start">Ir al asistente /start</a>
+        <a class="btn btn-primary" id="btn-open-ep1" href="{{ deep_link or app_link }}">ABRIR EPOSONE</a>
+        <a class="btn btn-secondary" href="/start">Ir al asistente</a>
+        <a class="btn btn-ghost" href="{{ app_link }}/../start" hidden></a>
       </div>
+      <p class="muted" style="margin-top:1rem;">¿Instalás en otra tablet? Escaneá este código con EPosOne:</p>
+      <img class="help-qr" width="180" height="180" alt="QR de activación EPosOne"
+           src="{{ url_for('eposone_start.start_activate_qr', activation_ref=activation_ref) }}?size=180" />
       <script>
         (function () {
           var href = {{ deep_link | tojson }};
           if (href) {
-            setTimeout(function () { window.location.href = href; }, 400);
+            setTimeout(function () { window.location.href = href; }, 500);
           }
         })();
       </script>
       {% else %}
-      <p class="lead">Falta el token de activación.</p>
-      <p class="muted">Usá el enlace que te dio el asistente o abrí EPosOne e ingresá el token manualmente.</p>
+      <p class="lead">Abrí el enlace de activación que recibiste o volvé al asistente de inicio.</p>
       <a class="btn btn-primary" href="/start">Ir a /start</a>
       {% endif %}
     </main>

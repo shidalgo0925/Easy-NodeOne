@@ -9,11 +9,11 @@
     4: 'Todo listo',
   };
   var INSTALL_LABELS = {
-    1: 'Paso 1 de 5 · Cuenta lista',
-    2: 'Paso 2 de 5 · Preparando descarga',
-    3: 'Paso 3 de 5 · Descargando',
-    4: 'Paso 4 de 5 · Instalar EPosOne',
-    5: 'Paso 5 de 5 · Abrir EPosOne',
+    1: 'Paso 1 · Preparar',
+    2: 'Paso 2 · Preparando descarga',
+    3: 'Paso 3 · DESCARGAR EPOSONE',
+    4: 'Paso 4 · INSTALAR EPOSONE',
+    5: 'Paso 5 · ABRIR EPOSONE',
   };
   var OEM_HELP = {
     samsung:
@@ -41,6 +41,7 @@
 
   var appEl = document.getElementById('app');
   var apkUrl = (appEl && appEl.getAttribute('data-apk-url')) || '/static/apk/eposone/EPosOne.apk';
+  var initialReady = (appEl && appEl.getAttribute('data-ready-token')) || '';
 
   var state = {
     screen: 1,
@@ -52,6 +53,9 @@
     installStep: 1,
     blobUrl: null,
     installBlocked: false,
+    readyToken: initialReady || '',
+    emailVerified: false,
+    pollTimer: null,
   };
 
   var historyStack = [];
@@ -261,12 +265,44 @@
     return (result && result.activation) || {};
   }
 
+  function activationAppLink(result) {
+    var act = activationPayload(result);
+    if (act.app_link) return act.app_link;
+    if (act.activate_url) return act.activate_url;
+    if (act.transport && act.transport.app_link) return act.transport.app_link;
+    var ref = act.activation_ref;
+    return ref ? '/activate/' + encodeURIComponent(ref) : '';
+  }
+
   function activationDeepLink(result) {
     var act = activationPayload(result);
     if (act.deep_link) return act.deep_link;
     if (act.transport && act.transport.deep_link) return act.transport.deep_link;
-    var token = act.token || (result && result.installation && result.installation.code);
-    return token ? 'eposone://activate?token=' + encodeURIComponent(token) : '';
+    var ref = act.activation_ref;
+    return ref ? 'eposone://activate/' + encodeURIComponent(ref) : activationAppLink(result);
+  }
+
+  function activationQrUrl(result) {
+    var act = activationPayload(result);
+    if (act.qr_url) return act.qr_url + (act.qr_url.indexOf('?') >= 0 ? '' : '?size=180');
+    var ref = act.activation_ref;
+    return ref ? '/activate/' + encodeURIComponent(ref) + '/qr.png?size=180' : '';
+  }
+
+  function applyReadyUi(verified) {
+    state.emailVerified = !!verified;
+    var waiting = $('verify-waiting');
+    var ready = $('ready-banner');
+    var goInstall = $('btn-go-install');
+    var checkBtn = $('btn-check-verify');
+    var other = $('btn-other-tablet');
+    var showCode = $('btn-show-code');
+    if (waiting) waiting.hidden = !!verified;
+    if (ready) ready.hidden = !verified;
+    if (goInstall) goInstall.hidden = !verified;
+    if (checkBtn) checkBtn.hidden = !!verified;
+    if (other) other.hidden = !verified;
+    if (showCode) showCode.hidden = !verified;
   }
 
   function renderWow(result) {
@@ -283,27 +319,7 @@
         list.appendChild(li);
       });
     }
-    var code = result.installation && result.installation.code;
-    ['code-box', 'code-box-guide', 'activation-token-box'].forEach(function (id) {
-      var el = $(id);
-      if (!el) return;
-      if (code) {
-        el.textContent = code;
-        el.hidden = true;
-      } else {
-        el.hidden = true;
-      }
-    });
-    var pinBox = $('cashier-pin-box');
-    var cashier = result.installation && result.installation.cashier;
-    if (pinBox) {
-      if (cashier && cashier.pin) {
-        pinBox.textContent = 'PIN cajero: ' + cashier.pin;
-        pinBox.hidden = false;
-      } else {
-        pinBox.hidden = true;
-      }
-    }
+    applyReadyUi(!!result.email_verified && !!result.activation);
     if (result.play_store_url) {
       apkUrl = result.play_store_url;
       var play = $('btn-play');
@@ -312,6 +328,94 @@
     var openEp1 = $('btn-open-ep1');
     var dl = activationDeepLink(result);
     if (openEp1 && dl) openEp1.href = dl;
+    var qr = activationQrUrl(result);
+    ['activation-qr-img', 'activation-qr-img-2'].forEach(function (id) {
+      var img = $(id);
+      if (img && qr) {
+        img.src = qr;
+        img.hidden = false;
+      }
+    });
+  }
+
+  function pollReadyStatus(cb) {
+    if (!state.readyToken) {
+      if (cb) cb(false);
+      return;
+    }
+    fetch(
+      '/api/public/eposone-start/ready-status?ready_token=' + encodeURIComponent(state.readyToken),
+      { credentials: 'same-origin', headers: { Accept: 'application/json' } }
+    )
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (data) {
+        if (!data || !data.ok) {
+          if (cb) cb(false);
+          return;
+        }
+        state.result = Object.assign({}, state.result || {}, data);
+        if (data.email_verified && data.activation) {
+          state.result.activation = data.activation;
+          state.result.email_verified = true;
+          if (data.wow) state.result.wow = data.wow;
+          renderWow(state.result);
+          stopPoll();
+          if (cb) cb(true);
+          return;
+        }
+        renderWow(state.result);
+        if (cb) cb(false);
+      })
+      .catch(function () {
+        if (cb) cb(false);
+      });
+  }
+
+  function startPoll() {
+    stopPoll();
+    pollReadyStatus();
+    state.pollTimer = setInterval(function () {
+      pollReadyStatus();
+    }, 4000);
+  }
+
+  function stopPoll() {
+    if (state.pollTimer) {
+      clearInterval(state.pollTimer);
+      state.pollTimer = null;
+    }
+  }
+
+  function showOtherTablet(show) {
+    var block = $('other-device-block');
+    var block2 = $('other-device-install');
+    if (block) block.hidden = !show;
+    if (block2) block2.hidden = !show;
+    var qr = activationQrUrl(state.result);
+    ['activation-qr-img', 'activation-qr-img-2'].forEach(function (id) {
+      var img = $(id);
+      if (img && qr) {
+        img.src = qr;
+        img.hidden = !show;
+      }
+    });
+  }
+
+  function toggleManualFallback(show) {
+    var act = activationPayload(state.result);
+    var code = act.manual_code || act.token;
+    ['code-box', 'code-box-guide', 'activation-token-box'].forEach(function (id) {
+      var el = $(id);
+      if (!el) return;
+      if (code && show) {
+        el.textContent = code;
+        el.hidden = false;
+      } else {
+        el.hidden = true;
+      }
+    });
   }
 
   /* —— Password (P0.24) —— */
@@ -451,22 +555,27 @@
     if (dl) {
       dl.hidden = state.installBlocked || step !== 3;
       dl.disabled = false;
-      dl.textContent = 'Descargar EPosOne';
+      dl.textContent = 'DESCARGAR EPOSONE';
     }
     if (open) {
       open.hidden = state.installBlocked || step !== 4;
-      open.textContent = 'Instalar EPosOne';
+      open.textContent = 'INSTALAR EPOSONE';
       if (state.blobUrl) open.href = state.blobUrl;
       else open.href = apkUrl;
+      open.removeAttribute('download');
     }
     if (openEp1) {
       openEp1.hidden = state.installBlocked || step !== 5;
-      openEp1.textContent = 'Abrir EPosOne';
-      var dlHref = activationDeepLink(state.result);
+      openEp1.textContent = 'ABRIR EPOSONE';
+      var dlHref = activationDeepLink(state.result) || activationAppLink(state.result);
       if (dlHref) openEp1.href = dlHref;
     }
     if (blocked) blocked.hidden = state.installBlocked || step !== 4;
     if (backInstall) backInstall.hidden = !state.installBlocked;
+    var other2 = $('btn-other-tablet-2');
+    if (other2) other2.hidden = state.installBlocked || step !== 5;
+    var show2 = $('btn-show-code-2');
+    if (show2) show2.hidden = state.installBlocked || step !== 5;
   }
 
   function startDownload() {
@@ -599,10 +708,16 @@
         }
         state.created = true;
         state.result = res.body;
+        state.readyToken = res.body.ready_token || state.readyToken;
         state.installStep = 1;
         historyStack = [];
+        try {
+          if (state.readyToken) localStorage.setItem('eposone_ready_token', state.readyToken);
+        } catch (e) {}
         renderWow(res.body);
         go(8, false);
+        if (res.body.requires_email_verification) startPoll();
+        else if (res.body.email_verified && res.body.activation) applyReadyUi(true);
       })
       .catch(function () {
         btn.disabled = false;
@@ -615,16 +730,7 @@
   }
 
   function toggleCode(show) {
-    var code =
-      state.result && state.result.installation && state.result.installation.code;
-    ['code-box', 'code-box-guide', 'activation-token-box'].forEach(function (id) {
-      var el = $(id);
-      if (!el) return;
-      if (code) {
-        el.textContent = code;
-        if (show) el.hidden = false;
-      }
-    });
+    toggleManualFallback(!!show);
   }
 
   document.querySelectorAll('[data-next]').forEach(function (btn) {
@@ -652,12 +758,36 @@
     if (validateBiz()) go(7);
   });
   $('btn-prepare').addEventListener('click', submitPrepare);
-  $('btn-show-code').addEventListener('click', function () {
-    toggleCode(true);
-  });
-  $('btn-show-code-2').addEventListener('click', function () {
-    toggleCode(true);
-  });
+  if ($('btn-show-code')) {
+    $('btn-show-code').addEventListener('click', function () {
+      toggleCode(true);
+    });
+  }
+  if ($('btn-show-code-2')) {
+    $('btn-show-code-2').addEventListener('click', function () {
+      toggleCode(true);
+    });
+  }
+  if ($('btn-check-verify')) {
+    $('btn-check-verify').addEventListener('click', function () {
+      pollReadyStatus(function (ok) {
+        if (!ok) {
+          var hint = $('verify-hint');
+          if (hint) hint.textContent = 'Todavía no vemos la verificación. Revisá el correo y volvé a intentar.';
+        }
+      });
+    });
+  }
+  if ($('btn-other-tablet')) {
+    $('btn-other-tablet').addEventListener('click', function () {
+      showOtherTablet(true);
+    });
+  }
+  if ($('btn-other-tablet-2')) {
+    $('btn-other-tablet-2').addEventListener('click', function () {
+      showOtherTablet(true);
+    });
+  }
 
   if ($('password')) {
     $('password').addEventListener('input', updatePasswordUI);
@@ -677,6 +807,7 @@
 
   if ($('btn-go-install')) {
     $('btn-go-install').addEventListener('click', function () {
+      if (!state.emailVerified) return;
       state.installStep = 1;
       go(9);
     });
@@ -692,7 +823,6 @@
         startDownload();
       } else if (state.installStep === 4) {
         setInstallStep(5);
-        toggleCode(true);
       }
     });
   }
@@ -727,4 +857,19 @@
   renderTypes();
   updateStage();
   updatePasswordUI();
+
+  // Retorno desde verify-email → /start/ready
+  if (!state.readyToken) {
+    try {
+      state.readyToken = localStorage.getItem('eposone_ready_token') || '';
+    } catch (e) {}
+  }
+  if (state.readyToken && (window.location.pathname.indexOf('/start/ready') === 0 || initialReady)) {
+    state.created = true;
+    go(8, false);
+    startPoll();
+    pollReadyStatus(function (ok) {
+      if (ok) applyReadyUi(true);
+    });
+  }
 })();

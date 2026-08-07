@@ -12,9 +12,9 @@
 | Implementación de código | **NO autorizada** por este ADR — requiere GO de implementación por fases |
 | Pregunta rectora | **¿Quién implementa el producto?** |
 | Complementa | [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) (dominio comercial) |
-| Detalle Standalone (asistente) | [ADR-033](ADR-033-STANDALONE-ONBOARDING-ASSISTANT.md) (**PROPOSED**) |
-| Detalle Connected (provisioning) | [ADR-034](ADR-034-CONNECTED-PROVISIONING-FLOW.md) (**PROPOSED**) |
-| Activación | [ADR-035](ADR-035-ACTIVATION-LICENSE-TOKEN-QR.md) (**PROPOSED**) |
+| Detalle Standalone (asistente) | [ADR-033](ADR-033-STANDALONE-ONBOARDING-ASSISTANT.md) (**ACCEPTED**) |
+| Detalle Connected (provisioning) | [ADR-034](ADR-034-CONNECTED-PROVISIONING-FLOW.md) (**ACCEPTED**) |
+| Activación | [ADR-035](ADR-035-ACTIVATION-LICENSE-TOKEN-QR.md) (**ACCEPTED**) |
 | Relacionados | [ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md) · [ADR-024](ADR-024-EPOSONE-START-ASSISTANT.md) · [ADR-021](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) · [ADR-001](ADR-001-EPOSONE-STANDALONE.md) · [EN1_MODELO_COMERCIAL_V1.md](EN1_MODELO_COMERCIAL_V1.md) |
 
 ---

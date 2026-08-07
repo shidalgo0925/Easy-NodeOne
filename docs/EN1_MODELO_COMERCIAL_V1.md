@@ -3,11 +3,11 @@
 | Campo | Valor |
 |-------|--------|
 | ID | **EN1-MODELO-COMERCIAL-V1** |
-| Estado | **Borrador de arquitectura** — 7 ago 2026 · alineado a [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) (**PROPOSED**) |
-| Implementación | **NO autorizada** por este documento ni por ADR-031 hasta aprobación formal |
-| Precedencia | Referencia + ADR-031. Hasta aprobación, ADRs vigentes rigen el código. |
+| Estado | **Aprobado (arquitectura)** — 7 ago 2026 · alineado a [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) |
+| Implementación | **NO autorizada** por este documento — requiere GO de implementación por fases |
+| Precedencia | Referencia + **ADR-031 aprobado**. Código existente aún refleja el modelo de transición hasta GO de implementación. |
 | Ámbito | Plataforma EN1 · Easy Technology Services · todos los productos (EPosOne, EM+Acción, Relatic, hosting, consultoría, futuros) |
-| Relacionados (a enmendar *después*) | [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) · [ADR-022](ADR-022-EN1-MULTIPRODUCT-COMMERCIAL-MODEL.md) · [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-016](ADR-016-COMMERCIAL-LICENSING-V2-ENTITLEMENT.md) · [ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md) · [ADR-028](ADR-028-EPOSONE-PLAN-DEFAULTS-COMMERCIAL-OVERRIDES.md) · [ADR-024](ADR-024-EPOSONE-START-ASSISTANT.md) · [ADR-017](ADR-017-CUSTOMER-ENTRY-POINT-PRODUCT-PORTAL.md) |
+| Relacionados (enmendados) | [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) · [ADR-022](ADR-022-EN1-MULTIPRODUCT-COMMERCIAL-MODEL.md) · [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-016](ADR-016-COMMERCIAL-LICENSING-V2-ENTITLEMENT.md) · [ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md) · [ADR-028](ADR-028-EPOSONE-PLAN-DEFAULTS-COMMERCIAL-OVERRIDES.md) · [ADR-024](ADR-024-EPOSONE-START-ASSISTANT.md) · [ADR-017](ADR-017-CUSTOMER-ENTRY-POINT-PRODUCT-PORTAL.md) |
 
 ---
 

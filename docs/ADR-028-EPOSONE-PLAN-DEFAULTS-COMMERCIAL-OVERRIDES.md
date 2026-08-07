@@ -9,8 +9,22 @@
 | Producto | EPosOne (extensible a otros productos EN1) |
 | Arquitectura | EN1 Core (Subscription + Entitlement) · Portal `/start` · Admin plataforma |
 | Autor | ETS / CODITO (a partir de modelo Ana) |
-| Relacionados | [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-016](ADR-016-COMMERCIAL-LICENSING-V2-ENTITLEMENT.md) · [ADR-022](ADR-022-EN1-MULTIPRODUCT-COMMERCIAL-MODEL.md) · [ADR-023](ADR-023-EPOSONE-TRIAL-SUBSCRIPTION-GRACE.md) · [ADR-024](ADR-024-EPOSONE-START-ASSISTANT.md) · [ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md) |
-| Este GO | **GO diseño / contrato** (este documento). **No** autoriza código, migraciones ni deploy. |
+| Relacionados | [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-016](ADR-016-COMMERCIAL-LICENSING-V2-ENTITLEMENT.md) · [ADR-022](ADR-022-EN1-MULTIPRODUCT-COMMERCIAL-MODEL.md) · [ADR-023](ADR-023-EPOSONE-TRIAL-SUBSCRIPTION-GRACE.md) · [ADR-024](ADR-024-EPOSONE-START-ASSISTANT.md) · [ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md) · **[ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md)** |
+| Enmienda | **7 ago 2026 — ADR-031:** plan/overrides viven en eje Contrato→Suscripción; registro ≠ implementación |
+| Este GO | **GO diseño / contrato** (este documento). **No** autoriza código, migraciones ni deploy.
+
+---
+
+## Enmienda ADR-031 (7 ago 2026)
+
+La separación comercial vs técnico de este ADR se **refuerza**:
+
+| Capa | ADR-028 | ADR-031 |
+|------|---------|---------|
+| Comercial | plan, overrides, contrato, precio fuera de `/start` | Cliente / Contrato / Suscripción / Licencia |
+| Técnico | install / caja / APK | Implementación operativa por producto (fase posterior) |
+
+Defaults de plan y overrides siguen anclados a la **Suscripción/Entitlement**; el **Contrato** es el documento comercial padre (ADR-031). Código no autorizado por esta enmienda.
 
 ---
 
@@ -19,7 +33,7 @@
 Ana propuso separar el **proceso comercial** del **proceso técnico** (install / caja / APK):
 
 1. El cliente **elige un plan** (capacidad y beneficios).
-2. EN1 crea Organización + Suscripción + entitlement con **defaults del plan**.
+2. EN1 crea Organización + **Contrato** + Suscripción + entitlement con **defaults del plan** (ADR-031).
 3. Gerencia revisa el contrato.
 4. Si hay negociación, Admin aplica **ajustes** (POS, sucursales, features, vigencia) **sin cambiar el plan**.
 5. En `/start` **no se muestra precio**; el precio vive en catálogo, cotización y contrato.

@@ -7,9 +7,22 @@
 | Estado | **Aprobado (GO)** — 27 jul 2026 |
 | Ámbito | EN1 Platform · EPosOne · Membership · Educación · ePayroll · cualquier producto futuro |
 | Enmienda UX/estados | [ADR-028](ADR-028-EPOSONE-PLAN-DEFAULTS-COMMERCIAL-OVERRIDES.md) — plan=defaults · overrides auditados · `/start` sin precio · `PENDING` vs `TRIAL` (6 ago 2026) |
-| Relacionados | [ADR-005](ADR-005-EPOSONE-LICENSING-POS.md) · [ADR-007](ADR-007-EPOSONE-COMMERCIAL-LICENSING-OFFLINE.md) · [ADR-008](ADR-008-EPOSONE-COMMERCIAL-ENGINE.md) · [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) |
-| Precedencia | Reemplaza la **unidad comercial** de ADR-005 (POS) y ADR-007 (Caja). Preserva íntegramente ADR-007 en offline/sync/heartbeat/provisioning. Extiende ADR-014 sin romperlo. Narrativa de activo raíz / multiproducto: ver [ADR-022](ADR-022-EN1-MULTIPRODUCT-COMMERCIAL-MODEL.md) (**propuesto**). |
+| Enmienda dominio | **[ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md)** (7 ago 2026) — Cliente/Contrato encima; Suscripción bajo Contrato |
+| Relacionados | [ADR-005](ADR-005-EPOSONE-LICENSING-POS.md) · [ADR-007](ADR-007-EPOSONE-COMMERCIAL-LICENSING-OFFLINE.md) · [ADR-008](ADR-008-EPOSONE-COMMERCIAL-ENGINE.md) · [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-022](ADR-022-EN1-MULTIPRODUCT-COMMERCIAL-MODEL.md) |
+| Precedencia | Reemplaza la **unidad comercial** de ADR-005 (POS) y ADR-007 (Caja). Preserva ADR-007 offline/sync. **ADR-031 prevalece** sobre “Organización como raíz” de ADR-022. |
 | Alcance | Decisión arquitectónica y modelo conceptual. **No** implementa facturación, Marketplace ni renovación automática con cobro. |
+
+---
+
+## Enmienda ADR-031 (7 ago 2026)
+
+Jerarquía canónica:
+
+```text
+Cliente → Organización (empresa) → Contrato → Suscripción → Entitlement/Licencia → Implementación (fase posterior)
+```
+
+**Sigue válido:** se compra derecho de producto (no APK/caja/POS); capas Producto / Suscripción / Entitlement / Recursos; overrides (ADR-028).
 
 ---
 
@@ -19,20 +32,20 @@
 
 No compra una APK, ni una tablet, ni una caja, ni un POS.
 
-**Compra el derecho de utilizar un producto de la plataforma EN1, bajo un plan, durante una vigencia, con capacidades y límites negociados.**
+**Compra el derecho de utilizar un producto de la plataforma EN1, bajo un plan, durante una vigencia, con capacidades y límites negociados** — documentado en **Contrato** y materializado en **Suscripción + Entitlement** (ADR-031).
 
 ---
 
-## Jerarquía comercial
+## Jerarquía comercial (proyección producto; ver enmienda ADR-031)
 
 ```text
-Organización
+Organización / Contrato
     │
     ▼
 Producto                    ← qué se vende (EPosOne, Membership, Educación, ePayroll…)
     │
     ▼
-Suscripción                 ← relación comercial (plan, vigencia, estado)
+Suscripción                 ← relación comercial (plan, vigencia, estado) bajo Contrato
     │
     ▼
 Entitlement                 ← lo que realmente puede usar (cupos, features, excepciones)

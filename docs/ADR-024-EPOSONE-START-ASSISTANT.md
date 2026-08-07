@@ -11,9 +11,22 @@
 | Responsable Portal | **CODITO** |
 | Responsable APK | **LOCAL** |
 | Numeración | **No** usar ADR-019 (ocupado por Jerarquía Administrativa). Este es **ADR-024**. |
-| Relacionados | [`EN1_PLATFORM_CONSTITUTION_V1.md`](EN1_PLATFORM_CONSTITUTION_V1.md) · [ADR-023 Trial/Grace](ADR-023-EPOSONE-TRIAL-SUBSCRIPTION-GRACE.md) · [ADR-028 Plan/overrides sin precio](ADR-028-EPOSONE-PLAN-DEFAULTS-COMMERCIAL-OVERRIDES.md) · Centro legal `/legal/*` · Planes landing EPosOne · handoff [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
+| Relacionados | [`EN1_PLATFORM_CONSTITUTION_V1.md`](EN1_PLATFORM_CONSTITUTION_V1.md) · [ADR-023 Trial/Grace](ADR-023-EPOSONE-TRIAL-SUBSCRIPTION-GRACE.md) · [ADR-028 Plan/overrides sin precio](ADR-028-EPOSONE-PLAN-DEFAULTS-COMMERCIAL-OVERRIDES.md) · **[ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md)** · Centro legal `/legal/*` · Planes landing EPosOne · handoff [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
 | Norma precio `/start` | **ADR-028:** el asistente muestra plan + beneficios/cupos; **no** precio. El precio sigue en catálogo/contrato/Admin. |
+| Enmienda | **7 ago 2026 — ADR-031:** `/start` = registro **comercial**; no implica implementación operativa completa |
 | Este GO | **GO docs** · **GO diseño** · **GO implementación** · **GO deploy** (prod `/start`). **Pendiente:** `GO Local` (APK / Play Store). |
+
+---
+
+## Enmienda ADR-031 (7 ago 2026)
+
+| Antes (implícito) | Ahora |
+|-------------------|--------|
+| `/start` crea org + min árbol POS + código + camino a bootstrap operativo | Objetivo canónico: alta **comercial** (Cliente/Org/Contrato/Suscripción/Licencia) |
+| Éxito = “listo para operar con árbol mínimo” | Éxito comercial ≠ implementación; Standalone puede diferir árbol operativo |
+| Código actual en prod | Sigue como **transición**; alinear en fases con GO de implementación |
+
+No cambia el GO Local ni el deploy ya hecho de `/start`.
 
 ---
 

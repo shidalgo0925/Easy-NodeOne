@@ -4,27 +4,43 @@
 |-------|--------|
 | ID | ADR-022 |
 | Título | Modelo comercial multiproducto — Organización como activo raíz |
-| Estado | **Propuesto** — 1 ago 2026 · pendiente aprobación Prog1 + Ana / producto |
+| Estado | **Enmendado por ADR-031** — 7 ago 2026 · la Organización **no** es el activo comercial raíz; es identidad de empresa |
 | Ámbito | EN1 Platform (todos los productos ETS) · Portal · Subscription / Entitlement |
-| Relacionados | [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-016](ADR-016-COMMERCIAL-LICENSING-V2-ENTITLEMENT.md) · [ADR-017](ADR-017-CUSTOMER-ENTRY-POINT-PRODUCT-PORTAL.md) · [ADR-019](ADR-019-ADMINISTRATIVE-HIERARCHY.md) · [ADR-007](ADR-007-EPOSONE-COMMERCIAL-LICENSING-OFFLINE.md) (solo dominio EPosOne offline) · [ADR-021](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) |
-| Precedencia | **Congela la narrativa comercial** multiproducto. No invalida ADR-016 (Producto→Suscripción→Entitlement→Recursos). Acota ADR-007: Caja = recurso/consumo de EPosOne, **no** objeto comercial de la plataforma. |
+| Relacionados | **[ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md)** (prevalece) · [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-016](ADR-016-COMMERCIAL-LICENSING-V2-ENTITLEMENT.md) · [ADR-017](ADR-017-CUSTOMER-ENTRY-POINT-PRODUCT-PORTAL.md) · [ADR-019](ADR-019-ADMINISTRATIVE-HIERARCHY.md) · [ADR-007](ADR-007-EPOSONE-COMMERCIAL-LICENSING-OFFLINE.md) (solo dominio EPosOne offline) · [ADR-021](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) |
+| Precedencia | **ADR-031 prevalece** sobre la decisión “Organización = activo raíz”. Lo que se congela aquí: productos como capacidades; Caja ≠ unidad comercial; multiproducto. |
 | No implementa | Billing, Cuenta multi-org en BD, UI de holding, pasarela de pago |
 
 ---
 
-## Pregunta rectora
+## Enmienda ADR-031 (7 ago 2026) — lectura obligatoria
 
-> **¿Cuál es el activo raíz de la plataforma comercial EN1?**
+| Antes (ADR-022 original) | Ahora (ADR-031) |
+|--------------------------|-----------------|
+| Organización = activo raíz comercial | **Cliente + Contrato** son el eje comercial; Organización = **identidad de empresa** |
+| Suscripción cuelga solo de Organización | Suscripción cuelga de **Contrato** (y Contrato de Cliente / Organización) |
+| Un solo “tenant comercial” | Separar **dominio comercial ETS** vs **implementación operativa** por producto |
+
+**Qué sigue válido de este ADR:** productos no son dueños de la org; se vende Producto+plan no Caja/Tablet; cada producto define su árbol operativo; Registry ≠ centro de negocio.
+
+**Qué queda obsoleto:** la frase “La Organización (tenant) es el activo raíz comercial” como verdad única.
 
 ---
 
-## Decisión (propuesta)
+## Pregunta rectora (histórica)
 
-1. **La Organización (tenant) es el activo raíz comercial.**  
-   Existe **independientemente** de si tiene EPosOne, ePayroll u otro producto.
+> **¿Cuál es el activo raíz de la plataforma comercial EN1?**
 
-2. **Los productos son capacidades que se suscriben sobre esa organización.**  
-   Se agregan / quitan / suspenden sin recrear la organización ni migrar usuarios “porque cambió el producto”.
+**Respuesta actual (ADR-031):** el **Cliente** y el **Contrato** forman el eje comercial; la Organización es la identidad de empresa asociada.
+
+---
+
+## Decisión (enmendada)
+
+1. **La Organización es la identidad de empresa del cliente**, no el único activo comercial raíz.  
+   El Cliente y el Contrato existen en el dominio comercial ETS; la Organización no implica por sí sola implementación operativa de un producto.
+
+2. **Los productos son capacidades que se suscriben bajo Contrato.**  
+   Se agregan / quitan / suspenden sin recrear la empresa ni migrar usuarios “porque cambió el producto”.
 
 3. **Ningún producto es dueño de la organización.**  
    EPosOne, ePayroll, EM+Acción, Marketplace, CRM, Certificados, etc. administran solo su dominio operativo.
@@ -35,9 +51,12 @@
 5. **Cada producto define su propio árbol de recursos.**  
    Solo EPosOne usa Sucursal → POS → Caja → Tablet. Otros productos no pasan por Caja.
 
+6. **Registro comercial ≠ implementación.**  
+   Tener Cliente/Org/Contrato/Suscripción/Licencia no implica árbol operativo completo (ADR-031).
+
 ---
 
-## Contexto — por qué este ADR
+## Contexto — por qué este ADR (histórico)
 
 Una narrativa “todo termina en EPosOne → Caja → Tablet” y frases del tipo *“a la compañía se le crea una suscripción”* mezclan:
 

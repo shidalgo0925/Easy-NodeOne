@@ -6,8 +6,26 @@
 | Título | Onboarding e instalación unificados — Standalone / Connected bajo EN1 |
 | Estado | **Aprobado (contrato P0)** — 6 ago 2026 · **Sin implementación de código en este ADR** |
 | Ámbito | EN1 (comercial + Device API) · EP1/APK (LOCAL implementa UI) |
-| Relacionados | [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-021](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) · [ADR-023](ADR-023-EPOSONE-TRIAL-SUBSCRIPTION-GRACE.md) · [ADR-024](ADR-024-EPOSONE-START-ASSISTANT.md) · [ADR-028](ADR-028-EPOSONE-PLAN-DEFAULTS-COMMERCIAL-OVERRIDES.md) · [ADR-001](ADR-001-EPOSONE-STANDALONE.md) · [ADR-003](ADR-003-EPOSONE-SYNC.md) |
+| Relacionados | [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-021](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) · [ADR-023](ADR-023-EPOSONE-TRIAL-SUBSCRIPTION-GRACE.md) · [ADR-024](ADR-024-EPOSONE-START-ASSISTANT.md) · [ADR-028](ADR-028-EPOSONE-PLAN-DEFAULTS-COMMERCIAL-OVERRIDES.md) · **[ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md)** · [ADR-001](ADR-001-EPOSONE-STANDALONE.md) · [ADR-003](ADR-003-EPOSONE-SYNC.md) |
 | Pack contratos | [`eposone-onboarding/`](eposone-onboarding/README.md) |
+| Enmienda | **7 ago 2026 — ADR-031:** registro comercial ≠ implementación; Standalone difiere árbol operativo |
+
+---
+
+## Enmienda ADR-031 (7 ago 2026)
+
+```text
+Cliente → Organización → Contrato → Suscripción EPosOne → Modalidad
+                                                         ├─ Standalone (comercial activo; ops diferida OK)
+                                                         └─ Connected (comercial + sync; implementación cuando se active)
+```
+
+| Antes | Ahora |
+|-------|--------|
+| Onboarding unificado = siempre camino a operar con min árbol | Unificado en **registro EN1**; implementación es fase aparte |
+| Standalone = cuenta+org+sub sin sync | + puede **no** materializar árbol Sucursal→POS→Caja hasta implementación |
+
+**Sigue válido:** una sola APK; no “Modo Local” sin EN1; Connected vs Standalone = sync, no otro producto.
 
 ---
 
@@ -27,15 +45,15 @@ Eso duplicaba caminos y confundía Manual, LOCAL y soporte.
 ### 1. Modelo de producto oficial
 
 ```text
-Cuenta EN1 → Organización → Suscripción EPosOne → Modalidad
-                                              ├─ Standalone
-                                              └─ Connected
+Cliente EN1 → Organización → Contrato → Suscripción EPosOne → Modalidad
+                                                         ├─ Standalone
+                                                         └─ Connected
 ```
 
 | Modalidad | Significa | No significa |
 |-----------|-----------|--------------|
-| **Standalone** | Cuenta + org + suscripción en EN1; **sin sincronización cloud operativa** diaria | “Sin EN1” / APK huérfana |
-| **Connected** | Mismo registro comercial + **sync** (bootstrap continuo, catálogo, operación) | Otro producto / otra APK |
+| **Standalone** | Registro comercial en EN1; **sin sincronización cloud operativa** diaria; implementación operativa puede diferirse | “Sin EN1” / APK huérfana |
+| **Connected** | Mismo registro comercial + **sync** cuando la implementación esté activa | Otro producto / otra APK |
 
 - **Una sola APK.**  
 - **EN1 es el único punto de entrada comercial** (`/start` / portal).  
@@ -45,7 +63,8 @@ Cuenta EN1 → Organización → Suscripción EPosOne → Modalidad
 
 | ADR | Efecto |
 |-----|--------|
-| **ADR-014** | Modalidad comercial se ancla a suscripción/entitlement (enmienda) |
+| **ADR-031** | **Prevalece** en dominio comercial: Cliente/Contrato; registro ≠ implementación; Standalone puede diferir árbol operativo |
+| **ADR-014** | Modalidad comercial se ancla a suscripción/entitlement (enmienda; bajo Contrato) |
 | **ADR-003** | “Modo Local / Plataforma” como **caminos de onboarding de usuario** → **supersedidos** por este ADR. El concepto técnico de sync on/off permanece como **comportamiento de modalidad** |
 | **ADR-001** | EPosOne sigue siendo producto; “vivir solo” se reinterpreta como **Standalone bajo EN1**, no APK sin registro |
 | **ADR-004** | “Vincular Local→Plataforma” deja de ser el upsell principal de onboarding; el upsell es **Standalone → Connected** (cambio de modalidad / sync), sin reinstalar |
@@ -55,10 +74,11 @@ Cuenta EN1 → Organización → Suscripción EPosOne → Modalidad
 ### 3. Ciclo único de incorporación
 
 ```text
-Nuevo negocio → Cuenta EN1 → Organización → Plan → Provision → Bootstrap → PIN → Operar
+Nuevo negocio → Cliente EN1 → Organización → Contrato → Plan/Suscripción
+              → (fase) Implementación → Provision → Bootstrap → PIN → Operar
 ```
 
-Todos los caminos A–D terminan exactamente igual (ver Onboarding Contract V2).
+El registro comercial puede completarse **antes** de la implementación operativa (ADR-031). Los caminos A–D de onboarding de dispositivo siguen Onboarding Contract V2 cuando arranca la fase de implementación.
 
 ### 4. Cuatro caminos oficiales (solo estos)
 

@@ -360,6 +360,19 @@ def register_public_auth_legacy_routes(app):
             db.session.commit()
         
             print(f"✅ Email verificado exitosamente para {user.email}")
+
+            # Standalone /start: continuar a instalar/activar (ADR-035 v1.3)
+            pending_org = getattr(user, 'pending_initial_organization_id', None)
+            ready_cookie = request.cookies.get('eposone_ready_token')
+            if pending_org or ready_cookie:
+                flash('¡Correo verificado! Continuá para instalar EPosOne.', 'success')
+                target = '/start/ready'
+                if ready_cookie:
+                    from urllib.parse import quote
+
+                    target = f'/start/ready?ready_token={quote(ready_cookie)}'
+                return redirect(target)
+
             flash('¡Email verificado exitosamente! Ahora puedes iniciar sesión y acceder a todas las funciones.', 'success')
         
             # Si el usuario no está logueado, redirigir al login con mensaje claro

@@ -4,99 +4,79 @@
 |-------|--------|
 | ID | **EN1-COMMERCIAL-IMPLEMENTATION-GATE** |
 | Fecha | Agosto 2026 |
-| Estado | **Activo** — congelamiento post Fase 1 |
+| Estado | **LIBERADO** — 7 ago 2026 · ADR-033 + ADR-034 + ADR-035 **ACCEPTED** |
 | Audiencia | CODITO (EN1) · LOCAL (EPosOne APK) · Arquitectura |
 
 ---
 
-## 1. Contexto
+## 1. Resultado
 
-Queda **cerrado** el bloque de arquitectura del Dominio Comercial e Implementación estratégica:
+```text
+ADR-033 + ADR-035 + ADR-034 ACCEPTED  →  COMMERCIAL IMPLEMENTATION GATE OPEN
+```
 
 | ADR | Tema | Estado |
 |-----|------|--------|
-| **031** | Dominio Comercial | **Aprobado** |
-| **032** | Modelo de Implementación (¿quién?) | **Aprobado** |
-| **033** | Asistente Standalone | **PROPOSED (completo revisión)** |
-| **034** | Connected Provisioning | **PROPOSED (completo revisión)** |
-| **035** | Licencia → Token → QR | **PROPOSED (completo revisión)** |
-
-**Código ya hecho (único):** Fase 1 comercial — `/start` crea Cliente/Contrato/Suscripción **sin** árbol operacional automático.
+| **031** | Dominio Comercial | **ACCEPTED** (+ Fase 1 código `/start` sin árbol ops) |
+| **032** | Modelo de Implementación | **ACCEPTED** |
+| **033** | Asistente Standalone | **ACCEPTED** v1.2 |
+| **034** | Connected Provisioning | **ACCEPTED** v1.2 |
+| **035** | Licencia → App Link / QR / redeem | **ACCEPTED** v1.3 |
 
 ---
 
-## 2. Separación obligatoria de conceptos
+## 2. Qué significa “LIBERADO”
+
+- Queda **autorizado arquitectónicamente** implementar según 033/034/035.  
+- **No** sustituye un **GO de implementación** explícito por fase/equipo.  
+- Dominio comercial 031 (Cliente/Contrato/…) sigue **congelado** salvo bugs, hasta GO de cambios comerciales.
+
+Orden de implementación recomendado: **033 → 035 → 034**.
+
+---
+
+## 3. Separación vigente
 
 ```text
-Registro Comercial  →  Implementación  →  Provisioning  →  Operación
-   ADR-031               032/033/034         device API         sync
+Registro Comercial → Implementación → Provisioning → Operación
 ```
 
-No volver a mezclar alta comercial con creación de Sucursal/POS/Caja ni con bootstrap.
+| Modalidad | Dueño del árbol ops | Post-activación |
+|-----------|---------------------|-----------------|
+| Standalone | EP1 local (ADR-033); EN1 **no** crea Sucursal/POS/Caja | READY_TO_SELL local; sin Bootstrap Connected |
+| Connected | EN1 antes de Register (ADR-034) | Register → Bootstrap → sync |
+
+QR comercial = `/start`. QR técnico = transporte token (ADR-035).
 
 ---
 
-## 3. Congelamiento — dominio comercial (CODITO)
+## 4. Instrucciones habilitadas
 
-**No modificar** salvo corrección de errores:
+### LOCAL (tras GO implementación Standalone)
 
-- Cliente  
-- Organización (identidad)  
-- Contrato  
-- Suscripción  
-- Licencia (modelo conceptual; entidad física futura bajo GO)
+1. Diseñar/implementar asistente ADR-033 hasta **READY_TO_SELL**.  
+2. Consumir activación ADR-035 (`modality` / claims); no preguntar modalidad.  
+3. No crear árbol Connected en el wizard Standalone.  
+4. Mantener puente legacy de códigos hasta que CODITO publique token en prod (GO 035).
 
-Dominio comercial estabilizado. No deuda técnica nueva en esta capa.
+### CODITO (tras GO por fase)
 
----
-
-## 4. Trabajo autorizado ahora
-
-### CODITO
-
-- Revisar / refinar docs **ADR-034** y **ADR-035** (ya especificados v1.1).  
-- Comentarios de arquitectura en esos ADR.  
-- **Sin código.**
-
-### LOCAL
-
-- Diseñar UX según **ADR-033** (wireframes fuera o anexos).  
-- Analizar pasos, offline, ayuda, copy de soporte.  
-- **Mantener flujo APK vigente.**  
-- **Sin código** del asistente nuevo / token / QR definitivo.
+1. **035:** emisión/validación/redeem de token; QR técnico; errores tipados.  
+2. **034:** casos de implementación, árbol ops, gate `ops_ready`, token Connected.  
+3. No recrear árbol ops en `/start` Standalone.  
+4. No desplegar sin GO de deploy explícito.
 
 ---
 
-## 5. No iniciar todavía
+## 5. Sigue prohibido sin GO específico
 
-| Prohibido hasta Gate |
-|----------------------|
-| Portal ETS nuevo |
-| Email verification productizado |
-| Connected provisioning (código) |
-| QR / Token canónicos (código) |
-| Asistente Standalone nuevo (código) |
-| Refactors / eliminación de endpoints / dead code cleanup masivo |
-| Cambios a Register / Bootstrap / Gate 2 / Welcome / licenciamiento APK |
+- Deploy a prod de estas features sin pedido explícito.  
+- Borrado masivo de endpoints legacy.  
+- Mezclar registro comercial con creación de Sucursal/POS/Caja en Standalone.
 
 ---
 
-## 6. Criterio de cierre de esta etapa (apertura de implementación)
+## 6. Referencias
 
-**No** se inicia implementación Standalone ni Connected hasta que estén **aprobados**:
-
-1. ADR-033  
-2. ADR-034  
-3. ADR-035  
-
-Después: **chat/ciclo nuevo**, implementación por fases, coherente con ADR-031 y ADR-032.
-
----
-
-## 7. Referencias
-
-- [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md)  
-- [ADR-032](ADR-032-PRODUCT-IMPLEMENTATION-MODEL.md)  
-- [ADR-033](ADR-033-STANDALONE-ONBOARDING-ASSISTANT.md)  
-- [ADR-034](ADR-034-CONNECTED-PROVISIONING-FLOW.md)  
-- [ADR-035](ADR-035-ACTIVATION-LICENSE-TOKEN-QR.md)  
+- [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) · [ADR-032](ADR-032-PRODUCT-IMPLEMENTATION-MODEL.md)  
+- [ADR-033](ADR-033-STANDALONE-ONBOARDING-ASSISTANT.md) · [ADR-034](ADR-034-CONNECTED-PROVISIONING-FLOW.md) · [ADR-035](ADR-035-ACTIVATION-LICENSE-TOKEN-QR.md)  

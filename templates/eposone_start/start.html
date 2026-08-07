@@ -6,13 +6,15 @@
   <title>Empieza con EPosOne</title>
   <meta name="description" content="Prepara tu negocio y descarga tu punto de venta en pocos minutos." />
   <link rel="icon" href="{{ url_for('static', filename=brand_favicon) }}" type="image/svg+xml" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='eposone_start/start.css') }}?v=ux2" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='eposone_start/start.css') }}?v=ux4" />
 </head>
 <body>
   <div class="ep-page">
     <div class="phone" id="app" aria-live="polite"
          data-apk-url="{{ play_store_url }}"
-         data-help-url="{{ url_for('eposone_start.start_install_help') }}">
+         data-help-url="{{ url_for('eposone_start.start_install_help') }}"
+         data-ready-token="{{ initial_ready_token or '' }}"
+         data-start-path="{{ start_path or '/start' }}">
       <div class="topbar">
         <div class="brand">
           <img class="brand-logo" src="{{ url_for('static', filename='images/logo-eposone.svg') }}" alt="" width="28" height="28" />
@@ -145,31 +147,41 @@
         </div>
       </section>
 
-      <!-- 8 -->
+      <!-- 8: verificar correo / listo -->
       <section class="screen" data-screen="8">
         <div class="content">
-          <h2 id="wow-title">¡Bienvenido a EPosOne!</h2>
-          <p class="lead" id="wow-sub">Tu negocio ya está preparado. Anota código y PIN; luego instalaremos la app.</p>
+          <h2 id="wow-title">Revisá tu correo</h2>
+          <p class="lead" id="wow-sub">Te enviamos un enlace para verificar. Después instalamos EPosOne.</p>
           <ul class="wow-list" id="wow-list"></ul>
-          <div class="code-box" id="code-box" hidden></div>
-          <div class="code-box" id="cashier-pin-box" hidden style="margin-top:0.5rem;letter-spacing:0.08em;background:#001a4b;"></div>
-          <div class="reco install-ready">
-            <p class="eyebrow">Siguiente paso</p>
-            <p class="muted" style="margin:0.4rem 0 0;">Descargá e instalá EPosOne en tu tablet o celular Android.</p>
+          <div class="reco" id="verify-waiting">
+            <p class="eyebrow">Esperando verificación</p>
+            <p class="muted" style="margin:0.4rem 0 0;" id="verify-hint">Abrí el correo en este u otro dispositivo y tocá el enlace.</p>
           </div>
+          <div class="reco install-ready" id="ready-banner" hidden>
+            <p class="eyebrow">Listo</p>
+            <p class="muted" style="margin:0.4rem 0 0;">Tu EPosOne está listo. Continuá para descargar e instalar.</p>
+          </div>
+          <div id="other-device-block" hidden style="margin-top:1rem;">
+            <p class="eyebrow">¿Registraste desde el teléfono?</p>
+            <p class="muted">Podés activar EPosOne en otra tablet escaneando este código con la app.</p>
+            <img id="activation-qr-img" class="help-qr" alt="QR para activar en otra tablet" width="180" height="180" hidden />
+          </div>
+          <div class="code-box" id="code-box" hidden></div>
+          <div class="code-box" id="cashier-pin-box" hidden></div>
         </div>
         <div class="footer-cta">
-          <button type="button" class="btn btn-primary" id="btn-go-install">Continuar a instalar</button>
-          <a class="btn btn-secondary" href="/login">Iniciar sesión (panel web)</a>
-          <button type="button" class="btn btn-ghost" id="btn-show-code">Ver mi código de instalación</button>
+          <button type="button" class="btn btn-primary" id="btn-go-install" hidden>Continuar a instalar</button>
+          <button type="button" class="btn btn-secondary" id="btn-check-verify">Ya verifiqué · Continuar</button>
+          <button type="button" class="btn btn-secondary" id="btn-other-tablet" hidden>Activar en otra tablet</button>
+          <button type="button" class="btn btn-ghost" id="btn-show-code" hidden>¿Problemas para activar?</button>
         </div>
       </section>
 
-      <!-- 9: Asistente de instalación / descarga -->
+      <!-- 9: Descargar → Instalar → Abrir -->
       <section class="screen" data-screen="9">
         <div class="content">
-          <h2>Asistente de instalación</h2>
-          <p class="lead" id="install-lead">Te guiamos paso a paso. No hace falta saber de tecnología.</p>
+          <h2>Instalar y activar EPosOne</h2>
+          <p class="lead" id="install-lead">Tres pasos simples. No hace falta saber de tecnología.</p>
           <div class="install-steps" id="install-step-bar" aria-label="Progreso de instalación">
             <span data-i="1" class="on">1</span>
             <span data-i="2">2</span>
@@ -177,19 +189,19 @@
             <span data-i="4">4</span>
             <span data-i="5">5</span>
           </div>
-          <p class="install-step-label" id="install-step-label">Paso 1 de 5 · Cuenta lista</p>
+          <p class="install-step-label" id="install-step-label">Paso 1 · Preparar</p>
 
           <div class="install-panel" id="install-panel-1">
             <ul class="wow-list">
-              <li>Cuenta creada</li>
-              <li>Negocio preparado</li>
-              <li>Código de instalación listo</li>
+              <li>Correo verificado</li>
+              <li>Negocio listo</li>
+              <li>Listo para instalar EPosOne</li>
             </ul>
-            <p class="muted">Cuando estés frente a la tablet Android, continúa.</p>
+            <p class="muted">Usá la tablet o el celular Android donde vas a vender.</p>
           </div>
 
           <div class="install-panel" id="install-panel-2" hidden>
-            <p class="muted">Preparando la descarga de EPosOne…</p>
+            <p class="muted">Preparando la descarga…</p>
             <div class="dl-progress"><div class="dl-bar" id="dl-bar-prep" style="width:15%"></div></div>
           </div>
 
@@ -200,23 +212,38 @@
           </div>
 
           <div class="install-panel" id="install-panel-4" hidden>
-            <p class="muted">Descarga finalizada. Ahora instalá la aplicación.</p>
+            <p class="muted"><strong>INSTALAR EPOSONE</strong></p>
             <ol class="steps">
-              <li>Abrí el archivo <strong>EPosOne.apk</strong> en Descargas.</li>
-              <li>Pulsá <strong>Instalar</strong>.</li>
-              <li>Si Android bloquea, usá la ayuda de abajo.</li>
+              <li>Tocá <strong>Instalar EPosOne</strong> abajo (abre el archivo descargado).</li>
+              <li>Si Android pide permiso, activá <strong>Instalar apps desconocidas</strong> para este navegador.</li>
+              <li>Volvé y confirmá <strong>Instalar</strong>.</li>
+              <li>Cuando termine, continuá para abrir la app.</li>
             </ol>
+            <p class="muted">Si no se abre solo: Descargas → <strong>EPosOne.apk</strong> → Instalar.</p>
           </div>
 
           <div class="install-panel" id="install-panel-5" hidden>
+            <p class="muted"><strong>ABRIR EPOSONE</strong></p>
+            <ol class="steps">
+              <li>Tocá <strong>Abrir EPosOne</strong>.</li>
+              <li>La app recibe la activación sola — no copies códigos.</li>
+              <li>Seguí el asistente en la tablet hasta tu primera venta.</li>
+            </ol>
+            <div class="code-box" id="activation-token-box" hidden style="margin-top:0.75rem;"></div>
+            <div id="other-device-install" hidden style="margin-top:1rem;">
+              <p class="eyebrow">Activar en otra tablet</p>
+              <img id="activation-qr-img-2" class="help-qr" alt="QR activación" width="180" height="180" />
+            </div>
+          </div>
+
+          <div class="install-panel" id="install-panel-blocked" hidden>
             <div class="reco">
               <p class="eyebrow">Android protegió tu dispositivo</p>
               <p class="muted">Es normal. Permite instalar desde este navegador y vuelve a instalar.</p>
               <ol class="steps">
                 <li>Pulsá <strong>Configuración</strong> en el aviso de Android.</li>
-                <li>Activá <strong>Permitir desde esta fuente</strong> (Chrome u otro navegador).</li>
-                <li>Regresá aquí.</li>
-                <li>Pulsá <strong>Instalar EPosOne</strong> otra vez.</li>
+                <li>Activá <strong>Permitir desde esta fuente</strong>.</li>
+                <li>Regresá y pulsá <strong>Instalar EPosOne</strong>.</li>
               </ol>
             </div>
             <div class="field" style="margin-top:0.75rem;">
@@ -235,10 +262,9 @@
             <div class="reco" id="oem-help" hidden></div>
             <div class="help-qr-block">
               <p class="eyebrow">¿Necesitás ayuda?</p>
-              <p class="muted">Escaneá este código (guía y soporte — no vuelve a descargar la APK).</p>
-              <img id="help-qr-img" class="help-qr" alt="QR de ayuda para instalar EPosOne" width="180" height="180"
+              <img id="help-qr-img" class="help-qr" alt="QR de ayuda" width="180" height="180"
                    src="{{ url_for('eposone_start.start_install_help_qr') }}?size=180" />
-              <a class="btn btn-secondary" href="{{ url_for('eposone_start.start_install_help') }}" target="_blank" rel="noopener">Abrir guía de ayuda</a>
+              <a class="btn btn-secondary" href="{{ url_for('eposone_start.start_install_help') }}" target="_blank" rel="noopener">Abrir guía</a>
             </div>
           </div>
 
@@ -246,18 +272,20 @@
         </div>
         <div class="footer-cta">
           <button type="button" class="btn btn-primary" id="btn-install-next">Continuar</button>
-          <button type="button" class="btn btn-primary" id="btn-download-apk" hidden>Descargar EPosOne</button>
-          <a class="btn btn-primary" id="btn-play" href="{{ play_store_url }}" hidden download>Instalar EPosOne</a>
+          <button type="button" class="btn btn-primary" id="btn-download-apk" hidden>DESCARGAR EPOSONE</button>
+          <a class="btn btn-primary" id="btn-play" href="{{ play_store_url }}" hidden>INSTALAR EPOSONE</a>
+          <a class="btn btn-primary" id="btn-open-ep1" href="#" hidden>ABRIR EPOSONE</a>
           <button type="button" class="btn btn-secondary" id="btn-android-blocked" hidden>Android bloqueó la instalación</button>
-          <button type="button" class="btn btn-ghost" id="btn-show-code-2">Ver mi código</button>
-          <a class="btn btn-ghost" href="{{ url_for('eposone.eposone_install') }}">Panel de instalación</a>
+          <button type="button" class="btn btn-ghost" id="btn-back-install" hidden>Volver a instalar</button>
+          <button type="button" class="btn btn-ghost" id="btn-other-tablet-2" hidden>Activar en otra tablet</button>
+          <button type="button" class="btn btn-ghost" id="btn-show-code-2" hidden>¿Problemas para activar?</button>
         </div>
       </section>
     </div>
-    <p class="desktop-note">Asistente de Inicio EPosOne · Preparación comercial · La configuración del POS es en la app</p>
+    <p class="desktop-note">Asistente de Inicio EPosOne · Instalar y activar</p>
   </div>
 
   <script type="application/json" id="bootstrap-data">{{ catalog | tojson }}</script>
-  <script src="{{ url_for('static', filename='eposone_start/start.js') }}?v=ux2" defer></script>
+  <script src="{{ url_for('static', filename='eposone_start/start.js') }}?v=ux4" defer></script>
 </body>
 </html>

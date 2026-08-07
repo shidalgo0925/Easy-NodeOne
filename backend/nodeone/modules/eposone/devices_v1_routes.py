@@ -18,8 +18,10 @@ eposone_devices_v1_bp = Blueprint(
 
 def _provisioning_code_from_request() -> str | None:
     return (
-        request.headers.get('X-EN1-Provisioning-Code')
+        request.headers.get('X-EN1-Activation-Token')
+        or request.headers.get('X-EN1-Provisioning-Code')
         or request.headers.get('X-EPosOne-Provisioning-Code')
+        or (request.get_json(silent=True) or {}).get('activation_token')
         or (request.get_json(silent=True) or {}).get('provisioning_code')
     )
 

@@ -260,19 +260,88 @@ class DeviceProvisioningService:
             DeviceProvisioningService._audit_auth_failed(None, reason='provisioning_code_missing')
             raise DeviceProvisioningError('provisioning_code_required', http_status=401)
         row = EposoneProvisioningCode.query.filter_by(code=provided, status=STATUS_ACTIVE).first()
-        if row is None:
-            DeviceProvisioningService._audit_auth_failed(None, reason='provisioning_code_invalid')
-            raise DeviceProvisioningError('provisioning_code_invalid', http_status=401)
-        if row.expires_at is not None and row.expires_at < datetime.utcnow():
-            from app import db
+        if row is not None:
+            if row.expires_at is not None and row.expires_at < datetime.utcnow():
+                from app import db
 
-            row.status = STATUS_EXPIRED
-            db.session.commit()
-            DeviceProvisioningService._audit_auth_failed(
-                int(row.organization_id), reason='provisioning_code_expired'
-            )
-            raise DeviceProvisioningError('provisioning_code_expired', http_status=401)
-        return row
+                row.status = STATUS_EXPIRED
+                db.session.commit()
+                DeviceProvisioningService._audit_auth_failed(
+                    int(row.organization_id), reason='provisioning_code_expired'
+                )
+                raise DeviceProvisioningError('provisioning_code_expired', http_status=401)
+            return row
+        # ADR-035 puente: token de activación Connected con register_ref
+        bridged = DeviceProvisioningService._bridge_activation_token(provided)
+        if bridged is not None:
+            return bridged
+        DeviceProvisioningService._audit_auth_failed(None, reason='provisioning_code_invalid')
+        raise DeviceProvisioningError('provisioning_code_invalid', http_status=401)
+
+    @staticmethod
+    def _bridge_activation_token(code: str):
+        """Compatibilidad: token ADR-035 Connected actúa como código de destino."""
+        from models.ets_activation_license import EtsActivationLicense
+        from models.ets_activation_token import EtsActivationToken
+
+        tok = EtsActivationToken.query.filter_by(token=code.strip().upper()).first()
+        if tok is None:
+            tok = EtsActivationToken.query.filter_by(token=code.strip()).first()
+        if tok is None:
+            return None
+        lic = EtsActivationLicense.query.get(int(tok.license_id))
+        if lic is None:
+            raise DeviceProvisioningError('license_revoked', http_status=403)
+        if str(lic.modality) == 'standalone':
+            raise DeviceProvisioningError('modality_mismatch', http_status=409)
+        if str(tok.status) not in ('active', 'consumed'):
+            if str(tok.status) == 'revoked':
+                raise DeviceProvisioningError('activation_token_revoked', http_status=403)
+            if str(tok.status) == 'expired':
+                raise DeviceProvisioningError('activation_token_expired', http_status=400)
+            raise DeviceProvisioningError('activation_token_invalid', http_status=401)
+        if tok.expires_at is not None and tok.expires_at < datetime.utcnow() and str(tok.status) == 'active':
+            raise DeviceProvisioningError('activation_token_expired', http_status=400)
+        reg = (tok.register_ref or '').strip()
+        if not reg:
+            raise DeviceProvisioningError('ops_not_ready', http_status=409)
+        # Objeto duck-typed compatible con register() que lee branch/pos/register_ref
+        from models.core_master import CoreOrgUnit
+        from nodeone.core.master.constants import ORG_UNIT_TYPE_REGISTER
+
+        unit = CoreOrgUnit.query.filter_by(
+            organization_id=int(tok.organization_id), unit_ref=reg
+        ).first()
+        if unit is None or str(getattr(unit, 'unit_type', '')).lower() != ORG_UNIT_TYPE_REGISTER:
+            raise DeviceProvisioningError('ops_not_ready', http_status=409)
+        pos_ref = ''
+        branch_ref = ''
+        if unit.parent_id:
+            pos = CoreOrgUnit.query.filter_by(
+                organization_id=int(tok.organization_id), id=int(unit.parent_id)
+            ).first()
+            if pos is not None:
+                pos_ref = pos.unit_ref
+                if pos.parent_id:
+                    br = CoreOrgUnit.query.filter_by(
+                        organization_id=int(tok.organization_id), id=int(pos.parent_id)
+                    ).first()
+                    if br is not None:
+                        branch_ref = br.unit_ref
+
+        class _Bridge:
+            pass
+
+        bridge = _Bridge()
+        bridge.organization_id = int(tok.organization_id)
+        bridge.branch_ref = branch_ref or 'branch-unknown'
+        bridge.pos_ref = pos_ref or 'pos-unknown'
+        bridge.register_ref = reg
+        bridge.code = tok.token
+        bridge.status = 'active'
+        bridge.id = None
+        bridge._activation_token_id = int(tok.id)
+        return bridge
 
     # --- Legacy EN1-01 (org-level code) ---
 
@@ -451,7 +520,13 @@ class DeviceProvisioningService:
                 )
                 raise
             dest_code.last_used_at = datetime.utcnow()
-            dest_code.status = STATUS_USED
+            if getattr(dest_code, 'id', None) is not None:
+                dest_code.status = STATUS_USED
+            elif getattr(dest_code, '_activation_token_id', None):
+                # Puente ADR-035: no mutar fila provisioning; token ya se gestiona en redeem
+                pass
+            else:
+                dest_code.status = STATUS_USED
         else:
             # Legacy EN1-01
             org = DeviceProvisioningService._resolve_organization(

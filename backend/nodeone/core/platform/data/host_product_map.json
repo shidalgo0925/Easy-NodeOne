@@ -5,6 +5,8 @@
     "appprd.easynodeone.com": "en1",
     "appdev.easynodeone.com": "en1",
     "apptst.easynodeone.com": "en1",
+    "eposone-dev.easynodeone.com": "eposone",
+    "eposone.easynodeone.com": "eposone",
     "eposone.easytech.services": "eposone",
     "eposone-stg.easytech.services": "eposone",
     "epayroll.easytech.services": "epayroll",

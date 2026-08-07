@@ -11,7 +11,7 @@
 | Impacto | EPosOne APK (LOCAL) · consumo de token de activación (EN1) |
 | Implementación de código | **NO autorizada** — documento de arquitectura / especificación de producto |
 | Responsable de análisis APK | **LOCAL** |
-| Complementa | [ADR-032](ADR-032-PRODUCT-IMPLEMENTATION-MODEL.md) (§ Autogestionada) · [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) |
+| Complementa | [ADR-032](ADR-032-PRODUCT-IMPLEMENTATION-MODEL.md) (§ Autogestionada) · [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) · activación: [ADR-035](ADR-035-ACTIVATION-LICENSE-TOKEN-QR.md) |
 | Relacionados | [ADR-001](ADR-001-EPOSONE-STANDALONE.md) · [ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md) · [ADR-021](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) · [ADR-024](ADR-024-EPOSONE-START-ASSISTANT.md) (registro comercial web, no este asistente) |
 
 ---
@@ -86,7 +86,7 @@ Al completar **Finalizar**, el negocio queda operable en el dispositivo.
 - Errores: token inválido, expirado, ya usado (si aplica política de un solo uso), producto incorrecto.  
 - Tras éxito: no volver a pedir modalidad; avanzar al asistente de negocio.
 
-Detalle criptográfico / HTTP del token: **ADR de Activación** (planificado). Hasta entonces, LOCAL asume contrato provisional acordado con CODITO.
+Detalle criptográfico / HTTP del token: **[ADR-035](ADR-035-ACTIVATION-LICENSE-TOKEN-QR.md)**. Hasta aprobación + GO, LOCAL asume contrato provisional acordado con CODITO.
 
 ---
 

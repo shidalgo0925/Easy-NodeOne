@@ -596,9 +596,13 @@ def send_standalone_ready_email(
 ) -> bool:
     """Email de continuidad tras verificar correo (código + descarga)."""
     try:
-        from app import email_service
+        from app import apply_email_config_from_db, email_service
         from email_templates import get_eposone_ready_install_email
 
+        try:
+            apply_email_config_from_db()
+        except Exception:
+            pass
         if not email_service:
             return False
         code = str(activation.get('activation_code') or activation.get('manual_code') or '') or None
@@ -626,6 +630,73 @@ def send_standalone_ready_email(
         )
     except Exception:
         return False
+
+
+def deliver_standalone_ready_after_verify(
+    *,
+    user,
+    organization_id: int,
+    public_base: str | None = None,
+) -> dict[str, Any]:
+    """Tras verify: asegurar activación pública, enviar email con código, devolver ready_token."""
+    from models.ets_activation_license import EtsActivationLicense
+    from models.ets_activation_token import EtsActivationToken
+    from models.saas import SaasOrganization
+    from nodeone.core.platform.activation_service import ActivationService
+    from nodeone.modules.eposone_start.ready_session import issue_ready_token
+
+    org = SaasOrganization.query.get(int(organization_id))
+    org_name = str(getattr(org, 'name', '') or '') if org else ''
+    activation = None
+    tok = (
+        EtsActivationToken.query.filter_by(organization_id=int(organization_id), status='active')
+        .order_by(EtsActivationToken.id.desc())
+        .first()
+    )
+    if tok is not None:
+        lic = EtsActivationLicense.query.get(int(tok.license_id))
+        if lic is not None:
+            activation = ActivationService._token_public(tok, lic, public_base=public_base)
+    if activation is None:
+        try:
+            activation = ActivationService.issue_for_organization_standalone(
+                organization_id=int(organization_id),
+                user_id=int(user.id),
+                bound_email=str(user.email or ''),
+                public_base=public_base,
+                metadata={'source': 'eposone_verify_email'},
+            )
+            tok_id = activation.get('token_id')
+            tok = EtsActivationToken.query.get(int(tok_id)) if tok_id else None
+        except Exception:
+            activation = None
+            tok = None
+
+    email_sent = False
+    if activation is not None:
+        email_sent = bool(
+            send_standalone_ready_email(
+                user=user,
+                organization_name=org_name,
+                activation=activation,
+            )
+        )
+
+    ready_token = None
+    try:
+        ready_token = issue_ready_token(
+            user_id=int(user.id),
+            organization_id=int(organization_id),
+            activation_token_id=int(tok.id) if tok is not None else None,
+        )
+    except Exception:
+        ready_token = None
+
+    return {
+        'email_sent': email_sent,
+        'ready_token': ready_token,
+        'activation': activation,
+    }
 
 
 def mark_ready_email_sent_flag(user_id: int) -> None:

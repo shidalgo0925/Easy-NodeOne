@@ -361,16 +361,49 @@ def register_public_auth_legacy_routes(app):
         
             print(f"✅ Email verificado exitosamente para {user.email}")
 
-            # Standalone /start: continuar a instalar/activar (ADR-035 v1.3)
+            # Standalone /start: enviar código de activación + continuar a instalar
             pending_org = getattr(user, 'pending_initial_organization_id', None)
             ready_cookie = request.cookies.get('eposone_ready_token')
             if pending_org or ready_cookie:
-                flash('¡Correo verificado! Continuá para instalar EPosOne.', 'success')
+                ready_token = ready_cookie
+                try:
+                    from nodeone.modules.eposone_start.service import deliver_standalone_ready_after_verify
+
+                    public_base = None
+                    try:
+                        xf_proto = (request.headers.get('X-Forwarded-Proto') or '').split(',')[0].strip()
+                        xf_host = (request.headers.get('X-Forwarded-Host') or '').split(',')[0].strip()
+                        if xf_host:
+                            public_base = f"{xf_proto or 'https'}://{xf_host}".rstrip('/')
+                        else:
+                            public_base = (request.url_root or '').rstrip('/') or None
+                    except Exception:
+                        public_base = None
+                    oid = int(pending_org) if pending_org else 0
+                    if oid <= 0 and ready_cookie:
+                        try:
+                            from nodeone.modules.eposone_start.ready_session import load_ready_token
+
+                            oid = int(load_ready_token(ready_cookie).get('oid') or 0)
+                        except Exception:
+                            oid = 0
+                    if oid > 0:
+                        delivered = deliver_standalone_ready_after_verify(
+                            user=user,
+                            organization_id=oid,
+                            public_base=public_base,
+                        )
+                        if delivered.get('ready_token'):
+                            ready_token = delivered['ready_token']
+                except Exception as mail_exc:
+                    print(f"⚠️ ready email post-verify falló: {mail_exc}")
+
+                flash('¡Correo verificado! Te enviamos tu código de activación. Continuá para instalar EPosOne.', 'success')
                 target = '/start/ready'
-                if ready_cookie:
+                if ready_token:
                     from urllib.parse import quote
 
-                    target = f'/start/ready?ready_token={quote(ready_cookie)}'
+                    target = f'/start/ready?ready_token={quote(ready_token)}'
                 return redirect(target)
 
             flash('¡Email verificado exitosamente! Ahora puedes iniciar sesión y acceder a todas las funciones.', 'success')

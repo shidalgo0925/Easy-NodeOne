@@ -4,145 +4,231 @@
 |-------|--------|
 | ID | **ADR-034** |
 | Título | Flujo de aprovisionamiento Connected — Implementación Asistida |
-| Estado | **PROPOSED** — pendiente revisión / aprobación Arquitectura · handoff CODITO |
-| Versión | 1.0 |
+| Estado | **PROPOSED (completo para revisión)** — handoff CODITO · **sin** GO de código |
+| Versión | 1.1 |
 | Fecha | Agosto 2026 |
-| Autor | Arquitectura EN1 / EPosOne |
+| Autor | Arquitectura EN1 / EPosOne · CODITO (especificación) |
 | Impacto | EN1 · Portal ETS · Device API · EPosOne APK (consumo) |
-| Implementación de código | **NO autorizada** — documento de arquitectura únicamente |
+| Implementación de código | **NO autorizada** |
 | Pregunta rectora | **¿Cómo materializa ETS un EPosOne Connected antes de que el dispositivo opere?** |
-| Responsable de análisis EN1 | **CODITO** |
-| Complementa | [ADR-032](ADR-032-PRODUCT-IMPLEMENTATION-MODEL.md) (§ Asistida) · [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) |
-| Activación | [ADR-035](ADR-035-ACTIVATION-LICENSE-TOKEN-QR.md) (Licencia → Token → transporte) |
-| Relacionados | [ADR-021](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) · [ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md) · [ADR-003](ADR-003-EPOSONE-SYNC.md) · [ADR-024](ADR-024-EPOSONE-START-ASSISTANT.md) |
+| Complementa | [ADR-032](ADR-032-PRODUCT-IMPLEMENTATION-MODEL.md) · [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) · [ADR-035](ADR-035-ACTIVATION-LICENSE-TOKEN-QR.md) |
+| Gate | [EN1_COMMERCIAL_IMPLEMENTATION_GATE.md](EN1_COMMERCIAL_IMPLEMENTATION_GATE.md) |
+| Relacionados | [ADR-021](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) · [DEVICE_LIFECYCLE_V1.md](eposone-onboarding/DEVICE_LIFECYCLE_V1.md) · [ADR-003](ADR-003-EPOSONE-SYNC.md) · [ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md) |
 
 ---
 
 ## 1. Objetivo
 
-Definir el **flujo de implementación asistida** de EPosOne **Connected**: cómo Easy Technology Services (ETS) crea la infraestructura operacional en EN1 **antes** del provisioning del dispositivo.
+Especificar la **Implementación Asistida** de EPosOne Connected: recursos operacionales, estados, responsabilidades, provisioning, bootstrap y **contratos HTTP propuestos** (especificación; no código).
 
-**Única responsabilidad:** el camino Connected post-registro comercial hasta operación sincronizada.
-
-No define quién implementa en abstracto (ADR-032), ni el asistente Standalone (ADR-033), ni el modelo formal Licencia/Token/QR (ADR-035).
-
----
-
-## 2. Precondiciones
-
-1. Registro comercial completo (ADR-031): Cliente → Organización → Contrato → Suscripción → Licencia.  
-2. Modalidad del contrato/suscripción: **Connected** / estrategia **Asistida** (ADR-032).  
-3. Correo verificado según política comercial vigente (ADR-031 §9) antes de emitir/activar licencia operativa.  
-4. Caso asignado a cola / ejecutivo de **implementación** ETS.
-
----
-
-## 3. Flujo canónico
+Separación obligatoria:
 
 ```text
-Licencia (Connected / Asistida)
-  → Asignación a implementación
-  → Configuración operacional en EN1
-       → Sucursal
-       → POS
-       → Caja
-       → Cajeros (mínimo administrador operativo)
-  → Emisión de Token de activación (ADR-035)
-  → Entrega del token (correo / enlace / QR / copia)
-  → Cliente descarga APK
-  → Activación con token
-  → Provisioning (device ↔ caja)
-  → Bootstrap
-  → Operación (sync)
+Registro Comercial  →  Implementación  →  Provisioning  →  Operación
+     (ADR-031)           (este ADR)      (device API)      (sync)
 ```
 
-Principio ADR-032: **Connected requiere implementación ETS antes del aprovisionamiento del dispositivo.**
+---
+
+## 2. Principios
+
+1. Comercial ≠ Implementación ≠ Provisioning ≠ Operación.  
+2. Connected: ETS crea el árbol ops **antes** del device.  
+3. La APK no elige modalidad; la fija el token (ADR-035).  
+4. Provisioning vincula dispositivo a **caja ya existente**.  
+5. Bootstrap descarga snapshot cloud; no crea la org comercial.  
+6. Hasta aprobación de ADR-033/034/035: **no implementar** (ver Gate).
 
 ---
 
-## 4. Fases
+## 3. Diagrama de flujo
 
-| Fase | Actor | Resultado |
-|------|-------|-----------|
-| **A. Asignación** | ETS | Ticket/caso de implementación ligado a Contrato/Licencia |
-| **B. Árbol ops** | CODITO / ops EN1 | Sucursal → POS → Caja (+ cajeros) en la Organización |
-| **C. Token** | EN1 | Token de activación anclado a Licencia + caja/dispositivo previsto (ADR-035) |
-| **D. Entrega** | ETS / Portal | Token al cliente por canal acordado |
-| **E. Device** | Cliente + APK | Activación; modalidad Connected fijada por token (sin pregunta UX) |
-| **F. Cloud** | EN1 Device API | Provisioning + bootstrap + sync operativa |
-
----
-
-## 5. Qué crea EN1 (Connected)
-
-A diferencia de Standalone, en Connected **sí** se materializa en EN1 (fase B), como mínimo:
-
-- Sucursal  
-- POS  
-- Caja  
-- Cajero(s) operativo(s)  
-
-Catálogo, políticas comerciales, impuestos, etc. según el alcance del servicio de implementación contratado (pueden cargarse en B o en sesiones posteriores).
+```mermaid
+flowchart TD
+  A[Registro comercial ADR-031] --> B[Licencia Connected]
+  B --> C[Asignación implementación]
+  C --> D[Crear Sucursal]
+  D --> E[Crear POS]
+  E --> F[Crear Caja]
+  F --> G[Crear Cajeros]
+  G --> H[Emitir Token ADR-035]
+  H --> I[Entrega token al cliente]
+  I --> J[APK: activar con token]
+  J --> K[POST devices/register]
+  K --> L[GET devices/bootstrap]
+  L --> M[Operación sync]
+```
 
 ---
 
-## 6. Qué NO hace este flujo
+## 4. Fases y estados del caso de implementación
 
-- Asistente local de negocio estilo ADR-033 (no es el camino principal Connected).  
-- Preguntar al usuario “¿Standalone o Connected?” en la APK.  
-- Tratar el QR como la orden de activación (la orden es la **Licencia**; ADR-035).  
-- Sustituir el registro comercial (`/start` / Portal).
+### 4.1 Estados del caso (EN1 / ops)
+
+| Estado | Significado | Siguiente |
+|--------|-------------|-----------|
+| `queued` | Licencia Connected; pendiente asignación | `assigned` |
+| `assigned` | Ejecutivo/implementador asignado | `ops_in_progress` |
+| `ops_in_progress` | Creando árbol / catálogo / cajeros | `ops_ready` |
+| `ops_ready` | Mínimo Sucursal→POS→Caja (+ cajero) OK | `token_issued` |
+| `token_issued` | Token emitido (ADR-035) | `awaiting_device` |
+| `awaiting_device` | Cliente aún no provisionó | `device_provisioned` |
+| `device_provisioned` | Register OK | `bootstrapped` |
+| `bootstrapped` | Bootstrap OK | `active` |
+| `active` | Operación sync | — |
+| `blocked` | Falta dato / pago / verificación | resolver → estado previo |
+| `cancelled` | Caso cancelado | fin |
+
+### 4.2 Diagrama de estados
+
+```mermaid
+stateDiagram-v2
+  [*] --> queued
+  queued --> assigned
+  assigned --> ops_in_progress
+  ops_in_progress --> ops_ready
+  ops_ready --> token_issued
+  token_issued --> awaiting_device
+  awaiting_device --> device_provisioned
+  device_provisioned --> bootstrapped
+  bootstrapped --> active
+  queued --> blocked
+  assigned --> blocked
+  ops_in_progress --> blocked
+  blocked --> assigned
+  queued --> cancelled
+  assigned --> cancelled
+```
 
 ---
 
-## 7. Relación con provisioning / bootstrap existentes
+## 5. Recursos operacionales (creación)
 
-| Capa | Rol en Connected |
-|------|------------------|
-| Árbol OrgUnit | Creado en fase B (asistida) |
-| Token / código | Fase C–D (ADR-035); puede mapear a código por caja |
-| Provisioning | Fase F — vincula terminal a caja ya existente |
-| Bootstrap | Fase F — catálogo y config cloud → dispositivo |
-| Sync | Operación continua (ADR-003) |
+Mínimo obligatorio en `ops_ready`:
 
-Contratos HTTP detallados de device API: fuera de este ADR (evolucionar ADR-021 / contratos device con GO).
+| Recurso | Tipo EN1 | Notas |
+|---------|----------|-------|
+| Sucursal | OrgUnit `branch` | Al menos una |
+| POS | OrgUnit `pos` | Bajo sucursal |
+| Caja | OrgUnit `register` | Bajo POS; destino del device |
+| Cajero | Cashier domain | Mínimo un admin operativo |
+
+Opcional según servicio contratado (puede diferirse post-`active`):
+
+- Catálogo / categorías / productos  
+- Impuestos / políticas comerciales  
+- Impresoras / periféricos (a menudo en device)  
+- Sucursales adicionales  
+
+**No** forma parte de esta fase: registro Cliente/Contrato (ya hecho).
+
+---
+
+## 6. Provisioning
+
+| Aspecto | Norma |
+|---------|--------|
+| Entrada | Token de activación válido (ADR-035) + `device_uuid` |
+| Efecto | Terminal ligado a **caja** del caso; Bearer de dispositivo |
+| Código legacy | `X-EN1-Provisioning-Code` puede mapearse al token en transición |
+| Fallo tipado | Token Connected sin caja → `ops_not_ready` |
+
+Estados APK (vista cliente, ADR-021 / Device Lifecycle): `unprovisioned` → `provisioned` → …
+
+---
+
+## 7. Bootstrap
+
+| Aspecto | Norma |
+|---------|--------|
+| Entrada | Bearer de dispositivo post-register |
+| Efecto | Snapshot: config, catálogo, cajeros, license block, etc. |
+| No hace | Crear árbol ops; cambiar modalidad; alta comercial |
+| Re-bootstrap | Por versión de catálogo/config (contratos Hito 2) |
 
 ---
 
 ## 8. Responsabilidades
 
-| Actor | Hace |
-|-------|------|
-| **ETS / CODITO** | Asignación, árbol ops, emisión token, soporte de implementación |
-| **Cliente** | Instala APK, activa con token, opera |
-| **LOCAL** | APK consume token Connected y ejecuta provisioning/bootstrap (sin elegir modalidad) |
+| Actor | Responsable de |
+|-------|----------------|
+| **ETS / CODITO** | Cola, estados del caso, árbol ops, emisión token, Portal ops |
+| **Cliente** | Instalar APK, activar, operar |
+| **LOCAL** | Consumo token Connected, register/bootstrap UX, **sin** asistente Standalone completo |
 
 ---
 
-## 9. Impacto (analizar, no implementar)
+## 9. Contratos HTTP (propuestos — especificación)
 
-### CODITO
+> Prefijo ilustrativo. Versión y paths finales se congelan en GO de implementación.  
+> Coexistencia con Hito 1/2 actuales (`/api/v1/devices/*`) hasta migración.
 
-- Cola de implementación y estados del caso  
-- UI/ops para crear Sucursal→POS→Caja→Cajero bajo Contrato Connected  
-- Emisión de token post-árbol (ADR-035)  
-- No crear árbol ops en altas Standalone  
+### 9.1 Ops — caso de implementación (Portal / Admin EN1)
 
-### LOCAL
+| Método | Path propuesto | Auth | Descripción |
+|--------|----------------|------|-------------|
+| `POST` | `/api/v1/implementation/cases` | Admin ETS | Crear caso desde `license_id` / `contract_id` |
+| `GET` | `/api/v1/implementation/cases/{id}` | Admin ETS | Estado + refs ops |
+| `PATCH` | `/api/v1/implementation/cases/{id}` | Admin ETS | Transición de estado, asignación |
+| `POST` | `/api/v1/implementation/cases/{id}/ops-tree` | Admin ETS | Asegurar Sucursal→POS→Caja (+ cajeros) |
+| `POST` | `/api/v1/implementation/cases/{id}/activation-token` | Admin ETS | Emitir token (delega ADR-035) |
 
-- Flujo APK Connected post-token (sin asistente Standalone completo)  
-- Errores si el token exige Connected pero el árbol no está listo  
+**Respuesta mínima `GET case`:**
+
+```json
+{
+  "case_id": 1,
+  "status": "ops_ready",
+  "organization_id": 10,
+  "license_id": 20,
+  "branch_ref": "branch-main",
+  "pos_ref": "pos-1",
+  "register_ref": "reg-1",
+  "modality": "connected",
+  "implementation_strategy": "assisted"
+}
+```
+
+### 9.2 Device — sin cambio de semántica (referencia vigente)
+
+| Método | Path | Rol en este ADR |
+|--------|------|-----------------|
+| `POST` | `/api/v1/devices/register` | Provisioning (fase F); header/código = token o legacy |
+| `GET` | `/api/v1/devices/config` | Config post-register |
+| `GET` | `/api/v1/devices/bootstrap` | Bootstrap (fase F) |
+
+**Evolución propuesta (ADR-035):** aceptar `X-EN1-Activation-Token` además de / en lugar de `X-EN1-Provisioning-Code` cuando el token sea el canónico.
+
+### 9.3 Errores tipados (device)
+
+| Código | HTTP | Cuándo |
+|--------|------|--------|
+| `activation_token_invalid` | 401/400 | Token desconocido / firma |
+| `activation_token_expired` | 400 | Vigencia token |
+| `activation_token_used` | 409 | Un solo uso agotado |
+| `ops_not_ready` | 409 | Connected sin árbol mínimo |
+| `modality_mismatch` | 409 | Token Standalone en flujo Connected o viceversa |
 
 ---
 
-## 10. Fuera de alcance
+## 10. Comentarios de arquitectura
 
-Código; cambios a `/start`; ADR-033; payload criptográfico del token (ADR-035); billing de servicios de implementación.
+1. El caso de implementación es la unidad de trabajo ops; no confundirlo con Suscripción.  
+2. `ops_ready` es el gate duro antes de emitir token Connected.  
+3. Standalone **no** usa este ADR para crear árbol; ver ADR-033.  
+4. Evitar que `/start` vuelva a crear Sucursal→POS→Caja (Fase 1 comercial ya lo separó).  
+5. Legacy provisioning codes: puente temporal documentado en ADR-035 § legacy.
 
 ---
 
-## 11. Estado
+## 11. Fuera de alcance / no iniciar
 
-**PROPOSED**
+Código; Portal ETS nuevo; email verification productizada; QR definitivo; refactor; borrado de endpoints; cambios a `/start` salvo bugs.
 
-Handoff conceptual para CODITO. Requiere aprobación Arquitectura + **GO de implementación** por fases.
+---
+
+## 12. Estado
+
+**PROPOSED (completo para revisión)** v1.1.
+
+Aprobación Arquitectura requerida. Implementación solo tras Gate (033+034+035 aprobados) + GO por fases.

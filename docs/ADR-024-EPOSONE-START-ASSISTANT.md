@@ -14,6 +14,7 @@
 | Relacionados | [`EN1_PLATFORM_CONSTITUTION_V1.md`](EN1_PLATFORM_CONSTITUTION_V1.md) · [ADR-023 Trial/Grace](ADR-023-EPOSONE-TRIAL-SUBSCRIPTION-GRACE.md) · [ADR-028 Plan/overrides sin precio](ADR-028-EPOSONE-PLAN-DEFAULTS-COMMERCIAL-OVERRIDES.md) · **[ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md)** · Centro legal `/legal/*` · Planes landing EPosOne · handoff [`EN1_EPOSONE_HANDOFF_STATUS.md`](EN1_EPOSONE_HANDOFF_STATUS.md) |
 | Norma precio `/start` | **ADR-028:** el asistente muestra plan + beneficios/cupos; **no** precio. El precio sigue en catálogo/contrato/Admin. |
 | Enmienda | **7 ago 2026 — ADR-031:** `/start` = registro **comercial**; no implica implementación operativa completa |
+| Enmienda | **7 ago 2026 — ADR-033/035:** configuración para primera venta Standalone = asistente EP1; activación = token (QR técnico ≠ `/start`) |
 | Este GO | **GO docs** · **GO diseño** · **GO implementación** · **GO deploy** (prod `/start`). **Pendiente:** `GO Local` (APK / Play Store). |
 
 ---

@@ -71,14 +71,17 @@ Cliente EN1 → Organización → Contrato → Suscripción EPosOne → Modalida
 | **ADR-021** | Sigue vigente para estados de instalación APK; se alinea con [Device Lifecycle](eposone-onboarding/DEVICE_LIFECYCLE_V1.md) |
 | **First Start V4** | Caminos `create_business` (sin EN1) y copy “Modo Local” → **no oficiales** para producto; LOCAL no los implementa como onboarding |
 
-### 3. Ciclo único de incorporación
+### 3. Ciclo de incorporación (enmendado 7 ago 2026 — ADR-033/034/035)
 
 ```text
-Nuevo negocio → Cliente EN1 → Organización → Contrato → Plan/Suscripción
-              → (fase) Implementación → Provision → Bootstrap → PIN → Operar
+Nuevo negocio → Cliente → Organización → Contrato → Suscripción → Licencia
+  → Activación (ADR-035)
+      ├─ Standalone (ADR-033): asistente local → READY_TO_SELL  [sin árbol EN1, sin Bootstrap Connected]
+      └─ Connected (ADR-034): árbol EN1 → Token → Register → Bootstrap → Operación
 ```
 
-El registro comercial puede completarse **antes** de la implementación operativa (ADR-031). Los caminos A–D de onboarding de dispositivo siguen Onboarding Contract V2 cuando arranca la fase de implementación.
+El registro comercial puede completarse **antes** de la implementación.  
+**Enmienda:** el ciclo único “Provision → Bootstrap → PIN” **no** aplica a Standalone; queda reservado a Connected (y caminos restore).
 
 ### 4. Cuatro caminos oficiales (solo estos)
 

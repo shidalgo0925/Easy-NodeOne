@@ -1,7 +1,7 @@
-"""Orquestación comercial del Asistente de Inicio EPosOne (ADR-024).
+"""Orquestación comercial del Asistente de Inicio EPosOne (ADR-024 / ADR-031).
 
-Reutiliza: SaasOrganization, User, SubscriptionRegistry, EntitlementService,
-DeviceProvisioningService, SaasOrgModule. No crea motores comerciales paralelos.
+Reutiliza: SaasOrganization, User, Cliente/Contrato, SubscriptionRegistry,
+EntitlementService, DeviceProvisioningService. Registro ≠ implementación ops.
 """
 
 from __future__ import annotations
@@ -212,86 +212,18 @@ def _ensure_subscription_and_entitlement(
 
 
 def _issue_install_code(organization_id: int, business_name: str) -> dict[str, Any]:
-    """Prefer EN1-02 (código por caja); fallback legado org-level."""
-    from nodeone.core.master.constants import (
-        ORG_UNIT_TYPE_BRANCH,
-        ORG_UNIT_TYPE_POS,
-        ORG_UNIT_TYPE_REGISTER,
-    )
-    from nodeone.core.master.org_unit import OrgUnitService
-    from nodeone.modules.eposone.device_provisioning import (
-        DeviceProvisioningError,
-        DeviceProvisioningService,
-    )
+    """Código de instalación a nivel organización (ADR-031: sin árbol ops en registro)."""
+    from nodeone.modules.eposone.device_provisioning import DeviceProvisioningService
 
-    suffix = secrets.token_hex(2)
-    try:
-        branch = OrgUnitService.create(
-            int(organization_id),
-            unit_ref=f'branch-main-{suffix}',
-            name='Principal',
-            unit_type=ORG_UNIT_TYPE_BRANCH,
-            parent_id=None,
-        )
-        pos = OrgUnitService.create(
-            int(organization_id),
-            unit_ref=f'pos-main-{suffix}',
-            name='POS 1',
-            unit_type=ORG_UNIT_TYPE_POS,
-            parent_id=int(branch.id),
-        )
-        register = OrgUnitService.create(
-            int(organization_id),
-            unit_ref=f'reg-main-{suffix}',
-            name='Caja 1',
-            unit_type=ORG_UNIT_TYPE_REGISTER,
-            parent_id=int(pos.id),
-        )
-        row = DeviceProvisioningService.issue_code_for_register(
-            int(organization_id),
-            register_ref=register.unit_ref,
-            label=f'{business_name} · Caja 1',
-        )
-        return {
-            'code': row.code,
-            'kind': 'register',
-            'register_ref': register.unit_ref,
-            'branch_ref': branch.unit_ref,
-            'pos_ref': pos.unit_ref,
-        }
-    except (DeviceProvisioningError, Exception):
-        code = DeviceProvisioningService.ensure_provisioning_code(int(organization_id))
-        return {
-            'code': code,
-            'kind': 'organization',
-            'register_ref': None,
-            'branch_ref': None,
-            'pos_ref': None,
-        }
-
-
-def _seed_default_cashier(organization_id: int, display_name: str) -> dict[str, Any]:
-    """Cajero inicial + PIN (mostrado una vez en /start). Fallo suave: no aborta el alta."""
-    import secrets
-
-    from nodeone.modules.eposone.cashier_service import CashierService
-
-    pin = ''.join(secrets.choice('0123456789') for _ in range(4))
-    while pin in ('0000', '1111', '1234'):
-        pin = ''.join(secrets.choice('0123456789') for _ in range(4))
-    name = (display_name or 'Cajero principal').strip()[:80] or 'Cajero principal'
-    try:
-        dto = CashierService.create(
-            int(organization_id),
-            {'display_name': name, 'pin': pin},
-        )
-        return {
-            'cashier_id': int(dto.id),
-            'display_name': dto.display_name,
-            'pin': pin,
-        }
-    except Exception:
-        return {'cashier_id': None, 'display_name': None, 'pin': None}
+    _ = business_name  # etiqueta futura; org-level no la requiere
+    code = DeviceProvisioningService.ensure_provisioning_code(int(organization_id))
+    return {
+        'code': code,
+        'kind': 'organization',
+        'register_ref': None,
+        'branch_ref': None,
+        'pos_ref': None,
+    }
 
 
 def complete_start(
@@ -308,13 +240,18 @@ def complete_start(
     accept_eula: bool,
     ip_address: str | None = None,
 ) -> dict[str, Any]:
-    """Crea acceso + org + trial/activación + entitlement + código + cajero inicial.
+    """Registro comercial: acceso + org + Cliente + Contrato + sub + código org.
 
+    No crea Sucursal/POS/Caja ni cajero (implementación diferida — ADR-031).
     No inicia sesión web: el asistente es comercial; el panel BO pide login explícito.
     """
     from models.saas import SaasOrganization
     from models.users import User
     from nodeone.core.db import db
+    from nodeone.core.platform.commercial_registration import (
+        ensure_customer_and_contract,
+        link_subscription_to_contract,
+    )
     from nodeone.services.user_organization import ensure_membership
 
     name = (full_name or '').strip()
@@ -388,6 +325,29 @@ def complete_start(
     )
 
     try:
+        commercial = ensure_customer_and_contract(
+            organization_id=int(org.id),
+            user_id=int(user.id),
+            display_name=name,
+            email=mail,
+            country=ctry,
+            product_code=PRODUCT_CODE,
+            plan_code=plan,
+            source='eposone_start_assistant',
+            metadata={
+                'business_name': biz,
+                'business_type': btype,
+                'legal_acceptance': legal_meta,
+            },
+        )
+    except Exception as exc:
+        raise StartAssistantError(
+            'prepare_failed',
+            'No pudimos completar el registro comercial. Tu acceso quedó guardado. Intenta nuevamente.',
+            http_status=500,
+        ) from exc
+
+    try:
         sub_info = _ensure_subscription_and_entitlement(
             organization_id=int(org.id),
             user_id=int(user.id),
@@ -396,6 +356,14 @@ def complete_start(
             business_type=btype,
             country=ctry,
         )
+        link_subscription_to_contract(
+            organization_id=int(org.id),
+            product_code=PRODUCT_CODE,
+            contract_id=int(commercial['contract_id']),
+        )
+        sub_info['contract_id'] = commercial['contract_id']
+        sub_info['contract_number'] = commercial['contract_number']
+        sub_info['modality'] = commercial['modality']
     except Exception as exc:
         raise StartAssistantError(
             'prepare_failed',
@@ -413,9 +381,6 @@ def complete_start(
             'branch_ref': None,
             'pos_ref': None,
         }
-
-    cashier_name = first_name or 'Cajero principal'
-    cashier_info = _seed_default_cashier(int(org.id), cashier_name)
 
     try:
         from nodeone.services.organization_context_resolver import set_pending_initial_organization
@@ -436,16 +401,11 @@ def complete_start(
     plan_view = plan_public_view(plan)
     checks = [
         'Acceso creado',
-        'Negocio preparado',
+        'Cliente y contrato registrados',
         sub_info.get('activation_label') or 'Plan listo',
         'Código de instalación listo' if code_info.get('code') else 'Código en preparación',
+        'Implementación operativa diferida (sin sucursal/caja aún)',
     ]
-    if cashier_info.get('pin'):
-        checks.append(
-            f"Cajero «{cashier_info.get('display_name') or cashier_name}» · PIN {cashier_info['pin']}"
-        )
-    else:
-        checks.append('Cajero: créalo en el panel EN1 antes de operar')
 
     return {
         'ok': True,
@@ -456,23 +416,36 @@ def complete_start(
         'business_type': btype,
         'country': ctry,
         'plan': plan_view,
+        'commercial': {
+            'customer_id': commercial['customer_id'],
+            'contract_id': commercial['contract_id'],
+            'contract_number': commercial['contract_number'],
+            'modality': commercial['modality'],
+        },
         'subscription': sub_info,
+        'implementation': {
+            'status': 'deferred',
+            'ops_tree_created': False,
+            'message': (
+                'El registro comercial está listo. Sucursal, POS y caja se crean '
+                'en la fase de implementación (no en este alta).'
+            ),
+        },
         'installation': {
             'code': code_info.get('code'),
-            'kind': code_info.get('kind'),
-            'register_ref': code_info.get('register_ref'),
+            'kind': code_info.get('kind') or 'organization',
+            'register_ref': None,
             'message': (
                 'Guarda este código: lo necesitarás al abrir EPosOne en tu dispositivo.'
                 if code_info.get('code')
                 else 'Tu código se está generando. Espera un momento o actualiza.'
             ),
             'cashier': {
-                'display_name': cashier_info.get('display_name'),
-                'pin': cashier_info.get('pin'),
+                'display_name': None,
+                'pin': None,
                 'message': (
-                    'Anota el PIN del cajero: lo usarás en la tablet (no es el código de instalación).'
-                    if cashier_info.get('pin')
-                    else None
+                    'El cajero se crea en la implementación o en el panel EN1 '
+                    'antes de operar en caja.'
                 ),
             },
         },
@@ -481,7 +454,10 @@ def complete_start(
         'session': {'logged_in': False},
         'wow': {
             'title': '¡Bienvenido a EPosOne!',
-            'subtitle': 'Tu negocio ya está preparado. Anota código y PIN; luego inicia sesión solo si vas al panel web.',
+            'subtitle': (
+                'Tu registro comercial está listo. Anota el código de instalación; '
+                'la configuración de caja se completa en la implementación.'
+            ),
             'checks': checks,
         },
     }

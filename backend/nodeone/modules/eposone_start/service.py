@@ -382,6 +382,21 @@ def complete_start(
             'pos_ref': None,
         }
 
+    activation_info = None
+    try:
+        from nodeone.core.platform.activation_service import ActivationService
+
+        # Standalone: emitir token ADR-035 sin crear ops (ADR-033 consumirá redeem).
+        if commercial.get('modality') == 'standalone':
+            activation_info = ActivationService.issue_for_organization_standalone(
+                organization_id=int(org.id),
+                contract_id=int(commercial['contract_id']),
+                subscription_id=sub_info.get('subscription_id'),
+                user_id=int(user.id),
+            )
+    except Exception:
+        activation_info = None
+
     try:
         from nodeone.services.organization_context_resolver import set_pending_initial_organization
 
@@ -399,11 +414,14 @@ def complete_start(
         pass
 
     plan_view = plan_public_view(plan)
+    act_token = (activation_info or {}).get('token')
     checks = [
         'Acceso creado',
         'Cliente y contrato registrados',
         sub_info.get('activation_label') or 'Plan listo',
-        'Código de instalación listo' if code_info.get('code') else 'Código en preparación',
+        'Token de activación listo' if act_token else (
+            'Código de instalación listo' if code_info.get('code') else 'Código en preparación'
+        ),
         'Implementación operativa diferida (sin sucursal/caja aún)',
     ]
 
@@ -431,21 +449,27 @@ def complete_start(
                 'en la fase de implementación (no en este alta).'
             ),
         },
+        'activation': activation_info,
         'installation': {
-            'code': code_info.get('code'),
-            'kind': code_info.get('kind') or 'organization',
+            'code': act_token or code_info.get('code'),
+            'kind': 'activation_token' if act_token else (code_info.get('kind') or 'organization'),
             'register_ref': None,
+            'legacy_provisioning_code': code_info.get('code'),
             'message': (
-                'Guarda este código: lo necesitarás al abrir EPosOne en tu dispositivo.'
-                if code_info.get('code')
-                else 'Tu código se está generando. Espera un momento o actualiza.'
+                'Guarda este token de activación: lo usarás al abrir EPosOne (ADR-035).'
+                if act_token
+                else (
+                    'Guarda este código: lo necesitarás al abrir EPosOne en tu dispositivo.'
+                    if code_info.get('code')
+                    else 'Tu código se está generando. Espera un momento o actualiza.'
+                )
             ),
             'cashier': {
                 'display_name': None,
                 'pin': None,
                 'message': (
-                    'El cajero se crea en la implementación o en el panel EN1 '
-                    'antes de operar en caja.'
+                    'El cajero se crea en el asistente Standalone (ADR-033) '
+                    'o en la implementación Connected.'
                 ),
             },
         },
@@ -455,8 +479,13 @@ def complete_start(
         'wow': {
             'title': '¡Bienvenido a EPosOne!',
             'subtitle': (
-                'Tu registro comercial está listo. Anota el código de instalación; '
-                'la configuración de caja se completa en la implementación.'
+                'Tu registro comercial está listo. Anota el token de activación; '
+                'la configuración de caja se completa en el asistente de la app.'
+                if act_token
+                else (
+                    'Tu registro comercial está listo. Anota el código de instalación; '
+                    'la configuración de caja se completa en la implementación.'
+                )
             ),
             'checks': checks,
         },

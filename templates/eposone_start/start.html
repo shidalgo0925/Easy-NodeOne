@@ -6,7 +6,7 @@
   <title>Empieza con EPosOne</title>
   <meta name="description" content="Prepara tu negocio y descarga tu punto de venta en pocos minutos." />
   <link rel="icon" href="{{ url_for('static', filename=brand_favicon) }}" type="image/svg+xml" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='eposone_start/start.css') }}?v=ux2" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='eposone_start/start.css') }}?v=ux3" />
 </head>
 <body>
   <div class="ep-page">
@@ -149,7 +149,7 @@
       <section class="screen" data-screen="8">
         <div class="content">
           <h2 id="wow-title">¡Bienvenido a EPosOne!</h2>
-          <p class="lead" id="wow-sub">Tu negocio ya está preparado. Anota código y PIN; luego instalaremos la app.</p>
+          <p class="lead" id="wow-sub">Tu negocio ya está preparado. Guardá el token de activación; luego instalaremos la app.</p>
           <ul class="wow-list" id="wow-list"></ul>
           <div class="code-box" id="code-box" hidden></div>
           <div class="code-box" id="cashier-pin-box" hidden style="margin-top:0.5rem;letter-spacing:0.08em;background:#001a4b;"></div>
@@ -161,7 +161,7 @@
         <div class="footer-cta">
           <button type="button" class="btn btn-primary" id="btn-go-install">Continuar a instalar</button>
           <a class="btn btn-secondary" href="/login">Iniciar sesión (panel web)</a>
-          <button type="button" class="btn btn-ghost" id="btn-show-code">Ver mi código de instalación</button>
+          <button type="button" class="btn btn-ghost" id="btn-show-code">Ver mi token de activación</button>
         </div>
       </section>
 
@@ -183,7 +183,7 @@
             <ul class="wow-list">
               <li>Cuenta creada</li>
               <li>Negocio preparado</li>
-              <li>Código de instalación listo</li>
+              <li>Token de activación listo</li>
             </ul>
             <p class="muted">Cuando estés frente a la tablet Android, continúa.</p>
           </div>
@@ -204,11 +204,21 @@
             <ol class="steps">
               <li>Abrí el archivo <strong>EPosOne.apk</strong> en Descargas.</li>
               <li>Pulsá <strong>Instalar</strong>.</li>
-              <li>Si Android bloquea, usá la ayuda de abajo.</li>
+              <li>Cuando termine, volvé aquí y continuá para abrir EPosOne.</li>
             </ol>
           </div>
 
           <div class="install-panel" id="install-panel-5" hidden>
+            <p class="muted">EPosOne ya debería estar instalado. Abrí la app para continuar la activación.</p>
+            <ol class="steps">
+              <li>Pulsá <strong>Abrir EPosOne</strong> (lleva el token de activación).</li>
+              <li>Si la app no abre sola, abrila desde el menú e ingresá el token.</li>
+              <li>EP1 canjeará el token (ADR-035) y seguirá el asistente Standalone.</li>
+            </ol>
+            <div class="code-box" id="activation-token-box" hidden style="margin-top:0.75rem;"></div>
+          </div>
+
+          <div class="install-panel" id="install-panel-blocked" hidden>
             <div class="reco">
               <p class="eyebrow">Android protegió tu dispositivo</p>
               <p class="muted">Es normal. Permite instalar desde este navegador y vuelve a instalar.</p>
@@ -248,8 +258,10 @@
           <button type="button" class="btn btn-primary" id="btn-install-next">Continuar</button>
           <button type="button" class="btn btn-primary" id="btn-download-apk" hidden>Descargar EPosOne</button>
           <a class="btn btn-primary" id="btn-play" href="{{ play_store_url }}" hidden download>Instalar EPosOne</a>
+          <a class="btn btn-primary" id="btn-open-ep1" href="#" hidden>Abrir EPosOne</a>
           <button type="button" class="btn btn-secondary" id="btn-android-blocked" hidden>Android bloqueó la instalación</button>
-          <button type="button" class="btn btn-ghost" id="btn-show-code-2">Ver mi código</button>
+          <button type="button" class="btn btn-ghost" id="btn-back-install" hidden>Volver a instalar</button>
+          <button type="button" class="btn btn-ghost" id="btn-show-code-2">Ver mi token de activación</button>
           <a class="btn btn-ghost" href="{{ url_for('eposone.eposone_install') }}">Panel de instalación</a>
         </div>
       </section>
@@ -258,6 +270,6 @@
   </div>
 
   <script type="application/json" id="bootstrap-data">{{ catalog | tojson }}</script>
-  <script src="{{ url_for('static', filename='eposone_start/start.js') }}?v=ux2" defer></script>
+  <script src="{{ url_for('static', filename='eposone_start/start.js') }}?v=ux3" defer></script>
 </body>
 </html>

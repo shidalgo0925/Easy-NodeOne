@@ -12,8 +12,8 @@
     1: 'Paso 1 de 5 · Cuenta lista',
     2: 'Paso 2 de 5 · Preparando descarga',
     3: 'Paso 3 de 5 · Descargando',
-    4: 'Paso 4 de 5 · Instalar',
-    5: 'Paso 5 de 5 · Si Android bloquea',
+    4: 'Paso 4 de 5 · Instalar EPosOne',
+    5: 'Paso 5 de 5 · Abrir EPosOne',
   };
   var OEM_HELP = {
     samsung:
@@ -51,6 +51,7 @@
     result: null,
     installStep: 1,
     blobUrl: null,
+    installBlocked: false,
   };
 
   var historyStack = [];
@@ -256,6 +257,18 @@
       });
   }
 
+  function activationPayload(result) {
+    return (result && result.activation) || {};
+  }
+
+  function activationDeepLink(result) {
+    var act = activationPayload(result);
+    if (act.deep_link) return act.deep_link;
+    if (act.transport && act.transport.deep_link) return act.transport.deep_link;
+    var token = act.token || (result && result.installation && result.installation.code);
+    return token ? 'eposone://activate?token=' + encodeURIComponent(token) : '';
+  }
+
   function renderWow(result) {
     var title = $('wow-title');
     var sub = $('wow-sub');
@@ -271,7 +284,7 @@
       });
     }
     var code = result.installation && result.installation.code;
-    ['code-box', 'code-box-guide'].forEach(function (id) {
+    ['code-box', 'code-box-guide', 'activation-token-box'].forEach(function (id) {
       var el = $(id);
       if (!el) return;
       if (code) {
@@ -296,6 +309,9 @@
       var play = $('btn-play');
       if (play) play.href = apkUrl;
     }
+    var openEp1 = $('btn-open-ep1');
+    var dl = activationDeepLink(result);
+    if (openEp1 && dl) openEp1.href = dl;
   }
 
   /* —— Password (P0.24) —— */
@@ -388,40 +404,69 @@
     return true;
   }
 
-  /* —— Install assistant (P0.18 / 26) —— */
-  function setInstallStep(step) {
+  /* —— Install assistant (P0 Standalone E2E) —— */
+  function setInstallStep(step, opts) {
+    opts = opts || {};
     state.installStep = step;
+    state.installBlocked = !!opts.blocked;
     document.querySelectorAll('#install-step-bar span').forEach(function (el) {
       var n = parseInt(el.getAttribute('data-i'), 10);
       el.classList.toggle('on', n <= step);
     });
     var lab = $('install-step-label');
-    if (lab) lab.textContent = INSTALL_LABELS[step] || '';
+    if (lab) {
+      lab.textContent = state.installBlocked
+        ? 'Ayuda · Android bloqueó la instalación'
+        : INSTALL_LABELS[step] || '';
+    }
     for (var i = 1; i <= 5; i++) {
       var panel = $('install-panel-' + i);
-      if (panel) panel.hidden = i !== step;
+      if (panel) panel.hidden = state.installBlocked || i !== step;
     }
+    var blockedPanel = $('install-panel-blocked');
+    if (blockedPanel) blockedPanel.hidden = !state.installBlocked;
+
     var next = $('btn-install-next');
     var dl = $('btn-download-apk');
     var open = $('btn-play');
+    var openEp1 = $('btn-open-ep1');
     var blocked = $('btn-android-blocked');
+    var backInstall = $('btn-back-install');
+
     if (next) {
-      next.hidden = !(step === 1 || step === 2);
-      next.textContent = step === 1 ? 'Preparar descarga' : 'Continuar';
-      next.disabled = false;
+      if (state.installBlocked) {
+        next.hidden = true;
+      } else if (step === 1 || step === 2) {
+        next.hidden = false;
+        next.textContent = step === 1 ? 'Preparar descarga' : 'Continuar';
+        next.disabled = false;
+      } else if (step === 4) {
+        next.hidden = false;
+        next.textContent = 'Ya instalé · Abrir EPosOne';
+        next.disabled = false;
+      } else {
+        next.hidden = true;
+      }
     }
     if (dl) {
-      dl.hidden = step !== 3;
+      dl.hidden = state.installBlocked || step !== 3;
       dl.disabled = false;
       dl.textContent = 'Descargar EPosOne';
     }
     if (open) {
-      open.hidden = step !== 4;
+      open.hidden = state.installBlocked || step !== 4;
       open.textContent = 'Instalar EPosOne';
       if (state.blobUrl) open.href = state.blobUrl;
       else open.href = apkUrl;
     }
-    if (blocked) blocked.hidden = step !== 4;
+    if (openEp1) {
+      openEp1.hidden = state.installBlocked || step !== 5;
+      openEp1.textContent = 'Abrir EPosOne';
+      var dlHref = activationDeepLink(state.result);
+      if (dlHref) openEp1.href = dlHref;
+    }
+    if (blocked) blocked.hidden = state.installBlocked || step !== 4;
+    if (backInstall) backInstall.hidden = !state.installBlocked;
   }
 
   function startDownload() {
@@ -478,17 +523,17 @@
         document.body.appendChild(a);
         a.click();
         a.remove();
+        // No quedarse en Descargar: siguiente etapa visible = Instalar
         setTimeout(function () {
           setInstallStep(4);
         }, 400);
       })
       .catch(function () {
-        if (status) status.textContent = 'No se pudo descargar. Reintentá.';
+        if (status) status.textContent = 'Descarga iniciada por el navegador. Continuá a instalar.';
         if (btn) {
           btn.disabled = false;
           btn.textContent = 'Reintentar descarga';
         }
-        // Fallback: navegación directa
         var a = document.createElement('a');
         a.href = apkUrl;
         a.setAttribute('download', 'EPosOne.apk');
@@ -496,6 +541,10 @@
         document.body.appendChild(a);
         a.click();
         a.remove();
+        // Tras iniciar descarga (fallback), avanzar a Instalar — no dejar en Descargar
+        setTimeout(function () {
+          setInstallStep(4);
+        }, 800);
       });
   }
 
@@ -568,7 +617,7 @@
   function toggleCode(show) {
     var code =
       state.result && state.result.installation && state.result.installation.code;
-    ['code-box', 'code-box-guide'].forEach(function (id) {
+    ['code-box', 'code-box-guide', 'activation-token-box'].forEach(function (id) {
       var el = $(id);
       if (!el) return;
       if (code) {
@@ -641,6 +690,9 @@
         }, 600);
       } else if (state.installStep === 2) {
         startDownload();
+      } else if (state.installStep === 4) {
+        setInstallStep(5);
+        toggleCode(true);
       }
     });
   }
@@ -649,7 +701,12 @@
   }
   if ($('btn-android-blocked')) {
     $('btn-android-blocked').addEventListener('click', function () {
-      setInstallStep(5);
+      setInstallStep(4, { blocked: true });
+    });
+  }
+  if ($('btn-back-install')) {
+    $('btn-back-install').addEventListener('click', function () {
+      setInstallStep(4);
     });
   }
   if ($('oem-select')) {

@@ -54,11 +54,28 @@ def _token_string() -> str:
     return f'{raw[0:4]}-{raw[4:8]}-{raw[8:12]}'
 
 
-def _activate_url(token: str) -> str:
-    base = (os.environ.get('NODEONE_EPOSONE_PUBLIC_BASE') or '').strip().rstrip('/')
+def _activate_url(token: str, *, public_base: str | None = None) -> str:
+    base = (public_base or os.environ.get('NODEONE_EPOSONE_PUBLIC_BASE') or '').strip().rstrip('/')
     if not base:
         base = 'https://eposone.easytech.services'
     return f'{base}/activate?token={token}'
+
+
+def _deep_link(token: str) -> str:
+    """Esquema EP1 — transporte técnico (no QR comercial /start)."""
+    return f'eposone://activate?token={token}'
+
+
+def activation_transport(token: str, *, public_base: str | None = None) -> dict[str, Any]:
+    """Contrato de transporte para LOCAL / UI /start."""
+    t = (token or '').strip()
+    return {
+        'token': t,
+        'activate_url': _activate_url(t, public_base=public_base),
+        'deep_link': _deep_link(t),
+        'commercial_entry': '/start',
+        'technical_only': True,
+    }
 
 
 def _audit(organization_id: int | None, event_type: str, payload: dict[str, Any]) -> None:
@@ -225,6 +242,7 @@ class ActivationService:
         register_ref: str | None = None,
         user_id: int | None = None,
         ops_ready: bool | None = None,
+        public_base: str | None = None,
     ) -> dict[str, Any]:
         from models.ets_activation_license import EtsActivationLicense
         from models.ets_activation_token import EtsActivationToken
@@ -273,7 +291,7 @@ class ActivationService:
             'activation.token_issued',
             {'token_id': row.id, 'license_id': lic.id, 'modality': lic.modality},
         )
-        return cls._token_public(row, lic)
+        return cls._token_public(row, lic, public_base=public_base)
 
     @classmethod
     def reissue_token(cls, *, license_id: int, revoke_previous_active: bool = True, **kwargs) -> dict[str, Any]:
@@ -408,7 +426,8 @@ class ActivationService:
         return lic, tok
 
     @classmethod
-    def _token_public(cls, tok, lic) -> dict[str, Any]:
+    def _token_public(cls, tok, lic, *, public_base: str | None = None) -> dict[str, Any]:
+        transport = activation_transport(tok.token, public_base=public_base)
         return {
             'token_id': int(tok.id),
             'token': tok.token,
@@ -420,11 +439,19 @@ class ActivationService:
             'expires_at': tok.expires_at.isoformat() + 'Z' if tok.expires_at else None,
             'max_uses': int(tok.max_uses),
             'register_ref': tok.register_ref,
-            'activate_url': _activate_url(tok.token),
+            'activate_url': transport['activate_url'],
+            'deep_link': transport['deep_link'],
             'qr_path': f'/api/v1/activation/tokens/{int(tok.id)}/qr.png',
             'transport': {
                 'commercial_qr': '/start',
                 'technical_qr': 'token_only',
+                'activate_url': transport['activate_url'],
+                'deep_link': transport['deep_link'],
+            },
+            'redeem': {
+                'method': 'POST',
+                'path': '/api/v1/activation/redeem',
+                'validate_path': '/api/v1/activation/validate',
             },
         }
 
@@ -437,8 +464,12 @@ class ActivationService:
         subscription_id: int | None = None,
         user_id: int | None = None,
         ends_at: datetime | None = None,
+        public_base: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Helper /start Standalone: licencia + token sin árbol ops."""
+        meta = dict(metadata or {})
+        meta.setdefault('source', 'eposone_start_assistant')
         lic = cls.ensure_license(
             organization_id=organization_id,
             modality='standalone',
@@ -447,6 +478,10 @@ class ActivationService:
             subscription_id=subscription_id,
             ends_at=ends_at,
             user_id=user_id,
-            metadata={'source': 'eposone_start_assistant'},
+            metadata=meta,
         )
-        return cls.issue_token(license_id=int(lic.id), user_id=user_id)
+        return cls.issue_token(
+            license_id=int(lic.id),
+            user_id=user_id,
+            public_base=public_base,
+        )

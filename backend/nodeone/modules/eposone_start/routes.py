@@ -62,11 +62,23 @@ def start_recommend():
     return jsonify(recommend_for_business_type(business_type))
 
 
+def _public_base_from_request() -> str | None:
+    """Base pública preferida (proxy) para activate_url / transporte."""
+    xf_proto = (request.headers.get('X-Forwarded-Proto') or '').split(',')[0].strip()
+    xf_host = (request.headers.get('X-Forwarded-Host') or '').split(',')[0].strip()
+    if xf_host:
+        scheme = xf_proto or 'https'
+        return f'{scheme}://{xf_host}'.rstrip('/')
+    root = (request.url_root or '').rstrip('/')
+    return root or None
+
+
 @eposone_start_bp.route('/api/public/eposone-start/complete', methods=['POST'])
 def start_complete():
     _require_eposone_surface()
     data = request.get_json(silent=True) or {}
     try:
+        public_base = _public_base_from_request()
         result = complete_start(
             full_name=str(data.get('full_name') or data.get('name') or ''),
             email=str(data.get('email') or ''),
@@ -82,6 +94,7 @@ def start_complete():
             .split(',')[0]
             .strip()
             or None,
+            public_base=public_base,
         )
         return jsonify(result), 201
     except StartAssistantError as exc:
@@ -100,6 +113,20 @@ def start_complete():
             ),
             500,
         )
+
+
+@eposone_start_bp.route('/activate')
+def start_activate_bridge():
+    """Puente HTTPS → deep link EP1 (transporte técnico ADR-035; no es QR comercial)."""
+    _require_eposone_surface()
+    token = (request.args.get('token') or '').strip()
+    deep_link = f'eposone://activate?token={token}' if token else ''
+    return render_template(
+        'eposone_start/activate.html',
+        token=token,
+        deep_link=deep_link,
+        brand_favicon='images/logo-eposone.svg',
+    )
 
 
 @eposone_start_bp.route('/start/install-help')

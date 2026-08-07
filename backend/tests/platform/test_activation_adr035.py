@@ -75,6 +75,10 @@ class TestActivationService(unittest.TestCase):
         issued = self._standalone_token()
         self.assertEqual(issued['modality'], 'standalone')
         self.assertEqual(issued['implementation_strategy'], 'self_serve')
+        self.assertIn('deep_link', issued)
+        self.assertTrue(issued['deep_link'].startswith('eposone://activate?token='))
+        self.assertEqual(issued['transport']['commercial_qr'], '/start')
+        self.assertEqual(issued['redeem']['path'], '/api/v1/activation/redeem')
         with patch('nodeone.core.platform.activation_service._audit'):
             claims = ActivationService.redeem(
                 token=issued['token'],

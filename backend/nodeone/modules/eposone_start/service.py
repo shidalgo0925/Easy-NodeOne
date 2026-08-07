@@ -239,10 +239,12 @@ def complete_start(
     accept_privacy: bool,
     accept_eula: bool,
     ip_address: str | None = None,
+    public_base: str | None = None,
 ) -> dict[str, Any]:
-    """Registro comercial: acceso + org + Cliente + Contrato + sub + código org.
+    """Registro comercial: acceso + org + Cliente + Contrato + sub + activación Standalone.
 
     No crea Sucursal/POS/Caja ni cajero (implementación diferida — ADR-031).
+    Emite token ADR-035 modality=standalone (P0 E2E; Connected = ADR-034, fuera de alcance).
     No inicia sesión web: el asistente es comercial; el panel BO pide login explícito.
     """
     from models.saas import SaasOrganization
@@ -386,15 +388,28 @@ def complete_start(
     try:
         from nodeone.core.platform.activation_service import ActivationService
 
-        # Standalone: emitir token ADR-035 sin crear ops (ADR-033 consumirá redeem).
-        if commercial.get('modality') == 'standalone':
-            activation_info = ActivationService.issue_for_organization_standalone(
-                organization_id=int(org.id),
-                contract_id=int(commercial['contract_id']),
-                subscription_id=sub_info.get('subscription_id'),
-                user_id=int(user.id),
-            )
-    except Exception:
+        # P0 Standalone E2E: siempre emitir token ADR-035 modality=standalone
+        # (sin árbol ops). El plan comercial puede ser connected; Connected ops = ADR-034.
+        activation_info = ActivationService.issue_for_organization_standalone(
+            organization_id=int(org.id),
+            contract_id=int(commercial['contract_id']),
+            subscription_id=sub_info.get('subscription_id'),
+            user_id=int(user.id),
+            public_base=public_base,
+            metadata={
+                'source': 'eposone_start_assistant',
+                'commercial_modality': commercial.get('modality'),
+                'plan_code': plan,
+            },
+        )
+    except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).exception(
+            'eposone_start: activation issue failed org=%s: %s',
+            getattr(org, 'id', None),
+            exc,
+        )
         activation_info = None
 
     try:

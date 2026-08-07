@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ayuda para instalar EPosOne</title>
+  <link rel="icon" href="{{ url_for('static', filename=brand_favicon) }}" type="image/svg+xml" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='eposone_start/start.css') }}?v=ux2" />
+</head>
+<body>
+  <div class="ep-page">
+    <div class="phone" style="max-height:none;">
+      <div class="topbar">
+        <div class="brand">
+          <img class="brand-logo" src="{{ url_for('static', filename='images/logo-eposone.svg') }}" alt="" width="28" height="28" />
+          EPosOne · Ayuda
+        </div>
+      </div>
+      <div class="content">
+        <h2>¿No podés instalar la app?</h2>
+        <p class="lead">Esta página es solo ayuda. No vuelve a descargar el archivo.</p>
+
+        <div class="reco">
+          <p class="eyebrow">Pasos generales</p>
+          <ol class="steps">
+            <li>Abrí el aviso de Android y pulsá <strong>Configuración</strong>.</li>
+            <li>Activá <strong>Permitir instalar apps</strong> desde este navegador.</li>
+            <li>Volvé atrás y pulsá <strong>Instalar</strong>.</li>
+            <li>Abrí EPosOne e ingresá tu código de instalación.</li>
+          </ol>
+        </div>
+
+        <h2 style="margin-top:1.25rem;font-size:1.15rem;">Según tu teléfono</h2>
+        <details class="help-details"><summary>Samsung</summary>
+          <p class="muted">Ajustes → Biometría y seguridad (o Seguridad) → Instalar apps desconocidas → elegí Chrome → permitir. Volvé a Descargas e instalá EPosOne.apk.</p>
+        </details>
+        <details class="help-details"><summary>Xiaomi / Redmi</summary>
+          <p class="muted">Ajustes → Privacidad / Seguridad → Protección de apps → Instalar apps vía fuentes externas → Chrome → permitir. Luego instalá el APK.</p>
+        </details>
+        <details class="help-details"><summary>Honor</summary>
+          <p class="muted">Ajustes → Seguridad y privacidad → Más ajustes de seguridad → Instalar apps de orígenes desconocidos → navegador → permitir.</p>
+        </details>
+        <details class="help-details"><summary>Huawei</summary>
+          <p class="muted">Ajustes → Seguridad → Más ajustes → Instalar apps de orígenes externos → navegador → activar.</p>
+        </details>
+        <details class="help-details"><summary>Motorola</summary>
+          <p class="muted">Ajustes → Apps → Acceso especial / Instalar apps desconocidas → Chrome → permitir.</p>
+        </details>
+        <details class="help-details"><summary>Realme</summary>
+          <p class="muted">Ajustes → Contraseñas y seguridad → Instalar apps desconocidas → navegador → permitir.</p>
+        </details>
+        <details class="help-details"><summary>Otros / Android 10–15</summary>
+          <p class="muted">Buscá en Ajustes “instalar apps desconocidas” o “fuentes desconocidas” y habilitalo solo para el navegador que usaste. El menú cambia por versión de Android.</p>
+        </details>
+
+        <div class="footer-cta" style="position:static;margin-top:1.5rem;">
+          <a class="btn btn-secondary" href="{{ url_for('eposone_start.start_assistant') }}">Volver al inicio</a>
+          <a class="btn btn-ghost" href="/login">Iniciar sesión</a>
+        </div>
+        <p class="muted" style="margin-top:1rem;">Soporte: usá el canal que te dio tu asesor EasyTech.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -102,6 +102,44 @@ def start_complete():
         )
 
 
+@eposone_start_bp.route('/start/install-help')
+def start_install_help():
+    """Guía pública de instalación Android (QR de ayuda — no descarga APK)."""
+    _require_eposone_surface()
+    return render_template(
+        'eposone_start/install_help.html',
+        play_store_url=play_store_url(),
+        brand_favicon='images/logo-eposone.svg',
+    )
+
+
+@eposone_start_bp.route('/start/install-help/qr.png')
+def start_install_help_qr():
+    """QR de ayuda: URL de la guía (nunca el APK)."""
+    _require_eposone_surface()
+    from flask import Response
+
+    from nodeone.modules.qr_generator.services import generate_png_bytes
+
+    try:
+        size = int(request.args.get('size') or 320)
+    except (TypeError, ValueError):
+        size = 320
+    size = max(160, min(size, 1024))
+    help_url = request.url_root.rstrip('/') + '/start/install-help'
+    png = generate_png_bytes(
+        help_url,
+        int(size),
+        'M',
+        style={'fill': '#001a4b', 'bg': '#ffffff', 'border': 2},
+    )
+    return Response(
+        png,
+        mimetype='image/png',
+        headers={'Cache-Control': 'public, max-age=3600', 'Content-Disposition': 'inline; filename=eposone-install-help-qr.png'},
+    )
+
+
 def register_eposone_start_blueprint(app) -> None:
     if 'eposone_start' not in app.blueprints:
         app.register_blueprint(eposone_start_bp)

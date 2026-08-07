@@ -68,9 +68,16 @@ class EmailService:
         
         # Obtener remitente por defecto si no se especifica
         if not sender:
-            if hasattr(self.mail, 'app') and self.mail.app is not None:
-                sender = self.mail.app.config.get('MAIL_DEFAULT_SENDER', 'noreply@example.com')
-            else:
+            try:
+                from flask import current_app, has_app_context
+
+                if has_app_context():
+                    sender = current_app.config.get('MAIL_DEFAULT_SENDER') or 'noreply@example.com'
+                elif hasattr(self.mail, 'app') and self.mail.app is not None:
+                    sender = self.mail.app.config.get('MAIL_DEFAULT_SENDER', 'noreply@example.com')
+                else:
+                    sender = 'noreply@example.com'
+            except Exception:
                 sender = 'noreply@example.com'
         
         for attempt in range(self.max_retries):

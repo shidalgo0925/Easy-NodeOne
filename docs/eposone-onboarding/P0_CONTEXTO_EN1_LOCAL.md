@@ -97,13 +97,15 @@ Overrides comerciales: **no cambian el plan**; gerencia aplica cupos/módulos au
 
 ## 5. Orden de trabajo acordado (post-prueba)
 
+Sprint oficial CODITO: **[P0_SPRINT_EN1_CODITO.md](P0_SPRINT_EN1_CODITO.md)** (P0.17–P0.30 + gate).
+
 1. **P0.17** Reaprovisionamiento — [P0_17_REPROVISIONING.md](P0_17_REPROVISIONING.md)
 2. **P0.18** Asistente instalación Android + QR ayuda OEM — [P0_18_ANDROID_INSTALL_ASSISTANT.md](P0_18_ANDROID_INSTALL_ASSISTANT.md)
-3. Mejorar contraseña (`/start`)
-4. Verificación de correo bloqueante
-5. Optimizar UX de descarga (progreso, estados)
+3. Mejorar contraseña (`/start`) — P0.24
+4. Verificación de correo bloqueante — P0.25
+5. Optimizar UX de descarga (progreso, estados) — P0.26 / P0.27
 
-Luego: overrides UI admin, cupos portal, menú por entitlement, auditoría completa.
+Luego: portal lifecycle (P0.23), overrides UI admin (P0.22), menú por entitlement, auditoría (P0.29), E2E (P0.30).
 
 ---
 
@@ -127,6 +129,7 @@ Handoff HTTP freeze: tag `eposone-onboarding-p0-v1.3` · [HANDOFF-LOCAL.md](HAND
 | Plan / overrides sin precio | [ADR-028](../ADR-028-EPOSONE-PLAN-DEFAULTS-COMMERCIAL-OVERRIDES.md) |
 | Org resolver | [ADR-029](../ADR-029-ORGANIZATION-CONTEXT-RESOLVER-V2.md) |
 | Pack índice | [README.md](README.md) |
+| Sprint EN1 CODITO | [P0_SPRINT_EN1_CODITO.md](P0_SPRINT_EN1_CODITO.md) |
 | APK path | [static/apk/eposone/README.md](../../static/apk/eposone/README.md) |
 | Reaprovisionamiento | [P0_17_REPROVISIONING.md](P0_17_REPROVISIONING.md) |
 | Asistente Android | [P0_18_ANDROID_INSTALL_ASSISTANT.md](P0_18_ANDROID_INSTALL_ASSISTANT.md) |

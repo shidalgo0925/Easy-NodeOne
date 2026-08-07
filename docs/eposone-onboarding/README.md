@@ -5,6 +5,7 @@
 | Estado | **P0 contratos + contexto** — 6 ago 2026 · implementación parcial en prod |
 | ADR marco | [`ADR-027`](../ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md) |
 | **Contexto consolidado** | [`P0_CONTEXTO_EN1_LOCAL.md`](P0_CONTEXTO_EN1_LOCAL.md) — leer primero |
+| **Sprint EN1 (Ana)** | [`P0_SPRINT_EN1_CODITO.md`](P0_SPRINT_EN1_CODITO.md) — P0.17–P0.30 + gate |
 | As-is previo | [`EPOSONE_EP1_INSTALLATION_ACTIVATION_AS_IS_V1.md`](../EPOSONE_EP1_INSTALLATION_ACTIVATION_AS_IS_V1.md) |
 | Implementa UI APK | **LOCAL** tras GO |
 | Exposición API | **EN1** |
@@ -16,6 +17,7 @@
 | Doc | Contenido |
 |-----|-----------|
 | **[P0_CONTEXTO_EN1_LOCAL.md](P0_CONTEXTO_EN1_LOCAL.md)** | **Contexto consolidado EN1 + LOCAL · prioridades P0.17 / P0.18** |
+| **[P0_SPRINT_EN1_CODITO.md](P0_SPRINT_EN1_CODITO.md)** | **Sprint EN1 Ana · P0.17–P0.30 · mapa estado · gate aceptación** |
 | [P0_17_REPROVISIONING.md](P0_17_REPROVISIONING.md) | Plan implementación reaprovisionamiento |
 | [P0_18_ANDROID_INSTALL_ASSISTANT.md](P0_18_ANDROID_INSTALL_ASSISTANT.md) | Plan asistente instalación Android + QR ayuda |
 | [ONBOARDING_FLOW_V2.md](ONBOARDING_FLOW_V2.md) | Flujo oficial P0 (sin login en `/start`) |

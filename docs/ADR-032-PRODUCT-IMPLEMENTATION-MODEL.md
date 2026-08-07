@@ -4,16 +4,17 @@
 |-------|--------|
 | ID | **ADR-032** |
 | Título | Implementación Autogestionada (Standalone) e Implementación Asistida (Connected) |
-| Estado | **PROPOSED** — pendiente aprobación formal (terminología Licencia/Token/QR enmendada) |
+| Estado | **Aprobado (arquitectura)** — 7 ago 2026 · GO usuario (v1.1 Licencia/Token/QR) |
 | Versión | 1.1 |
 | Fecha | Agosto 2026 |
 | Autor | Arquitectura EN1 / EPosOne |
 | Impacto | EN1 · Portal ETS · EPosOne APK |
-| Implementación de código | **NO autorizada** — documento de arquitectura únicamente |
+| Implementación de código | **NO autorizada** por este ADR — requiere GO de implementación por fases |
 | Pregunta rectora | **¿Quién implementa el producto?** |
 | Complementa | [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) (dominio comercial) |
 | Detalle Standalone (asistente) | [ADR-033](ADR-033-STANDALONE-ONBOARDING-ASSISTANT.md) (**PROPOSED**) |
-| Próximos (planificados) | ADR-034 Connected Provisioning Flow · ADR de Activación (Licencia → Token → QR) |
+| Detalle Connected (provisioning) | [ADR-034](ADR-034-CONNECTED-PROVISIONING-FLOW.md) (**PROPOSED**) |
+| Activación | [ADR-035](ADR-035-ACTIVATION-LICENSE-TOKEN-QR.md) (**PROPOSED**) |
 | Relacionados | [ADR-027](ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md) · [ADR-024](ADR-024-EPOSONE-START-ASSISTANT.md) · [ADR-021](ADR-021-EPOSONE-INSTALLATION-LIFECYCLE.md) · [ADR-001](ADR-001-EPOSONE-STANDALONE.md) · [EN1_MODELO_COMERCIAL_V1.md](EN1_MODELO_COMERCIAL_V1.md) |
 
 ---
@@ -97,7 +98,7 @@ Registro comercial (ADR-031)
   → APK → Provisioning → Bootstrap → Operación
 ```
 
-El detalle del aprovisionamiento Connected: **ADR-034** (pendiente de redacción).
+El detalle del aprovisionamiento Connected: **[ADR-034](ADR-034-CONNECTED-PROVISIONING-FLOW.md)**.
 
 ---
 
@@ -122,7 +123,7 @@ Contrato
 
 Ventajas del desacople: el mismo token sirve sin QR; el modelo no depende de un canal visual.
 
-El contrato HTTP/payload del token y la firma: **ADR de Activación** (planificado; no ampliar este documento).
+El contrato HTTP/payload del token y la firma: **[ADR-035](ADR-035-ACTIVATION-LICENSE-TOKEN-QR.md)**.
 
 ---
 
@@ -165,8 +166,8 @@ La implementación asistida / acompañamiento es un **servicio independiente** d
 
 | Equipo | Analizar contra |
 |--------|-----------------|
-| **LOCAL** | [ADR-033](ADR-033-STANDALONE-ONBOARDING-ASSISTANT.md) · activación por token |
-| **CODITO** | ADR-034 (cuando exista) · emisión Licencia/Token · integración ADR-031 |
+| **LOCAL** | [ADR-033](ADR-033-STANDALONE-ONBOARDING-ASSISTANT.md) · [ADR-035](ADR-035-ACTIVATION-LICENSE-TOKEN-QR.md) |
+| **CODITO** | [ADR-034](ADR-034-CONNECTED-PROVISIONING-FLOW.md) · [ADR-035](ADR-035-ACTIVATION-LICENSE-TOKEN-QR.md) · [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) |
 
 ---
 
@@ -179,6 +180,7 @@ No especifica el asistente Standalone ni el provisioning Connected en detalle.
 
 ## 14. Estado
 
-**PROPOSED** (v1.1 — terminología Licencia / Token / QR; alcance reducido a estrategias).
+**Aprobado (arquitectura)** — 7 ago 2026 (v1.1).
 
-Pendiente de **aprobación formal**. Tras aprobar: no ampliar este ADR; continuar con ADR-033 / 034 / Activación bajo GO explícito.
+Define solo las estrategias Autogestionada / Asistida y la cadena Licencia → Token → transporte.  
+**No** autoriza código. Detalle: ADR-033 / 034 / 035 bajo sus propios GO.

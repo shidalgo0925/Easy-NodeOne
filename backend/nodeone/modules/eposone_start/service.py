@@ -1,7 +1,8 @@
-"""Orquestación comercial del Asistente de Inicio EPosOne (ADR-024 / ADR-031).
+"""Orquestación comercial /start EPosOne Standalone (ADR-024 / ADR-031 enmienda P0).
 
-Reutiliza: SaasOrganization, User, Cliente/Contrato, SubscriptionRegistry,
-EntitlementService, DeviceProvisioningService. Registro ≠ implementación ops.
+Standalone: Cliente ETS + suscripción/licencia + 7 días + código email + APK.
+NO crea Organización operativa del negocio (Café Amor nace en EP1).
+NO emite provisioning Connected (ADR-034).
 """
 
 from __future__ import annotations
@@ -19,6 +20,8 @@ from nodeone.modules.eposone_start.recommend import normalize_business_type, pla
 PRODUCT_CODE = 'eposone'
 DEFAULT_COUNTRY = 'Panamá'
 DEFAULT_TZ = 'America/Panama'
+STANDALONE_PLAN = 'standalone'
+STANDALONE_GRACE_DAYS = 7
 
 
 class StartAssistantError(Exception):
@@ -86,26 +89,317 @@ def _split_display_name(full_name: str) -> tuple[str, str]:
 
 
 def _enable_eposone_module(organization_id: int) -> None:
-    from models.saas import SaasModule, SaasOrgModule
-    from nodeone.core.db import db
+    """Legacy Connected/portal. Standalone /start NO debe habilitar módulo ops."""
+    _ = organization_id
+    return
 
-    mod = SaasModule.query.filter_by(code=PRODUCT_CODE).first()
-    if mod is None:
-        return
-    link = SaasOrgModule.query.filter_by(
-        organization_id=int(organization_id),
-        module_id=int(mod.id),
-    ).first()
-    if link is None:
-        db.session.add(
-            SaasOrgModule(
-                organization_id=int(organization_id),
-                module_id=int(mod.id),
-                enabled=True,
-            )
+
+def _issue_install_code(organization_id: int, business_name: str) -> dict[str, Any]:
+    """DEPRECATED — provisioning Connected. Standalone no lo usa."""
+    _ = (organization_id, business_name)
+    return {
+        'code': None,
+        'kind': None,
+        'register_ref': None,
+        'branch_ref': None,
+        'pos_ref': None,
+    }
+
+
+def _commercial_shell_org_name(*, person_name: str, email: str) -> str:
+    """Nombre de cascarón comercial — NUNCA el nombre del negocio (Café Amor)."""
+    person = (person_name or '').strip() or (email or '').split('@')[0] or 'Cliente'
+    return f'Cliente EPosOne — {person}'[:200]
+
+
+def complete_start(
+    *,
+    full_name: str,
+    email: str,
+    password: str,
+    business_name: str,
+    business_type: str,
+    country: str | None,
+    plan_code: str,
+    accept_terms: bool,
+    accept_privacy: bool,
+    accept_eula: bool,
+    ip_address: str | None = None,
+    public_base: str | None = None,
+) -> dict[str, Any]:
+    """Registro comercial Standalone: Cliente ETS + licencia + código + APK.
+
+    Crea un cascarón comercial en EN1 (identidad de cliente), NO la empresa operativa.
+    El nombre de negocio (p. ej. Café Amor) solo va a metadata; se configura en EP1 (ADR-033).
+    """
+    from models.saas import SaasOrganization
+    from models.users import User
+    from nodeone.core.db import db
+    from nodeone.core.platform.commercial_registration import (
+        ensure_customer_and_contract,
+        link_subscription_to_contract,
+    )
+    from nodeone.services.user_organization import ensure_membership
+
+    name = (full_name or '').strip()
+    mail = (email or '').strip().lower()
+    pwd = password or ''
+    biz = (business_name or '').strip()  # opcional / CRM — no es Org EN1
+    btype = normalize_business_type(business_type) if business_type else 'other'
+    ctry = (country or '').strip() or DEFAULT_COUNTRY
+    # /start Standalone: siempre plan standalone (Connected = asesoría, fuera de este flujo)
+    plan = STANDALONE_PLAN
+    _ = plan_code  # ignorar plan Connected enviado por UI legacy
+
+    if not name or not mail or not pwd:
+        raise StartAssistantError(
+            'validation_error',
+            'Revisa los campos marcados e intenta de nuevo.',
         )
-    else:
-        link.enabled = True
+    if len(pwd) < 8:
+        raise StartAssistantError(
+            'validation_error',
+            'La contraseña debe tener al menos 8 caracteres.',
+        )
+    if not (accept_terms and accept_privacy and accept_eula):
+        raise StartAssistantError(
+            'legal_required',
+            'Debes aceptar Términos, Privacidad y EULA para continuar.',
+        )
+    if User.query.filter_by(email=mail).first() is not None:
+        raise StartAssistantError(
+            'email_exists',
+            'Ya existe un acceso con este correo. Inicia sesión o recupera tu contraseña.',
+            http_status=409,
+        )
+
+    first_name, last_name = _split_display_name(name)
+    shell_name = _commercial_shell_org_name(person_name=name, email=mail)
+    org = SaasOrganization(
+        name=shell_name,
+        legal_name=shell_name,
+        subdomain=_unique_subdomain(f'ets-cli-{mail.split("@")[0]}'),
+        is_active=True,
+        registration_policy='invite_only',
+        timezone=DEFAULT_TZ,
+        fiscal_country=ctry[:120],
+        fiscal_email=mail[:200],
+    )
+    db.session.add(org)
+    db.session.flush()
+
+    user = User(
+        email=mail,
+        first_name=first_name,
+        last_name=last_name,
+        country=ctry[:100],
+        organization_id=int(org.id),
+        is_admin=False,
+        email_verified=False,
+        is_active=True,
+    )
+    user.set_password(pwd)
+    db.session.add(user)
+    db.session.flush()
+
+    ensure_membership(int(user.id), int(org.id), role='owner')
+    # Sin SaasOrgModule eposone: no es tenant operativo Connected
+    db.session.commit()
+
+    legal_meta = _record_legal_metadata(
+        organization_id=int(org.id),
+        user_id=int(user.id),
+        accepted={'terms': True, 'privacy': True, 'eula': True},
+        plan_code=plan,
+        ip_address=ip_address,
+    )
+
+    try:
+        commercial = ensure_customer_and_contract(
+            organization_id=int(org.id),
+            user_id=int(user.id),
+            display_name=name,
+            email=mail,
+            country=ctry,
+            product_code=PRODUCT_CODE,
+            plan_code=plan,
+            source='eposone_start_standalone',
+            metadata={
+                'commercial_shell': True,
+                'intended_business_name': biz or None,
+                'business_type': btype,
+                'legal_acceptance': legal_meta,
+                'note': 'Negocio operativo se crea en EP1 (ADR-033), no en EN1.',
+            },
+        )
+    except Exception as exc:
+        raise StartAssistantError(
+            'prepare_failed',
+            'No pudimos completar el registro comercial. Tu acceso quedó guardado. Intenta nuevamente.',
+            http_status=500,
+        ) from exc
+
+    grace_ends = datetime.utcnow() + timedelta(days=STANDALONE_GRACE_DAYS)
+    try:
+        sub_info = _ensure_subscription_and_entitlement(
+            organization_id=int(org.id),
+            user_id=int(user.id),
+            plan_code=plan,
+            legal_meta=legal_meta,
+            business_type=btype,
+            country=ctry,
+        )
+        link_subscription_to_contract(
+            organization_id=int(org.id),
+            product_code=PRODUCT_CODE,
+            contract_id=int(commercial['contract_id']),
+        )
+        sub_info['contract_id'] = commercial['contract_id']
+        sub_info['contract_number'] = commercial['contract_number']
+        sub_info['modality'] = 'standalone'
+        sub_info['grace_days'] = STANDALONE_GRACE_DAYS
+        sub_info['grace_ends_at'] = grace_ends.isoformat() + 'Z'
+    except Exception as exc:
+        raise StartAssistantError(
+            'prepare_failed',
+            'No pudimos completar este paso. Tu información está guardada. Intenta nuevamente.',
+            http_status=500,
+        ) from exc
+
+    activation_info = None
+    try:
+        from nodeone.core.platform.activation_service import ActivationService
+
+        activation_info = ActivationService.issue_for_organization_standalone(
+            organization_id=int(org.id),
+            contract_id=int(commercial['contract_id']),
+            subscription_id=sub_info.get('subscription_id'),
+            user_id=int(user.id),
+            bound_email=str(user.email or ''),
+            ends_at=grace_ends,
+            public_base=public_base,
+            metadata={
+                'source': 'eposone_start_standalone',
+                'commercial_modality': 'standalone',
+                'plan_code': plan,
+                'grace_days': STANDALONE_GRACE_DAYS,
+                'commercial_shell': True,
+            },
+        )
+    except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).exception(
+            'eposone_start: activation issue failed org=%s: %s',
+            getattr(org, 'id', None),
+            exc,
+        )
+        activation_info = None
+
+    try:
+        from nodeone.services.organization_context_resolver import set_pending_initial_organization
+
+        set_pending_initial_organization(int(user.id), int(org.id))
+    except Exception:
+        pass
+
+    try:
+        from flask_login import current_user, logout_user
+
+        if getattr(current_user, 'is_authenticated', False):
+            logout_user()
+    except Exception:
+        pass
+
+    plan_view = plan_public_view(plan)
+    act_code = (activation_info or {}).get('activation_code') or (activation_info or {}).get('manual_code')
+    act_token_id = (activation_info or {}).get('token_id')
+    ready_token = None
+    try:
+        from nodeone.modules.eposone_start.ready_session import issue_ready_token
+
+        ready_token = issue_ready_token(
+            user_id=int(user.id),
+            organization_id=int(org.id),
+            activation_token_id=int(act_token_id) if act_token_id else None,
+        )
+    except Exception:
+        ready_token = None
+
+    verification_sent = False
+    try:
+        from app import send_verification_email
+
+        ok_mail, _err = send_verification_email(user)
+        verification_sent = bool(ok_mail)
+    except Exception:
+        verification_sent = False
+
+    email_verified = bool(getattr(user, 'email_verified', False))
+    checks = [
+        'Cliente ETS registrado',
+        'Suscripción Standalone con 7 días de gracia',
+        'Te enviamos un correo para verificar' if verification_sent else 'Revisá tu correo para verificar',
+        'Código de activación listo' if act_code else 'Activación en preparación',
+    ]
+
+    return {
+        'ok': True,
+        'organization_id': int(org.id),
+        'organization_name': org.name,
+        'commercial_shell': True,
+        'user_id': int(user.id),
+        'email': user.email,
+        'business_type': btype,
+        'intended_business_name': biz or None,
+        'country': ctry,
+        'plan': plan_view,
+        'requires_email_verification': not email_verified,
+        'email_verified': email_verified,
+        'verification_email_sent': verification_sent,
+        'ready_token': ready_token,
+        'commercial': {
+            'customer_id': commercial['customer_id'],
+            'contract_id': commercial['contract_id'],
+            'contract_number': commercial['contract_number'],
+            'modality': 'standalone',
+        },
+        'subscription': sub_info,
+        'implementation': {
+            'status': 'deferred_to_ep1',
+            'ops_tree_created': False,
+            'message': 'La configuración del negocio se hace en la app EPosOne tras activar.',
+        },
+        'activation': activation_info if email_verified else None,
+        'installation': {
+            'code': act_code if email_verified else None,
+            'kind': 'activation_code' if act_code else None,
+            'register_ref': None,
+            'legacy_provisioning_code': None,
+            'message': (
+                'Después de verificar tu correo te enviamos el código de activación y el enlace de descarga.'
+                if not email_verified
+                else 'Descargá EPosOne e introducí tu correo y código de activación en la app.'
+            ),
+            'cashier': {
+                'display_name': None,
+                'pin': None,
+                'message': 'El cajero se crea en el asistente local de la app (ADR-033).',
+            },
+        },
+        'play_store_url': play_store_url(),
+        'download_cta_label': download_cta_label(),
+        'session': {'logged_in': False},
+        'wow': {
+            'title': 'Revisá tu correo',
+            'subtitle': (
+                f'Te enviamos un enlace a {user.email}. Verificá tu correo para recibir el código e instalar EPosOne.'
+                if not email_verified
+                else 'Tu EPosOne Standalone está listo para instalar.'
+            ),
+            'checks': checks,
+        },
+    }
 
 
 def _record_legal_metadata(
@@ -208,323 +502,6 @@ def _ensure_subscription_and_entitlement(
         'status': status,
         'activation_label': activation_label,
         'trial_days': trial_days,
-    }
-
-
-def _issue_install_code(organization_id: int, business_name: str) -> dict[str, Any]:
-    """Código de instalación a nivel organización (ADR-031: sin árbol ops en registro)."""
-    from nodeone.modules.eposone.device_provisioning import DeviceProvisioningService
-
-    _ = business_name  # etiqueta futura; org-level no la requiere
-    code = DeviceProvisioningService.ensure_provisioning_code(int(organization_id))
-    return {
-        'code': code,
-        'kind': 'organization',
-        'register_ref': None,
-        'branch_ref': None,
-        'pos_ref': None,
-    }
-
-
-def complete_start(
-    *,
-    full_name: str,
-    email: str,
-    password: str,
-    business_name: str,
-    business_type: str,
-    country: str | None,
-    plan_code: str,
-    accept_terms: bool,
-    accept_privacy: bool,
-    accept_eula: bool,
-    ip_address: str | None = None,
-    public_base: str | None = None,
-) -> dict[str, Any]:
-    """Registro comercial: acceso + org + Cliente + Contrato + sub + activación Standalone.
-
-    No crea Sucursal/POS/Caja ni cajero (implementación diferida — ADR-031).
-    Emite token ADR-035 modality=standalone (P0 E2E; Connected = ADR-034, fuera de alcance).
-    No inicia sesión web: el asistente es comercial; el panel BO pide login explícito.
-    """
-    from models.saas import SaasOrganization
-    from models.users import User
-    from nodeone.core.db import db
-    from nodeone.core.platform.commercial_registration import (
-        ensure_customer_and_contract,
-        link_subscription_to_contract,
-    )
-    from nodeone.services.user_organization import ensure_membership
-
-    name = (full_name or '').strip()
-    mail = (email or '').strip().lower()
-    pwd = password or ''
-    biz = (business_name or '').strip()
-    btype = normalize_business_type(business_type)
-    ctry = (country or '').strip() or DEFAULT_COUNTRY
-    plan = normalize_commercial_plan_code(plan_code)
-
-    if not name or not mail or not pwd or not biz:
-        raise StartAssistantError(
-            'validation_error',
-            'Revisa los campos marcados e intenta de nuevo.',
-        )
-    if len(pwd) < 8:
-        raise StartAssistantError(
-            'validation_error',
-            'La contraseña debe tener al menos 8 caracteres.',
-        )
-    if not (accept_terms and accept_privacy and accept_eula):
-        raise StartAssistantError(
-            'legal_required',
-            'Debes aceptar Términos, Privacidad y EULA para continuar.',
-        )
-    if User.query.filter_by(email=mail).first() is not None:
-        raise StartAssistantError(
-            'email_exists',
-            'Ya existe un acceso con este correo. Inicia sesión o recupera tu contraseña.',
-            http_status=409,
-        )
-
-    first_name, last_name = _split_display_name(name)
-    org = SaasOrganization(
-        name=biz[:200],
-        legal_name=biz[:200],
-        subdomain=_unique_subdomain(biz),
-        is_active=True,
-        registration_policy='invite_only',
-        timezone=DEFAULT_TZ,
-        fiscal_country=ctry[:120],
-        fiscal_email=mail[:200],
-    )
-    db.session.add(org)
-    db.session.flush()
-
-    user = User(
-        email=mail,
-        first_name=first_name,
-        last_name=last_name,
-        country=ctry[:100],
-        organization_id=int(org.id),
-        is_admin=False,
-        email_verified=False,
-        is_active=True,
-    )
-    user.set_password(pwd)
-    db.session.add(user)
-    db.session.flush()
-
-    ensure_membership(int(user.id), int(org.id), role='owner')
-    _enable_eposone_module(int(org.id))
-    db.session.commit()
-
-    legal_meta = _record_legal_metadata(
-        organization_id=int(org.id),
-        user_id=int(user.id),
-        accepted={'terms': True, 'privacy': True, 'eula': True},
-        plan_code=plan,
-        ip_address=ip_address,
-    )
-
-    try:
-        commercial = ensure_customer_and_contract(
-            organization_id=int(org.id),
-            user_id=int(user.id),
-            display_name=name,
-            email=mail,
-            country=ctry,
-            product_code=PRODUCT_CODE,
-            plan_code=plan,
-            source='eposone_start_assistant',
-            metadata={
-                'business_name': biz,
-                'business_type': btype,
-                'legal_acceptance': legal_meta,
-            },
-        )
-    except Exception as exc:
-        raise StartAssistantError(
-            'prepare_failed',
-            'No pudimos completar el registro comercial. Tu acceso quedó guardado. Intenta nuevamente.',
-            http_status=500,
-        ) from exc
-
-    try:
-        sub_info = _ensure_subscription_and_entitlement(
-            organization_id=int(org.id),
-            user_id=int(user.id),
-            plan_code=plan,
-            legal_meta=legal_meta,
-            business_type=btype,
-            country=ctry,
-        )
-        link_subscription_to_contract(
-            organization_id=int(org.id),
-            product_code=PRODUCT_CODE,
-            contract_id=int(commercial['contract_id']),
-        )
-        sub_info['contract_id'] = commercial['contract_id']
-        sub_info['contract_number'] = commercial['contract_number']
-        sub_info['modality'] = commercial['modality']
-    except Exception as exc:
-        raise StartAssistantError(
-            'prepare_failed',
-            'No pudimos completar este paso. Tu información está guardada. Intenta nuevamente.',
-            http_status=500,
-        ) from exc
-
-    try:
-        code_info = _issue_install_code(int(org.id), biz)
-    except Exception:
-        code_info = {
-            'code': None,
-            'kind': None,
-            'register_ref': None,
-            'branch_ref': None,
-            'pos_ref': None,
-        }
-
-    activation_info = None
-    try:
-        from nodeone.core.platform.activation_service import ActivationService
-
-        # P0 Standalone E2E: siempre emitir token ADR-035 modality=standalone
-        # (sin árbol ops). El plan comercial puede ser connected; Connected ops = ADR-034.
-        activation_info = ActivationService.issue_for_organization_standalone(
-            organization_id=int(org.id),
-            contract_id=int(commercial['contract_id']),
-            subscription_id=sub_info.get('subscription_id'),
-            user_id=int(user.id),
-            bound_email=str(user.email or ''),
-            public_base=public_base,
-            metadata={
-                'source': 'eposone_start_assistant',
-                'commercial_modality': commercial.get('modality'),
-                'plan_code': plan,
-            },
-        )
-    except Exception as exc:
-        import logging
-
-        logging.getLogger(__name__).exception(
-            'eposone_start: activation issue failed org=%s: %s',
-            getattr(org, 'id', None),
-            exc,
-        )
-        activation_info = None
-
-    try:
-        from nodeone.services.organization_context_resolver import set_pending_initial_organization
-
-        set_pending_initial_organization(int(user.id), int(org.id))
-    except Exception:
-        pass
-
-    # Sin login_user: evita sesión colgada / branding de otro tenant en el host EPosOne.
-    try:
-        from flask_login import current_user, logout_user
-
-        if getattr(current_user, 'is_authenticated', False):
-            logout_user()
-    except Exception:
-        pass
-
-    plan_view = plan_public_view(plan)
-    act_code = (activation_info or {}).get('activation_code') or (activation_info or {}).get('manual_code')
-    act_token_id = (activation_info or {}).get('token_id')
-    ready_token = None
-    try:
-        from nodeone.modules.eposone_start.ready_session import issue_ready_token
-
-        ready_token = issue_ready_token(
-            user_id=int(user.id),
-            organization_id=int(org.id),
-            activation_token_id=int(act_token_id) if act_token_id else None,
-        )
-    except Exception:
-        ready_token = None
-
-    verification_sent = False
-    try:
-        from app import send_verification_email
-
-        # Preferir next hacia /start/ready en el enlace de verificación
-        ok_mail, _err = send_verification_email(user)
-        verification_sent = bool(ok_mail)
-        if verification_sent and getattr(user, 'email_verification_token', None) and ready_token:
-            try:
-                from nodeone.core.db import db as _db
-
-                # Reescribir URL guardada no aplica; el verify-email redirige por pending_initial
-                _db.session.add(user)
-            except Exception:
-                pass
-    except Exception:
-        verification_sent = False
-
-    email_verified = bool(getattr(user, 'email_verified', False))
-    checks = [
-        'Acceso creado',
-        'Negocio registrado',
-        'Te enviamos un correo para verificar' if verification_sent else 'Revisá tu correo para verificar',
-        'Código de activación listo' if act_code else 'Activación en preparación',
-    ]
-
-    return {
-        'ok': True,
-        'organization_id': int(org.id),
-        'organization_name': org.name,
-        'user_id': int(user.id),
-        'email': user.email,
-        'business_type': btype,
-        'country': ctry,
-        'plan': plan_view,
-        'requires_email_verification': not email_verified,
-        'email_verified': email_verified,
-        'verification_email_sent': verification_sent,
-        'ready_token': ready_token,
-        'commercial': {
-            'customer_id': commercial['customer_id'],
-            'contract_id': commercial['contract_id'],
-            'contract_number': commercial['contract_number'],
-            'modality': commercial['modality'],
-        },
-        'subscription': sub_info,
-        'implementation': {
-            'status': 'deferred',
-            'ops_tree_created': False,
-            'message': 'La configuración de caja se completa en la app EPosOne.',
-        },
-        # Activación solo se expone al cliente tras verificar (ready-status).
-        'activation': activation_info if email_verified else None,
-        'installation': {
-            'code': act_code if email_verified else None,
-            'kind': 'activation_code' if act_code else None,
-            'register_ref': None,
-            'legacy_provisioning_code': code_info.get('code'),
-            'message': (
-                'Después de verificar tu correo te enviaremos el código de activación y el enlace de descarga.'
-                if not email_verified
-                else 'Descargá EPosOne e introducí tu correo y código de activación en la app.'
-            ),
-            'cashier': {
-                'display_name': None,
-                'pin': None,
-                'message': 'El cajero se crea en el asistente de la app.',
-            },
-        },
-        'play_store_url': play_store_url(),
-        'download_cta_label': download_cta_label(),
-        'session': {'logged_in': False},
-        'wow': {
-            'title': 'Revisá tu correo',
-            'subtitle': (
-                f'Te enviamos un enlace a {user.email}. Verificá tu correo para continuar e instalar EPosOne.'
-                if not email_verified
-                else 'Tu EPosOne está listo para instalar.'
-            ),
-            'checks': checks,
-        },
     }
 
 

@@ -24,10 +24,12 @@ Definir el **asistente de primera instalación Standalone** en EP1 para que el c
 Camino canónico:
 
 ```text
-QR comercial (/start) → cuenta ETS → Org/Contrato/Suscripción/Licencia Standalone
-  → descarga APK → instalar → abrir EP1 → activación (ADR-035)
-  → asistente Standalone → negocio local → PIN → caja → primera venta
+QR comercial (/start) → Cliente ETS → Suscripción/Licencia Standalone (7 días gracia)
+  → código email + APK → EP1 valida código (ADR-035)
+  → asistente Standalone local → negocio (Café Amor) → PIN → caja → READY_TO_SELL
 ```
+
+> **Enmienda P0:** EN1 **no** crea Café Amor / Org operativa. El negocio nace en EP1. Ver [`EN1_START_STANDALONE_P0_REFACTOR_REPORT.md`](EN1_START_STANDALONE_P0_REFACTOR_REPORT.md).
 
 ---
 

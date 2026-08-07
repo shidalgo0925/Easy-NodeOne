@@ -751,4 +751,5 @@ class ActivationService:
             user_id=user_id,
             bound_email=email,
             public_base=public_base,
+            ttl_days=int(meta.get('grace_days') or 7),
         )

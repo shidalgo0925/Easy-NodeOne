@@ -2170,6 +2170,11 @@ def send_verification_email(user):
         if not EMAIL_TEMPLATES_AVAILABLE or not email_service:
             print(f"⚠️ Email service no disponible. No se enviará email de verificación a {user.email}")
             return False, "Servicio de email no configurado. El administrador debe configurar SMTP en Configuración → Email."
+
+        try:
+            apply_email_config_from_db()
+        except Exception as cfg_exc:
+            print(f"⚠️ apply_email_config_from_db en verify: {cfg_exc}")
         
         # Refrescar usuario desde BD para asegurar que tenemos la versión más reciente
         db.session.refresh(user)

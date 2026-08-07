@@ -135,7 +135,7 @@
           <div class="code-box" id="cashier-pin-box" hidden style="margin-top:0.5rem;letter-spacing:0.08em;background:#001a4b;"></div>
         </div>
         <div class="footer-cta">
-          <a class="btn btn-primary" id="btn-play" href="{{ play_store_url }}" target="_blank" rel="noopener">Descargar EPosOne</a>
+          <a class="btn btn-primary" id="btn-play" href="{{ play_store_url }}" target="_blank" rel="noopener" download>{{ download_cta_label }}</a>
           <a class="btn btn-secondary" href="/login">Iniciar sesión</a>
           <a class="btn btn-secondary" id="btn-install-portal" href="{{ url_for('eposone.eposone_install') }}">Instalar dispositivo (tras login)</a>
           <button type="button" class="btn btn-ghost" id="btn-show-code">Ver mi código de instalación</button>
@@ -149,7 +149,8 @@
           <h2>Instala EPosOne</h2>
           <p class="lead">Sigue estos pasos en tu dispositivo Android.</p>
           <ol class="steps">
-            <li>Descarga EPosOne en Google Play</li>
+            <li>Descarga el APK de EPosOne (desde este sitio)</li>
+            <li>Permite instalar apps de orígenes desconocidos si Android lo pide</li>
             <li>Instala la aplicación</li>
             <li>Inicia sesión con el correo que creaste</li>
             <li>Escanea o ingresa tu código de instalación</li>
@@ -158,7 +159,7 @@
           <div class="code-box" id="code-box-guide" hidden></div>
         </div>
         <div class="footer-cta">
-          <a class="btn btn-primary" id="btn-play-2" href="{{ play_store_url }}" target="_blank" rel="noopener">Abrir Google Play</a>
+          <a class="btn btn-primary" id="btn-play-2" href="{{ play_store_url }}" target="_blank" rel="noopener" download>{{ download_cta_label }}</a>
           <a class="btn btn-secondary" href="{{ url_for('eposone.eposone_install') }}">Panel de instalación</a>
           <button type="button" class="btn btn-ghost" id="btn-show-code-2">Ver mi código</button>
         </div>
@@ -168,6 +169,6 @@
   </div>
 
   <script type="application/json" id="bootstrap-data">{{ catalog | tojson }}</script>
-  <script src="{{ url_for('static', filename='eposone_start/start.js') }}?v=start3" defer></script>
+  <script src="{{ url_for('static', filename='eposone_start/start.js') }}?v=apk1" defer></script>
 </body>
 </html>

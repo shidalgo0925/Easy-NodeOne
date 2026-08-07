@@ -266,8 +266,16 @@
       }
     }
     if (result.play_store_url) {
-      $('btn-play').href = result.play_store_url;
-      $('btn-play-2').href = result.play_store_url;
+      var dl = result.play_store_url;
+      var label = result.download_cta_label || (
+        /play\.google\.com/i.test(dl) ? 'Abrir Google Play' : 'Descargar APK'
+      );
+      ['btn-play', 'btn-play-2'].forEach(function (id) {
+        var btn = $(id);
+        if (!btn) return;
+        btn.href = dl;
+        btn.textContent = label;
+      });
     }
   }
 

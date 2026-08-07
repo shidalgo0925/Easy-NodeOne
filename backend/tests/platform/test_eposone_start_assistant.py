@@ -11,6 +11,36 @@ backend_dir = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(backend_dir))
 
 
+class TestDownloadUrl(unittest.TestCase):
+    def test_default_is_en1_apk(self):
+        from nodeone.modules.eposone_start.service import (
+            DEFAULT_APK_DOWNLOAD_URL,
+            download_cta_label,
+            play_store_url,
+        )
+
+        with patch.dict('os.environ', {}, clear=False):
+            import os
+
+            os.environ.pop('NODEONE_EPOSONE_APK_URL', None)
+            os.environ.pop('NODEONE_EPOSONE_PLAY_STORE_URL', None)
+            self.assertEqual(play_store_url(), DEFAULT_APK_DOWNLOAD_URL)
+            self.assertEqual(download_cta_label(), 'Descargar APK')
+
+    def test_apk_env_wins(self):
+        from nodeone.modules.eposone_start.service import play_store_url
+
+        with patch.dict(
+            'os.environ',
+            {
+                'NODEONE_EPOSONE_APK_URL': 'https://cdn.example/EPosOne.apk',
+                'NODEONE_EPOSONE_PLAY_STORE_URL': 'https://play.google.com/x',
+            },
+            clear=False,
+        ):
+            self.assertEqual(play_store_url(), 'https://cdn.example/EPosOne.apk')
+
+
 class TestRecommendEngine(unittest.TestCase):
     def test_cafe_recommends_business(self):
         from nodeone.modules.eposone_start.recommend import recommend_for_business_type
@@ -52,6 +82,9 @@ class TestStartRoutes(unittest.TestCase):
             body = r.get_data(as_text=True)
             self.assertIn('Empieza con EPosOne', body)
             self.assertIn('eposone_start/start.js', body)
+            self.assertIn('Descargar APK', body)
+            self.assertIn('/static/apk/eposone/EPosOne.apk', body)
+            self.assertNotIn('Google Play', body)
 
     def test_start_404_on_en1_host(self):
         with self.app.test_client() as c:

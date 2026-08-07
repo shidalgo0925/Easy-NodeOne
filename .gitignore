@@ -73,6 +73,9 @@ instance/
 # User uploads
 static/uploads/
 
+# APK binarios hospedados en silo (ver static/apk/eposone/README.md)
+*.apk
+
 # Logos subidos por tenant (admin); persistidos bajo static/uploads/emails/logos/ — no versionar en public/
 static/public/emails/logos/logo-email-org*
 

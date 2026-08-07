@@ -29,11 +29,31 @@ class StartAssistantError(Exception):
         self.http_status = http_status
 
 
+# APK hospedado en EN1 (static). Play Store solo si se fuerza por env.
+DEFAULT_APK_DOWNLOAD_URL = '/static/apk/eposone/EPosOne.apk'
+
+
 def play_store_url() -> str:
-    return (
-        (os.environ.get('NODEONE_EPOSONE_PLAY_STORE_URL') or '').strip()
-        or 'https://play.google.com/store/search?q=EPosOne&c=apps'
-    )
+    """URL de descarga de la app: APK en EN1 por defecto.
+
+    Prioridad: NODEONE_EPOSONE_APK_URL → NODEONE_EPOSONE_PLAY_STORE_URL → APK estático.
+    El nombre histórico `play_store_url` se conserva en la API /start.
+    """
+    apk = (os.environ.get('NODEONE_EPOSONE_APK_URL') or '').strip()
+    if apk:
+        return apk
+    play = (os.environ.get('NODEONE_EPOSONE_PLAY_STORE_URL') or '').strip()
+    if play:
+        return play
+    return DEFAULT_APK_DOWNLOAD_URL
+
+
+def download_cta_label(url: str | None = None) -> str:
+    """Etiqueta del CTA según destino (APK EN1 vs Play)."""
+    target = (url if url is not None else play_store_url()).strip().lower()
+    if 'play.google.com' in target:
+        return 'Abrir Google Play'
+    return 'Descargar APK'
 
 
 def _slugify(text: str, *, max_len: int = 40) -> str:
@@ -457,6 +477,7 @@ def complete_start(
             },
         },
         'play_store_url': play_store_url(),
+        'download_cta_label': download_cta_label(),
         'session': {'logged_in': False},
         'wow': {
             'title': '¡Bienvenido a EPosOne!',

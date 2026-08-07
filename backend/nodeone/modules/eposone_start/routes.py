@@ -5,7 +5,12 @@ from __future__ import annotations
 from flask import Blueprint, abort, jsonify, render_template, request
 
 from nodeone.modules.eposone_start.recommend import catalog_payload, recommend_for_business_type
-from nodeone.modules.eposone_start.service import StartAssistantError, complete_start, play_store_url
+from nodeone.modules.eposone_start.service import (
+    StartAssistantError,
+    complete_start,
+    download_cta_label,
+    play_store_url,
+)
 
 eposone_start_bp = Blueprint('eposone_start', __name__)
 
@@ -29,10 +34,12 @@ def start_assistant():
     """SPA del Asistente de Inicio (solo superficie producto EPosOne)."""
     _require_eposone_surface()
     catalog = catalog_payload()
+    download_url = play_store_url()
     return render_template(
         'eposone_start/start.html',
         catalog=catalog,
-        play_store_url=play_store_url(),
+        play_store_url=download_url,
+        download_cta_label=download_cta_label(download_url),
         brand_favicon='images/logo-eposone.svg',
     )
 

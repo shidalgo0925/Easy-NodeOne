@@ -82,8 +82,10 @@ class TestStartRoutes(unittest.TestCase):
             body = r.get_data(as_text=True)
             self.assertIn('Empieza con EPosOne', body)
             self.assertIn('eposone_start/start.js', body)
-            self.assertIn('Descargar APK', body)
+            self.assertIn('Generar contraseña segura', body)
+            self.assertIn('Asistente de instalación', body)
             self.assertIn('/static/apk/eposone/EPosOne.apk', body)
+            self.assertIn('install-help', body)
             self.assertNotIn('Google Play', body)
 
     def test_start_404_on_en1_host(self):

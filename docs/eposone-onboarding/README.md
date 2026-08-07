@@ -2,11 +2,12 @@
 
 | Campo | Valor |
 |-------|--------|
-| Estado | **P0 contratos** — 6 ago 2026 · **sin implementación de código** |
+| Estado | **P0 contratos + contexto** — 6 ago 2026 · implementación parcial en prod |
 | ADR marco | [`ADR-027`](../ADR-027-EPOSONE-ONBOARDING-UNIFICADO-V1.md) |
+| **Contexto consolidado** | [`P0_CONTEXTO_EN1_LOCAL.md`](P0_CONTEXTO_EN1_LOCAL.md) — leer primero |
 | As-is previo | [`EPOSONE_EP1_INSTALLATION_ACTIVATION_AS_IS_V1.md`](../EPOSONE_EP1_INSTALLATION_ACTIVATION_AS_IS_V1.md) |
-| Implementa UI | **LOCAL** (APK) tras GO |
-| Exposición API | **EN1** P1 (modality, login onboarding, portal) |
+| Implementa UI APK | **LOCAL** tras GO |
+| Exposición API | **EN1** |
 
 ---
 
@@ -14,6 +15,9 @@
 
 | Doc | Contenido |
 |-----|-----------|
+| **[P0_CONTEXTO_EN1_LOCAL.md](P0_CONTEXTO_EN1_LOCAL.md)** | **Contexto consolidado EN1 + LOCAL · prioridades P0.17 / P0.18** |
+| [P0_17_REPROVISIONING.md](P0_17_REPROVISIONING.md) | Plan implementación reaprovisionamiento |
+| [P0_18_ANDROID_INSTALL_ASSISTANT.md](P0_18_ANDROID_INSTALL_ASSISTANT.md) | Plan asistente instalación Android + QR ayuda |
 | [ONBOARDING_FLOW_V2.md](ONBOARDING_FLOW_V2.md) | Flujo oficial P0 (sin login en `/start`) |
 | [ORGANIZATION_RESOLVER_V2.md](ORGANIZATION_RESOLVER_V2.md) | Orden de resolución + pending |
 | [COMMERCIAL_OVERRIDE_MODEL.md](COMMERCIAL_OVERRIDE_MODEL.md) | Plan vs overrides (ADR-028) |
@@ -108,12 +112,14 @@ flowchart TB
 
 ---
 
-## Qué no hace este P0
+## Qué no hace este pack (aún)
 
-- Código  
-- Hosting APK en EN1  
-- Pasarela  
-- Cambiar tablas salvo lo que P1 decida al mapear lifecycle enums  
+- Pasarela de pago en `/start`
+- UI completa de overrides comerciales (ADR-028 admin)
+- Menú dinámico 100 % por entitlement
+- P0.17 / P0.18 en código (ver planes de implementación abajo)
+
+**Ya fuera del “no hace”:** hosting APK en EN1 (`/static/apk/eposone/EPosOne.apk`).
 
 ---
 

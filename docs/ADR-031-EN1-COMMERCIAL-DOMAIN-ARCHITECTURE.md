@@ -244,9 +244,11 @@ La creación de estos recursos **es** la Implementación, no el registro del cli
 
 ## 18. Standalone
 
-Standalone **NO** significa: cliente anónimo, sin cuenta, sin organización, sin licencia.
+> **Enmienda P0 (2026-08-07):** Standalone **no** crea la empresa operativa (p. ej. Café Amor) como Organización EN1. `/start` registra **Cliente ETS** + suscripción/licencia Standalone + código de activación; el negocio se configura en EP1 (ADR-033). Puede existir un *cascarón comercial* (`saas_organization` con nombre `Cliente EPosOne — …`) por FKs actuales — **sin** Sucursal/POS/Caja. Ver [`EN1_START_STANDALONE_P0_REFACTOR_REPORT.md`](EN1_START_STANDALONE_P0_REFACTOR_REPORT.md).
 
-Standalone **sí** significa: cliente registrado, organización creada, contrato, suscripción, licencia.
+Standalone **NO** significa: cliente anónimo, sin cuenta, sin licencia.
+
+Standalone **sí** significa: cliente registrado en ETS, contrato/suscripción/licencia Standalone, activación por código, implementación **local** en EP1.
 
 La diferencia: la implementación operacional puede ser **mínima o diferida**.
 

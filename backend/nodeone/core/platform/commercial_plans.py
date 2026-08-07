@@ -104,8 +104,8 @@ _COMMERCIAL_PLANS: dict[str, dict[str, Any]] = {
         'code': 'standalone',
         'name': 'Standalone',
         'description': (
-            'Modalidad local para pequeños comercios con un solo punto de venta. '
-            'Activación al contratar · Sin prueba automática.'
+            'Modalidad local autogestionada. Registro comercial ETS + 7 días de gracia; '
+            'el negocio se configura después en la app EPosOne.'
         ),
         'eyebrow': 'Modalidad local',
         'price_monthly': 15.00,
@@ -113,7 +113,7 @@ _COMMERCIAL_PLANS: dict[str, dict[str, Any]] = {
         'currency': 'USD',
         'status': 'active',
         'modality': 'local',
-        'trial_days': 0,
+        'trial_days': 7,
         'resource_limits': {
             'branches': 1,
             'pos': 1,

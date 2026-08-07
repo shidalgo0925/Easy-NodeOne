@@ -92,7 +92,7 @@ def start_complete():
             business_name=str(data.get('business_name') or ''),
             business_type=str(data.get('business_type') or ''),
             country=str(data.get('country') or '') or None,
-            plan_code=str(data.get('plan_code') or 'starter'),
+            plan_code=str(data.get('plan_code') or 'standalone'),
             accept_terms=bool(data.get('accept_terms')),
             accept_privacy=bool(data.get('accept_privacy')),
             accept_eula=bool(data.get('accept_eula')),

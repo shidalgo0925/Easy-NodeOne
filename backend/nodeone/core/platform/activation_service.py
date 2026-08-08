@@ -443,7 +443,7 @@ class ActivationService:
         )
         if send_email:
             try:
-                from nodeone.modules.eposone_start.service import send_standalone_ready_email
+                from nodeone.modules.eposone_start.service import ensure_standalone_ready_email_sent
                 from models.users import User
 
                 user = None
@@ -452,7 +452,7 @@ class ActivationService:
                 if user is None:
                     user = User.query.filter_by(email=(bound_email or '').strip().lower()).first()
                 if user is not None:
-                    send_standalone_ready_email(
+                    ensure_standalone_ready_email_sent(
                         user=user,
                         organization_name=organization_name or '',
                         activation=issued,

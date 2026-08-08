@@ -56,6 +56,21 @@
     readyToken: initialReady || '',
     emailVerified: false,
     pollTimer: null,
+    attribution: (function () {
+      var q = {};
+      try {
+        var sp = new URLSearchParams(window.location.search || '');
+        ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'ref', 'referral_code'].forEach(
+          function (k) {
+            var v = sp.get(k);
+            if (v) q[k === 'ref' ? 'referral_code' : k] = v;
+          }
+        );
+      } catch (e) {}
+      q.channel = 'web';
+      q.landing_url = window.location.href;
+      return q;
+    })(),
   };
 
   var historyStack = [];
@@ -682,6 +697,7 @@
       body: JSON.stringify({
         full_name: ($('full_name').value || '').trim(),
         email: ($('email').value || '').trim(),
+        phone: ($('phone') && $('phone').value ? $('phone').value : '').trim(),
         password: $('password').value || '',
         business_name: ($('business_name').value || '').trim(),
         business_type: state.businessType,
@@ -690,6 +706,14 @@
         accept_terms: terms,
         accept_privacy: privacy,
         accept_eula: eula,
+        channel: (state.attribution && state.attribution.channel) || 'web',
+        referral_code: state.attribution && state.attribution.referral_code,
+        utm_source: state.attribution && state.attribution.utm_source,
+        utm_medium: state.attribution && state.attribution.utm_medium,
+        utm_campaign: state.attribution && state.attribution.utm_campaign,
+        utm_content: state.attribution && state.attribution.utm_content,
+        utm_term: state.attribution && state.attribution.utm_term,
+        landing_url: (state.attribution && state.attribution.landing_url) || window.location.href,
       }),
     })
       .then(function (r) {

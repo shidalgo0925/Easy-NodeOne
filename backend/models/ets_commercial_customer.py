@@ -30,6 +30,8 @@ class EtsCommercialCustomer(db.Model):
     # registered | active | suspended | cancelled
     status = db.Column(db.String(32), nullable=False, default='registered', index=True)
     primary_user_id = db.Column(db.Integer, nullable=True)
+    # SoT identidad/fiscal: en1_contact bajo org proveedor ETS
+    contact_id = db.Column(db.Integer, nullable=True, index=True)
     metadata_json = db.Column(db.Text, nullable=True)
 
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

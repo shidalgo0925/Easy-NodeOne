@@ -94,6 +94,20 @@ def start_complete():
             accept_terms=bool(data.get('accept_terms')),
             accept_privacy=bool(data.get('accept_privacy')),
             accept_eula=bool(data.get('accept_eula')),
+            phone=str(data.get('phone') or data.get('whatsapp') or '') or None,
+            attribution={
+                'channel': data.get('channel') or 'web',
+                'source_detail': data.get('source_detail') or data.get('source'),
+                'campaign': data.get('campaign'),
+                'referral_code': data.get('referral_code'),
+                'advisor_user_id': data.get('advisor_user_id'),
+                'utm_source': data.get('utm_source') or request.args.get('utm_source'),
+                'utm_medium': data.get('utm_medium') or request.args.get('utm_medium'),
+                'utm_campaign': data.get('utm_campaign') or request.args.get('utm_campaign'),
+                'utm_content': data.get('utm_content') or request.args.get('utm_content'),
+                'utm_term': data.get('utm_term') or request.args.get('utm_term'),
+                'landing_url': data.get('landing_url') or request.url,
+            },
             ip_address=(request.headers.get('X-Forwarded-For') or request.remote_addr or '')
             .split(',')[0]
             .strip()

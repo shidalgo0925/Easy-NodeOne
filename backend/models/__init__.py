@@ -29,6 +29,7 @@ from .qr_codes import *  # noqa: F403
 from .platform_app import *  # noqa: F403
 from .ets_commercial_customer import *  # noqa: F403
 from .ets_commercial_contract import *  # noqa: F403
+from .ets_commercial_attribution import *  # noqa: F403
 from .ets_activation_license import *  # noqa: F403
 from .ets_activation_token import *  # noqa: F403
 from .ets_product_subscription import *  # noqa: F403

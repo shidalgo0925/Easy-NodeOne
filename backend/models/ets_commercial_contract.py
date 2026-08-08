@@ -35,6 +35,27 @@ class EtsCommercialContract(db.Model):
     starts_at = db.Column(db.DateTime, nullable=True)
     ends_at = db.Column(db.DateTime, nullable=True)
     source = db.Column(db.String(64), nullable=True)
+
+    # Condiciones comerciales acordadas
+    agreed_price = db.Column(db.Numeric(12, 2), nullable=True)
+    discount_percent = db.Column(db.Numeric(5, 2), nullable=True)
+    discount_amount = db.Column(db.Numeric(12, 2), nullable=True)
+    currency = db.Column(db.String(8), nullable=True, default='USD')
+    # monthly | annual
+    billing_period = db.Column(db.String(16), nullable=True)
+    # self_serve | assisted
+    implementation_mode = db.Column(db.String(32), nullable=True)
+
+    # Evidencia de contrato
+    # electronic | paper
+    contract_type = db.Column(db.String(16), nullable=True, default='electronic')
+    contract_version = db.Column(db.String(32), nullable=True)
+    terms_version = db.Column(db.String(32), nullable=True)
+    accepted_at = db.Column(db.DateTime, nullable=True)
+    accepted_by_user_id = db.Column(db.Integer, nullable=True)
+    # CoreAttachment.id (papel) — nullable
+    attachment_id = db.Column(db.Integer, nullable=True)
+
     metadata_json = db.Column(db.Text, nullable=True)
     created_by_user_id = db.Column(db.Integer, nullable=True)
 

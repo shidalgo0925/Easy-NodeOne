@@ -35,6 +35,7 @@ def ensure_customer_and_contract(
     source: str = 'eposone_start_assistant',
     metadata: dict[str, Any] | None = None,
     phone: str | None = None,
+    contact_id: int | None = None,
 ) -> dict[str, Any]:
     """Crea (o reutiliza) Cliente bajo org proveedor ETS + Contrato activo del producto.
 
@@ -61,6 +62,7 @@ def ensure_customer_and_contract(
             country=(country or '').strip()[:120] or None,
             status='registered',
             primary_user_id=int(user_id),
+            contact_id=int(contact_id) if contact_id else None,
             metadata_json=meta_json,
             created_at=now,
             updated_at=now,
@@ -75,6 +77,8 @@ def ensure_customer_and_contract(
         if phone:
             customer.phone = phone.strip()[:64]
         customer.primary_user_id = int(user_id)
+        if contact_id:
+            customer.contact_id = int(contact_id)
         customer.updated_at = now
         if meta_json:
             customer.metadata_json = meta_json
@@ -117,6 +121,7 @@ def ensure_customer_and_contract(
         'plan_code': contract.plan_code,
         'product_code': contract.product_code,
         'organization_id': oid,
+        'contact_id': int(customer.contact_id) if customer.contact_id else None,
     }
 
 

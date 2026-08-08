@@ -16,6 +16,8 @@ def ensure_ets_commercial_schema(db, engine, printfn=None) -> None:
     _ensure_subscription_contract_id(engine, dialect, printfn)
     _migrate_customer_under_provider(engine, dialect, printfn)
     _migrate_subscription_customer_id(engine, dialect, printfn)
+    _migrate_expediente_columns(engine, dialect, printfn)
+    _ensure_attribution(engine, dialect, printfn)
 
 
 def _ensure_customer(engine, dialect: str, tables: set[str], printfn) -> None:
@@ -237,3 +239,116 @@ def _migrate_subscription_customer_id(engine, dialect: str, printfn) -> None:
         )
     if printfn:
         printfn('ets_product_subscription.customer_id + uniques parciales OK')
+
+
+def _add_col_pg(conn, table: str, col: str, ddl_type: str) -> None:
+    conn.execute(text(f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {ddl_type}'))
+
+
+def _migrate_expediente_columns(engine, dialect: str, printfn) -> None:
+    """Columnas de expediente comercial (contact_id, precio, evidencia contrato)."""
+    insp = inspect(engine)
+    tables = set(insp.get_table_names())
+    if 'ets_commercial_customer' not in tables or 'ets_commercial_contract' not in tables:
+        return
+    if dialect != 'postgresql':
+        if printfn:
+            printfn('expediente columns: skip non-pg')
+        return
+
+    cust_cols = {c['name'] for c in insp.get_columns('ets_commercial_customer')}
+    ctr_cols = {c['name'] for c in insp.get_columns('ets_commercial_contract')}
+    with engine.begin() as conn:
+        if 'contact_id' not in cust_cols:
+            _add_col_pg(conn, 'ets_commercial_customer', 'contact_id', 'INTEGER')
+            conn.execute(
+                text(
+                    'CREATE INDEX IF NOT EXISTS ix_ets_commercial_customer_contact '
+                    'ON ets_commercial_customer (contact_id)'
+                )
+            )
+        for col, typ in (
+            ('agreed_price', 'NUMERIC(12,2)'),
+            ('discount_percent', 'NUMERIC(5,2)'),
+            ('discount_amount', 'NUMERIC(12,2)'),
+            ('currency', 'VARCHAR(8)'),
+            ('billing_period', 'VARCHAR(16)'),
+            ('implementation_mode', 'VARCHAR(32)'),
+            ('contract_type', 'VARCHAR(16)'),
+            ('contract_version', 'VARCHAR(32)'),
+            ('terms_version', 'VARCHAR(32)'),
+            ('accepted_at', 'TIMESTAMP WITHOUT TIME ZONE'),
+            ('accepted_by_user_id', 'INTEGER'),
+            ('attachment_id', 'INTEGER'),
+        ):
+            if col not in ctr_cols:
+                _add_col_pg(conn, 'ets_commercial_contract', col, typ)
+    if printfn:
+        printfn('expediente: customer.contact_id + contract commercial/evidence OK')
+
+
+def _ensure_attribution(engine, dialect: str, printfn) -> None:
+    insp = inspect(engine)
+    if 'ets_commercial_attribution' in set(insp.get_table_names()):
+        if printfn:
+            printfn('ets_commercial_attribution: ya existe')
+        return
+    if dialect == 'postgresql':
+        ddl = """
+        CREATE TABLE IF NOT EXISTS ets_commercial_attribution (
+            id SERIAL PRIMARY KEY,
+            organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
+            customer_id INTEGER NOT NULL REFERENCES ets_commercial_customer(id) ON DELETE CASCADE,
+            contract_id INTEGER,
+            channel VARCHAR(64) NOT NULL DEFAULT 'web',
+            source_detail VARCHAR(200),
+            campaign VARCHAR(200),
+            referral_code VARCHAR(64),
+            advisor_user_id INTEGER,
+            utm_source VARCHAR(120),
+            utm_medium VARCHAR(120),
+            utm_campaign VARCHAR(120),
+            utm_content VARCHAR(120),
+            utm_term VARCHAR(120),
+            landing_url VARCHAR(500),
+            attributed_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+            metadata_json TEXT,
+            created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+            updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+            CONSTRAINT uq_ets_commercial_attribution_customer UNIQUE (customer_id)
+        );
+        CREATE INDEX IF NOT EXISTS ix_ets_commercial_attribution_org ON ets_commercial_attribution (organization_id);
+        CREATE INDEX IF NOT EXISTS ix_ets_commercial_attribution_channel ON ets_commercial_attribution (channel);
+        CREATE INDEX IF NOT EXISTS ix_ets_commercial_attribution_referral ON ets_commercial_attribution (referral_code);
+        """
+    else:
+        ddl = """
+        CREATE TABLE IF NOT EXISTS ets_commercial_attribution (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            organization_id INTEGER NOT NULL,
+            customer_id INTEGER NOT NULL UNIQUE,
+            contract_id INTEGER,
+            channel VARCHAR(64) NOT NULL DEFAULT 'web',
+            source_detail VARCHAR(200),
+            campaign VARCHAR(200),
+            referral_code VARCHAR(64),
+            advisor_user_id INTEGER,
+            utm_source VARCHAR(120),
+            utm_medium VARCHAR(120),
+            utm_campaign VARCHAR(120),
+            utm_content VARCHAR(120),
+            utm_term VARCHAR(120),
+            landing_url VARCHAR(500),
+            attributed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            metadata_json TEXT,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+    with engine.begin() as conn:
+        for stmt in ddl.strip().split(';'):
+            s = stmt.strip()
+            if s:
+                conn.execute(text(s))
+    if printfn:
+        printfn('ets_commercial_attribution: tabla creada')

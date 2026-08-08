@@ -126,12 +126,15 @@ def complete_start(
     accept_eula: bool,
     ip_address: str | None = None,
     public_base: str | None = None,
+    phone: str | None = None,
+    attribution: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Registro comercial Standalone bajo compañía ETS (ADR-031).
 
-    Crea User + Cliente/Contrato/Suscripción/Licencia en la org productora ETS.
-    NO crea saas_organization cascarón ni árbol operativo (eso es EP1 / ADR-033).
+    Expediente: Contact ETS + Customer + Contrato (precio/aceptación) + atribución
+    + Suscripción + Licencia. NO crea Org operativa del comprador (ADR-033).
     """
+    from models.ets_commercial_contract import EtsCommercialContract
     from models.saas import SaasOrganization
     from models.users import User
     from nodeone.core.db import db
@@ -140,15 +143,22 @@ def complete_start(
         link_subscription_to_contract,
     )
     from nodeone.core.platform.ets_provider import ets_provider_organization_id
+    from nodeone.core.platform.standalone_expediente import (
+        apply_contract_commercial_terms,
+        ensure_attribution,
+        ensure_standalone_contact,
+    )
 
     name = (full_name or '').strip()
     mail = (email or '').strip().lower()
     pwd = password or ''
     biz = (business_name or '').strip()
+    phone_n = (phone or '').strip() or None
     btype = normalize_business_type(business_type) if business_type else 'other'
     ctry = (country or '').strip() or DEFAULT_COUNTRY
     plan = STANDALONE_PLAN
     _ = plan_code
+    attr_in = dict(attribution or {})
 
     if not name or not mail or not pwd:
         raise StartAssistantError(
@@ -182,6 +192,25 @@ def complete_start(
         )
 
     first_name, last_name = _split_display_name(name)
+
+    try:
+        contact = ensure_standalone_contact(
+            provider_organization_id=int(provider.id),
+            full_name=name,
+            email=mail,
+            phone=phone_n,
+            country=ctry,
+            intended_business_name=biz or None,
+        )
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        raise StartAssistantError(
+            'prepare_failed',
+            'No pudimos crear el contacto comercial en ETS. Intenta nuevamente.',
+            http_status=500,
+        ) from exc
+
     user = User(
         email=mail,
         first_name=first_name,
@@ -192,6 +221,8 @@ def complete_start(
         email_verified=False,
         is_active=True,
     )
+    if hasattr(user, 'linked_contact_id'):
+        user.linked_contact_id = int(contact.id)
     user.set_password(pwd)
     db.session.add(user)
     db.session.commit()
@@ -214,14 +245,46 @@ def complete_start(
             product_code=PRODUCT_CODE,
             plan_code=plan,
             source='eposone_start_standalone',
+            phone=phone_n,
+            contact_id=int(contact.id),
             metadata={
                 'provider_organization_id': int(provider.id),
                 'intended_business_name': biz or None,
                 'business_type': btype,
                 'legal_acceptance': legal_meta,
+                'contact_id': int(contact.id),
                 'note': 'Cliente comercial ETS. Negocio operativo en EP1 (ADR-033).',
             },
         )
+        contract = EtsCommercialContract.query.get(int(commercial['contract_id']))
+        if contract is not None:
+            apply_contract_commercial_terms(
+                contract=contract,
+                plan_code=plan,
+                user_id=int(user.id),
+                contract_type='electronic',
+                terms_version='start-legal-v1',
+                billing_period='monthly',
+                implementation_mode='self_serve',
+            )
+            db.session.commit()
+        ensure_attribution(
+            provider_organization_id=int(provider.id),
+            customer_id=int(commercial['customer_id']),
+            contract_id=int(commercial['contract_id']),
+            channel=attr_in.get('channel') or 'web',
+            source_detail=attr_in.get('source_detail') or attr_in.get('source') or 'eposone_start',
+            campaign=attr_in.get('campaign') or attr_in.get('utm_campaign'),
+            referral_code=attr_in.get('referral_code'),
+            advisor_user_id=attr_in.get('advisor_user_id'),
+            utm_source=attr_in.get('utm_source'),
+            utm_medium=attr_in.get('utm_medium'),
+            utm_campaign=attr_in.get('utm_campaign'),
+            utm_content=attr_in.get('utm_content'),
+            utm_term=attr_in.get('utm_term'),
+            landing_url=attr_in.get('landing_url') or (public_base or '') + '/start',
+        )
+        db.session.commit()
     except Exception as exc:
         raise StartAssistantError(
             'prepare_failed',
@@ -358,6 +421,9 @@ def complete_start(
             'contract_id': commercial['contract_id'],
             'contract_number': commercial['contract_number'],
             'modality': 'standalone',
+            'contact_id': int(contact.id),
+            'contract_type': 'electronic',
+            'implementation_mode': 'self_serve',
         },
         'subscription': sub_info,
         'implementation': {
@@ -801,6 +867,14 @@ def deliver_standalone_ready_after_verify(
             organization_name=str(display),
             activation=activation,
         )
+
+    if customer_id:
+        try:
+            from nodeone.core.platform.standalone_expediente import mark_customer_active
+
+            mark_customer_active(int(customer_id))
+        except Exception:
+            pass
 
     ready_token = None
     try:

@@ -161,15 +161,20 @@
                                     </button>
                                     <ul class="dropdown-menu dropdown-menu-end">
                                         <li>
-                                            <button type="button" class="dropdown-item" disabled title="Próximamente">
+                                            <button type="button" class="dropdown-item btn-edit-contact"
+                                                    data-bs-toggle="modal" data-bs-target="#editContactModal"
+                                                    data-contact-id="{{ contact.id }}">
                                                 <i class="fas fa-pen me-2 text-muted"></i>Editar
                                             </button>
                                         </li>
+                                        {% if has_view_endpoint is defined and has_view_endpoint('contacts_admin.contacts_edit') %}
                                         <li>
-                                            <button type="button" class="dropdown-item" disabled title="Próximamente">
-                                                <i class="fas fa-history me-2 text-muted"></i>Ver historial
-                                            </button>
+                                            <a class="dropdown-item"
+                                               href="{{ url_for('contacts_admin.contacts_edit', contact_id=contact.id) }}">
+                                                <i class="fas fa-external-link-alt me-2 text-muted"></i>Abrir en CRM EN1
+                                            </a>
                                         </li>
+                                        {% endif %}
                                         {% if not is_fiscal %}
                                         <li>
                                             <button type="button" class="dropdown-item btn-upgrade-fiscal"
@@ -182,17 +187,6 @@
                                             </button>
                                         </li>
                                         {% endif %}
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li>
-                                            <button type="button" class="dropdown-item" disabled title="Próximamente">
-                                                <i class="fas fa-ban me-2 text-muted"></i>Desactivar
-                                            </button>
-                                        </li>
-                                        <li>
-                                            <button type="button" class="dropdown-item text-danger" disabled title="Próximamente">
-                                                <i class="fas fa-trash me-2"></i>Eliminar
-                                            </button>
-                                        </li>
                                     </ul>
                                 </div>
                             </td>
@@ -290,7 +284,8 @@
 {# ——— Cliente Fiscal (FE Panamá — UI preparada) ——— #}
 <div class="modal fade" id="createFiscalModal" tabindex="-1" aria-labelledby="createFiscalModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <form method="post" action="{{ url_for('eposone.eposone_contact_create') }}" class="modal-content" id="createFiscalForm">
+        <form method="post" action="{{ url_for('eposone.eposone_contact_create') }}" class="modal-content" id="createFiscalForm"
+              enctype="multipart/form-data">
             {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
             <input type="hidden" name="is_customer" value="1">
             <input type="hidden" name="client_profile" value="fiscal">
@@ -387,21 +382,40 @@
                     </div>
                 </div>
 
-                <details class="epos-prod-details">
-                    <summary>Información comercial (preparado)</summary>
+                <details class="epos-prod-details" id="fis-commercial-details">
+                    <summary>Expediente comercial (opcional · segundo tiempo)</summary>
                     <div class="row g-2 pt-2">
                         <div class="col-12">
                             <label class="form-label" for="fis_notes">Observaciones</label>
-                            <textarea class="form-control" id="fis_notes" rows="2" disabled
-                                      placeholder="Se habilitará cuando el maestro exponga notas"></textarea>
+                            <textarea class="form-control" id="fis_notes" name="notes" rows="2"
+                                      placeholder="Notas del cliente / solicitud"></textarea>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Crédito</label>
-                            <input class="form-control" disabled placeholder="Próximamente">
+                        <div class="col-md-4">
+                            <label class="form-label" for="fis_plan">Plan</label>
+                            <select class="form-select" id="fis_plan" name="plan_code">
+                                <option value="">—</option>
+                                <option value="standalone">Standalone</option>
+                                <option value="starter">Starter</option>
+                                <option value="business">Business</option>
+                                <option value="enterprise">Enterprise</option>
+                            </select>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Lista de precios</label>
-                            <input class="form-control" disabled placeholder="Próximamente">
+                        <div class="col-md-4">
+                            <label class="form-label" for="fis_billing">En el pago</label>
+                            <select class="form-select" id="fis_billing" name="billing_period">
+                                <option value="">—</option>
+                                <option value="monthly">Mensual</option>
+                                <option value="annual">Anual</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="fis_price">Precio acordado USD</label>
+                            <input class="form-control" id="fis_price" name="agreed_price" placeholder="15.00">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="fis_contract">Foto / PDF del contrato</label>
+                            <input class="form-control" type="file" id="fis_contract" name="contract_file"
+                                   accept=".jpg,.jpeg,.png,.webp,.pdf,image/*,application/pdf">
                         </div>
                     </div>
                 </details>
@@ -413,6 +427,192 @@
         </form>
     </div>
 </div>
+
+{# ——— Editar cliente (maestro EN1) ——— #}
+<div class="modal fade" id="editContactModal" tabindex="-1" aria-labelledby="editContactModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <form method="post" enctype="multipart/form-data" class="modal-content" id="editContactForm">
+            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+            <input type="hidden" name="is_customer" value="1">
+            <input type="hidden" name="client_profile" value="fiscal" id="edit_client_profile">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editContactModalLabel">Editar cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">Cambios se guardan en el maestro EN1.</p>
+                <div class="epos-prod-section mb-3">
+                    <h3 class="epos-prod-section__title">Identidad</h3>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label" for="edit_kind">Persona / Empresa</label>
+                            <select class="form-select" id="edit_kind" name="contact_type">
+                                <option value="person">Persona Natural</option>
+                                <option value="company">Empresa</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label" for="edit_name">Nombre / Razón social <span class="text-danger">*</span></label>
+                            <input class="form-control" id="edit_name" name="display_name" required maxlength="300">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="edit_company">Razón social</label>
+                            <input class="form-control" id="edit_company" name="company_name" maxlength="300">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="edit_commercial">Nombre comercial</label>
+                            <input class="form-control" id="edit_commercial" name="commercial_name" maxlength="300">
+                        </div>
+                    </div>
+                </div>
+                <div class="epos-prod-section mb-3">
+                    <h3 class="epos-prod-section__title">Fiscal y contacto</h3>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label" for="edit_id_type">Tipo documento</label>
+                            <select class="form-select" id="edit_id_type" name="identification_type">
+                                <option value="cedula">Cédula</option>
+                                <option value="ruc">RUC</option>
+                                <option value="passport">Pasaporte</option>
+                                <option value="consumer_final">Consumidor final</option>
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label" for="edit_tax">Documento</label>
+                            <input class="form-control" id="edit_tax" name="tax_id" maxlength="80">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="edit_dv">DV</label>
+                            <input class="form-control" id="edit_dv" name="dv" maxlength="10">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="edit_email">Email</label>
+                            <input type="email" class="form-control" id="edit_email" name="email" maxlength="255">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="edit_phone">Teléfono</label>
+                            <input class="form-control" id="edit_phone" name="phone" maxlength="50">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="edit_mobile">Celular</label>
+                            <input class="form-control" id="edit_mobile" name="mobile" maxlength="50">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="edit_addr">Dirección fiscal</label>
+                            <input class="form-control" id="edit_addr" name="fiscal_address" maxlength="500">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="edit_province">Provincia</label>
+                            <input class="form-control" id="edit_province" name="province" maxlength="120">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="edit_district">Distrito</label>
+                            <input class="form-control" id="edit_district" name="district" maxlength="120">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="edit_township">Corregimiento</label>
+                            <input class="form-control" id="edit_township" name="township" maxlength="120">
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check mt-4">
+                                <input class="form-check-input" type="checkbox" name="active" value="1" id="edit_active" checked>
+                                <label class="form-check-label" for="edit_active">Activo</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <details class="epos-prod-details" id="edit-commercial-details">
+                    <summary>Expediente comercial (opcional · segundo tiempo)</summary>
+                    <div class="row g-2 pt-2">
+                        <div class="col-12">
+                            <label class="form-label" for="edit_notes">Observaciones</label>
+                            <textarea class="form-control" id="edit_notes" name="notes" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="edit_plan">Plan</label>
+                            <select class="form-select" id="edit_plan" name="plan_code">
+                                <option value="">—</option>
+                                <option value="standalone">Standalone</option>
+                                <option value="starter">Starter</option>
+                                <option value="business">Business</option>
+                                <option value="enterprise">Enterprise</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label" for="edit_pos_count"># POS</label>
+                            <input class="form-control" id="edit_pos_count" name="pos_count">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label" for="edit_branch_count">Sucursales</label>
+                            <input class="form-control" id="edit_branch_count" name="branch_count">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label" for="edit_billing">Pago</label>
+                            <select class="form-select" id="edit_billing" name="billing_period">
+                                <option value="">—</option>
+                                <option value="monthly">Mensual</option>
+                                <option value="annual">Anual</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="edit_price">Precio USD</label>
+                            <input class="form-control" id="edit_price" name="agreed_price">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="edit_discount_pct">Desc. %</label>
+                            <input class="form-control" id="edit_discount_pct" name="discount_percent">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="edit_discount_amt">Desc. monto</label>
+                            <input class="form-control" id="edit_discount_amt" name="discount_amount">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="edit_total">TOTAL USD</label>
+                            <input class="form-control" id="edit_total" name="total_agreed">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="edit_impl">Implementación</label>
+                            <select class="form-select" id="edit_impl" name="implementation_mode">
+                                <option value="">—</option>
+                                <option value="self_serve">Autogestionado</option>
+                                <option value="assisted">Asistido EasyTech</option>
+                                <option value="full">Implementación completa</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="edit_signer">Firmante</label>
+                            <input class="form-control" id="edit_signer" name="signer_name">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="edit_signer_id">Cédula / ID</label>
+                            <input class="form-control" id="edit_signer_id" name="signer_id">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="edit_signed_at">Fecha firma</label>
+                            <input class="form-control" type="date" id="edit_signed_at" name="signed_at">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="edit_contract">Foto / PDF del contrato</label>
+                            <input class="form-control" type="file" id="edit_contract" name="contract_file"
+                                   accept=".jpg,.jpeg,.png,.webp,.pdf,image/*,application/pdf">
+                            <div class="small mt-1 d-none" id="edit_contract_current">
+                                Actual: <a href="#" target="_blank" rel="noopener" id="edit_contract_link">Ver archivo</a>
+                                <label class="ms-2"><input type="checkbox" name="remove_contract_file" value="1"> Quitar</label>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Guardar cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script type="application/json" id="epos-contacts-data">{{ contacts_json|safe }}</script>
 {% endblock %}
 
 {% block scripts %}
@@ -514,6 +714,107 @@
       }
     });
   });
+
+  // Datos para editar (maestro EN1)
+  var contactsById = {};
+  try {
+    var raw = document.getElementById('epos-contacts-data');
+    var list = raw ? JSON.parse(raw.textContent || '[]') : [];
+    list.forEach(function (c) { if (c && c.id != null) contactsById[String(c.id)] = c; });
+  } catch (e) {}
+
+  function setVal(id, v) {
+    var el = document.getElementById(id);
+    if (el) el.value = v == null ? '' : String(v);
+  }
+  function setCheck(id, on) {
+    var el = document.getElementById(id);
+    if (el) el.checked = !!on;
+  }
+
+  var editForm = document.getElementById('editContactForm');
+  var editModal = document.getElementById('editContactModal');
+  if (editModal && editForm) {
+    editModal.addEventListener('show.bs.modal', function (ev) {
+      var btn = ev.relatedTarget;
+      if (!btn || !btn.classList.contains('btn-edit-contact')) return;
+      var id = btn.getAttribute('data-contact-id');
+      var c = contactsById[String(id)];
+      if (!c) return;
+      editForm.action = '/admin/eposone/contacts/' + id + '/update';
+      setVal('edit_kind', c.contact_type || 'person');
+      setVal('edit_name', c.display_name || '');
+      setVal('edit_company', c.company_name || '');
+      setVal('edit_commercial', c.commercial_name || '');
+      setVal('edit_id_type', c.identification_type || 'cedula');
+      setVal('edit_tax', c.tax_id || '');
+      setVal('edit_dv', c.dv || '');
+      setVal('edit_email', c.email || '');
+      setVal('edit_phone', c.phone || '');
+      setVal('edit_mobile', c.mobile || '');
+      setVal('edit_addr', c.fiscal_address || '');
+      setVal('edit_province', c.province || '');
+      setVal('edit_district', c.district || '');
+      setVal('edit_township', c.township || '');
+      setCheck('edit_active', c.active !== false);
+      setVal('edit_notes', c.notes || '');
+      var com = c.commercial || {};
+      setVal('edit_plan', com.plan_code || '');
+      setVal('edit_pos_count', com.pos_count || '');
+      setVal('edit_branch_count', com.branch_count || '');
+      setVal('edit_billing', com.billing_period || '');
+      setVal('edit_price', com.agreed_price || '');
+      setVal('edit_discount_pct', com.discount_percent || '');
+      setVal('edit_discount_amt', com.discount_amount || '');
+      setVal('edit_total', com.total_agreed || '');
+      setVal('edit_impl', com.implementation_mode || '');
+      setVal('edit_signer', com.signer_name || '');
+      setVal('edit_signer_id', com.signer_id || '');
+      setVal('edit_signed_at', com.signed_at || '');
+      var cur = document.getElementById('edit_contract_current');
+      var link = document.getElementById('edit_contract_link');
+      if (cur && link) {
+        if (c.contract_file_url) {
+          cur.classList.remove('d-none');
+          link.href = c.contract_file_url;
+        } else {
+          cur.classList.add('d-none');
+          link.href = '#';
+        }
+      }
+      var details = document.getElementById('edit-commercial-details');
+      if (details) {
+        details.open = !!(c.notes || c.contract_file_url || (com && Object.keys(com).length));
+      }
+      var fileInput = document.getElementById('edit_contract');
+      if (fileInput) fileInput.value = '';
+    });
+
+    editForm.addEventListener('submit', function () {
+      var details = document.getElementById('edit-commercial-details');
+      if (details && details.open) {
+        var h = document.createElement('input');
+        h.type = 'hidden';
+        h.name = 'commercial_block';
+        h.value = '1';
+        editForm.appendChild(h);
+      }
+    });
+  }
+
+  var fisForm = document.getElementById('createFiscalForm');
+  if (fisForm) {
+    fisForm.addEventListener('submit', function () {
+      var details = document.getElementById('fis-commercial-details');
+      if (details && details.open) {
+        var h = document.createElement('input');
+        h.type = 'hidden';
+        h.name = 'commercial_block';
+        h.value = '1';
+        fisForm.appendChild(h);
+      }
+    });
+  }
 })();
 </script>
 {% endblock %}

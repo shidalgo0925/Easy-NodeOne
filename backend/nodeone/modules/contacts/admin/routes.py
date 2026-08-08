@@ -8,8 +8,10 @@ from flask_login import current_user, login_required
 from models.saas import SaasOrganization
 from nodeone.core.db import db
 from nodeone.modules.contacts import service as contact_svc
+from nodeone.modules.contacts.contract_upload import save_contact_contract_file
 from nodeone.modules.contacts.photo_upload import save_contact_photo
 from nodeone.services.contacts_module import is_contacts_enabled_for_org, is_contacts_globally_allowed
+
 contacts_admin_bp = Blueprint('contacts_admin', __name__, url_prefix='/admin/contacts')
 
 
@@ -67,7 +69,7 @@ def _form_bool(name: str) -> bool:
 
 
 def _form_to_dict() -> dict:
-    return {
+    data = {
         'contact_type': request.form.get('contact_type'),
         'display_name': request.form.get('display_name'),
         'first_name': request.form.get('first_name'),
@@ -95,7 +97,29 @@ def _form_to_dict() -> dict:
         'is_employee': _form_bool('is_employee'),
         'is_tax_exempt': _form_bool('is_tax_exempt'),
         'active': _form_bool('active') if 'active' in request.form else True,
+        'notes': request.form.get('notes'),
     }
+    # Bloque comercial solo si el form lo envió (evita borrar al alta mínima).
+    if request.form.get('commercial_block') == '1':
+        data['_commercial_submitted'] = True
+        data.update(
+            {
+                'plan_code': request.form.get('plan_code'),
+                'pos_count': request.form.get('pos_count'),
+                'branch_count': request.form.get('branch_count'),
+                'billing_period': request.form.get('billing_period'),
+                'agreed_price': request.form.get('agreed_price'),
+                'discount_percent': request.form.get('discount_percent'),
+                'discount_amount': request.form.get('discount_amount'),
+                'total_agreed': request.form.get('total_agreed'),
+                'implementation_mode': request.form.get('implementation_mode'),
+                'optional_services': request.form.getlist('optional_services'),
+                'signer_name': request.form.get('signer_name'),
+                'signer_id': request.form.get('signer_id'),
+                'signed_at': request.form.get('signed_at'),
+            }
+        )
+    return data
 
 
 def _apply_contact_photo(organization_id: int, contact) -> None:
@@ -107,6 +131,15 @@ def _apply_contact_photo(organization_id: int, contact) -> None:
         return
     contact.image_url = save_contact_photo(organization_id, file_storage)
 
+
+def _apply_contract_file(organization_id: int, contact) -> None:
+    if _form_bool('remove_contract_file'):
+        contact.contract_file_url = None
+        return
+    file_storage = request.files.get('contract_file')
+    if not file_storage or not (file_storage.filename or '').strip():
+        return
+    contact.contract_file_url = save_contact_contract_file(organization_id, file_storage)
 
 @contacts_admin_bp.route('/')
 @login_required
@@ -152,6 +185,10 @@ def contacts_new():
                 _apply_contact_photo(oid, row)
             except ValueError as exc:
                 flash(str(exc), 'warning')
+            try:
+                _apply_contract_file(oid, row)
+            except ValueError as exc:
+                flash(str(exc), 'warning')
             db.session.commit()
             flash('Contacto creado.', 'success')
             return redirect(url_for('contacts_admin.contacts_edit', contact_id=row.id))
@@ -161,7 +198,12 @@ def contacts_new():
         except Exception as exc:
             db.session.rollback()
             flash(str(exc), 'error')
-    return render_template('contacts/form.html', contact=None, title='Nuevo contacto')
+    return render_template(
+        'contacts/form.html',
+        contact=None,
+        title='Nuevo contacto',
+        commercial={},
+    )
 
 
 @contacts_admin_bp.route('/<int:contact_id>')
@@ -190,6 +232,10 @@ def contacts_edit(contact_id: int):
                 _apply_contact_photo(oid, row)
             except ValueError as exc:
                 flash(str(exc), 'warning')
+            try:
+                _apply_contract_file(oid, row)
+            except ValueError as exc:
+                flash(str(exc), 'warning')
             db.session.commit()
             flash('Contacto actualizado.', 'success')
             return redirect(url_for('contacts_admin.contacts_edit', contact_id=row.id))
@@ -199,8 +245,12 @@ def contacts_edit(contact_id: int):
         except Exception as exc:
             db.session.rollback()
             flash(str(exc), 'error')
-    return render_template('contacts/form.html', contact=row, title=f'Editar contacto #{row.id}')
-
+    return render_template(
+        'contacts/form.html',
+        contact=row,
+        title=f'Editar contacto #{row.id}',
+        commercial=row.commercial_profile(),
+    )
 
 @contacts_admin_bp.route('/<int:contact_id>/desactivar', methods=['POST'])
 @login_required

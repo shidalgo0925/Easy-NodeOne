@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from nodeone.modules.contacts import service as _contact_svc
@@ -32,12 +32,28 @@ class ContactDTO:
     active: bool
     roles: tuple[str, ...]
     is_cashier: bool = False
+    first_name: str | None = None
+    last_name: str | None = None
+    company_name: str | None = None
+    commercial_name: str | None = None
+    province: str | None = None
+    district: str | None = None
+    township: str | None = None
+    fiscal_address: str | None = None
+    country: str | None = None
+    notes: str | None = None
+    contract_file_url: str | None = None
+    commercial: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             'id': self.id,
             'organization_id': self.organization_id,
             'display_name': self.display_name,
+            'first_name': self.first_name,
+            'last_name': self.last_name,
+            'company_name': self.company_name,
+            'commercial_name': self.commercial_name,
             'email': self.email,
             'phone': self.phone,
             'mobile': self.mobile,
@@ -45,6 +61,14 @@ class ContactDTO:
             'identification_type': self.identification_type,
             'tax_id': self.tax_id,
             'dv': self.dv,
+            'province': self.province,
+            'district': self.district,
+            'township': self.township,
+            'fiscal_address': self.fiscal_address,
+            'country': self.country,
+            'notes': self.notes,
+            'contract_file_url': self.contract_file_url,
+            'commercial': dict(self.commercial or {}),
             'is_customer': self.is_customer,
             'is_supplier': self.is_supplier,
             'is_member': self.is_member,
@@ -59,6 +83,11 @@ class ContactDTO:
 
 
 def _to_dto(row) -> ContactDTO:
+    commercial = {}
+    try:
+        commercial = row.commercial_profile() if hasattr(row, 'commercial_profile') else {}
+    except Exception:
+        commercial = {}
     return ContactDTO(
         id=int(row.id),
         organization_id=int(row.organization_id),
@@ -80,8 +109,19 @@ def _to_dto(row) -> ContactDTO:
         is_cashier=bool(row.is_cashier),
         active=bool(row.active),
         roles=tuple(row.role_labels()),
+        first_name=(getattr(row, 'first_name', None) or '').strip() or None,
+        last_name=(getattr(row, 'last_name', None) or '').strip() or None,
+        company_name=(getattr(row, 'company_name', None) or '').strip() or None,
+        commercial_name=(getattr(row, 'commercial_name', None) or '').strip() or None,
+        province=(getattr(row, 'province', None) or '').strip() or None,
+        district=(getattr(row, 'district', None) or '').strip() or None,
+        township=(getattr(row, 'township', None) or '').strip() or None,
+        fiscal_address=(getattr(row, 'fiscal_address', None) or '').strip() or None,
+        country=(getattr(row, 'country', None) or '').strip() or None,
+        notes=(getattr(row, 'notes', None) or '').strip() or None,
+        contract_file_url=(getattr(row, 'contract_file_url', None) or '').strip() or None,
+        commercial=dict(commercial or {}),
     )
-
 
 class ContactService:
     """API Core para contactos/terceros. Delega en ``nodeone.modules.contacts.service``."""

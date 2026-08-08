@@ -59,9 +59,26 @@ class Contact(db.Model):
 
     image_url = db.Column(db.String(500), nullable=True)
 
+    # Expediente comercial opcional (2º tiempo — solicitud suscripción / contrato papel)
+    notes = db.Column(db.Text, nullable=True)
+    contract_file_url = db.Column(db.String(500), nullable=True)
+    # plan, POS, precios, implementación, firmas, servicios → JSON (no engorroso en alta)
+    commercial_json = db.Column(db.Text, nullable=True)
+
     active = db.Column(db.Boolean, nullable=False, default=True, index=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def commercial_profile(self) -> dict:
+        if not self.commercial_json:
+            return {}
+        try:
+            import json
+
+            data = json.loads(self.commercial_json)
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
 
     organization = db.relationship('SaasOrganization', backref=db.backref('contacts', lazy='dynamic'))
 

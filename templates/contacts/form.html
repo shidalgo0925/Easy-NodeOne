@@ -175,6 +175,122 @@
         <label class="form-check-label small" for="active">Activo</label>
       </div>
       {% endif %}
+
+      {% set c = commercial or {} %}
+      {% set has_commercial = c or (contact and (contact.notes or contact.contract_file_url)) %}
+      <details class="mt-3 border rounded p-2" id="commercial-details" {% if has_commercial %}open{% endif %}>
+        <summary class="section-title mb-0" style="cursor:pointer;">
+          Expediente comercial (opcional · segundo tiempo)
+        </summary>
+        <p class="small text-muted mt-2 mb-2">
+          Completá después si hay solicitud de suscripción / contrato papel. El alta básica no requiere esto.
+        </p>
+        <div class="row g-2">
+          <div class="col-12">
+            <label class="form-label">Observaciones</label>
+            <textarea class="form-control form-control-sm" name="notes" rows="2">{{ contact.notes if contact and contact.notes else '' }}</textarea>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Plan</label>
+            {% set pc = c.plan_code or '' %}
+            <select class="form-select form-select-sm" name="plan_code">
+              <option value="">—</option>
+              <option value="standalone" {% if pc=='standalone' %}selected{% endif %}>Standalone (Local)</option>
+              <option value="starter" {% if pc=='starter' %}selected{% endif %}>Starter</option>
+              <option value="business" {% if pc=='business' %}selected{% endif %}>Business</option>
+              <option value="enterprise" {% if pc=='enterprise' %}selected{% endif %}>Enterprise</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label"># POS</label>
+            <input class="form-control form-control-sm" name="pos_count" value="{{ c.pos_count or '' }}" />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Sucursales</label>
+            <input class="form-control form-control-sm" name="branch_count" value="{{ c.branch_count or '' }}" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">En el pago</label>
+            {% set bp = c.billing_period or '' %}
+            <select class="form-select form-select-sm" name="billing_period">
+              <option value="">—</option>
+              <option value="monthly" {% if bp=='monthly' %}selected{% endif %}>Mensual</option>
+              <option value="annual" {% if bp=='annual' %}selected{% endif %}>Anual</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Precio acordado USD</label>
+            <input class="form-control form-control-sm" name="agreed_price" value="{{ c.agreed_price or '' }}" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Descuento %</label>
+            <input class="form-control form-control-sm" name="discount_percent" value="{{ c.discount_percent or '' }}" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Descuento monto</label>
+            <input class="form-control form-control-sm" name="discount_amount" value="{{ c.discount_amount or '' }}" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">TOTAL acordado USD</label>
+            <input class="form-control form-control-sm" name="total_agreed" value="{{ c.total_agreed or '' }}" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Implementación</label>
+            {% set im = c.implementation_mode or '' %}
+            <select class="form-select form-select-sm" name="implementation_mode">
+              <option value="">—</option>
+              <option value="self_serve" {% if im=='self_serve' %}selected{% endif %}>Autogestionado (Cliente)</option>
+              <option value="assisted" {% if im=='assisted' %}selected{% endif %}>Asistido por EasyTech (Remoto)</option>
+              <option value="full" {% if im=='full' %}selected{% endif %}>Implementación completa (EasyTech)</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label d-block">Servicios opcionales</label>
+            {% set opts = c.optional_services or [] %}
+            {% for val, label in [
+              ('remote_install','Instalación remota'),
+              ('onsite_install','Instalación en sitio'),
+              ('training','Capacitación'),
+              ('data_migration','Migración de datos'),
+              ('printer_config','Config. impresora'),
+              ('product_config','Config. productos'),
+              ('hourly_consulting','Consultoría por hora')
+            ] %}
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="checkbox" name="optional_services" value="{{ val }}"
+                     id="svc_{{ val }}" {% if val in opts %}checked{% endif %} />
+              <label class="form-check-label small" for="svc_{{ val }}">{{ label }}</label>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Firmante</label>
+            <input class="form-control form-control-sm" name="signer_name" value="{{ c.signer_name or '' }}" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Cédula / ID</label>
+            <input class="form-control form-control-sm" name="signer_id" value="{{ c.signer_id or '' }}" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Fecha firma</label>
+            <input class="form-control form-control-sm" type="date" name="signed_at" value="{{ c.signed_at or '' }}" />
+          </div>
+          <div class="col-12">
+            <label class="form-label">Foto / PDF del contrato firmado</label>
+            <input class="form-control form-control-sm" type="file" name="contract_file"
+                   accept=".jpg,.jpeg,.png,.webp,.pdf,image/*,application/pdf" />
+            {% if contact and contact.contract_file_url %}
+            <div class="small mt-1">
+              Actual: <a href="{{ contact.contract_file_url }}" target="_blank" rel="noopener">Ver archivo</a>
+            </div>
+            <div class="form-check mt-1">
+              <input class="form-check-input" type="checkbox" name="remove_contract_file" value="1" id="remove_contract_file" />
+              <label class="form-check-label small" for="remove_contract_file">Quitar contrato</label>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </details>
     </div>
     </div>
   </form>
@@ -183,22 +299,36 @@
 document.addEventListener('DOMContentLoaded', function () {
   var input = document.getElementById('contactPhotoInput');
   var preview = document.getElementById('contactPhotoPreview');
-  if (!input || !preview) return;
-  input.addEventListener('change', function () {
-    var file = input.files && input.files[0];
-    if (!file) return;
-    var url = URL.createObjectURL(file);
-    if (preview.tagName === 'IMG') {
-      preview.src = url;
-    } else {
-      var img = document.createElement('img');
-      img.id = 'contactPhotoPreview';
-      img.className = 'contact-photo-preview mb-2';
-      img.alt = '';
-      img.src = url;
-      preview.replaceWith(img);
-    }
-  });
+  if (input && preview) {
+    input.addEventListener('change', function () {
+      var file = input.files && input.files[0];
+      if (!file) return;
+      var url = URL.createObjectURL(file);
+      if (preview.tagName === 'IMG') {
+        preview.src = url;
+      } else {
+        var img = document.createElement('img');
+        img.id = 'contactPhotoPreview';
+        img.className = 'contact-photo-preview mb-2';
+        img.alt = '';
+        img.src = url;
+        preview.replaceWith(img);
+      }
+    });
+  }
+  // Solo persiste expediente comercial si el bloque 2º tiempo está abierto.
+  var form = document.querySelector('.contact-form-page form');
+  var details = document.getElementById('commercial-details');
+  if (form && details) {
+    form.addEventListener('submit', function () {
+      if (!details.open) return;
+      var h = document.createElement('input');
+      h.type = 'hidden';
+      h.name = 'commercial_block';
+      h.value = '1';
+      form.appendChild(h);
+    });
+  }
 });
 </script>
 {% endblock %}

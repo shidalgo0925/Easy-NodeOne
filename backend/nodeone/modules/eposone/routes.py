@@ -2430,23 +2430,12 @@ def eposone_stock_adjust():
     return redirect(url_for('eposone.eposone_section', slug='inventory', tab=tab))
 
 
-@eposone_bp.route('/contacts/create', methods=['POST'])
-@login_required
-def eposone_contact_create():
-    denied = _require_eposone_admin()
-    if denied is not None:
-        return denied
-    from nodeone.core.platform.runtime import resolve_organization_id
-    from nodeone.core.services.contacts import ContactService
-
-    oid = resolve_organization_id()
-    if oid is None:
-        abort(400)
+def _eposone_contact_form_payload(*, for_update: bool = False) -> dict:
+    """Payload compartido create/update → maestro EN1 (ContactService)."""
     profile = (request.form.get('client_profile') or 'pos').strip().lower()
     contact_type = (request.form.get('contact_type') or 'person').strip()
     identification_type = (request.form.get('identification_type') or 'cedula').strip()
-    # UX: Cliente POS nunca usa consumer_final (eso es el registro del sistema).
-    if profile == 'pos':
+    if profile == 'pos' and not for_update:
         contact_type = 'person'
         identification_type = 'cedula'
     payload = {
@@ -2467,18 +2456,112 @@ def eposone_contact_create():
         'township': (request.form.get('township') or '').strip(),
         'fiscal_address': (request.form.get('fiscal_address') or '').strip(),
         'country': (request.form.get('country') or 'PA').strip() or 'PA',
-        'is_customer': request.form.get('is_customer') == '1',
-        'active': True,
+        'is_customer': True if for_update else (request.form.get('is_customer') == '1'),
+        'active': (request.form.get('active') == '1') if for_update else True,
     }
-    # Empresa: company_name obligatorio en el maestro — reutilizar display_name si falta.
     if payload['contact_type'] == 'company' and not payload['company_name']:
         payload['company_name'] = payload['display_name']
+    # 2º tiempo: expediente comercial (solo si el bloque se envió).
+    if request.form.get('commercial_block') == '1':
+        payload['_commercial_submitted'] = True
+        payload['notes'] = (request.form.get('notes') or '').strip()
+        payload.update(
+            {
+                'plan_code': request.form.get('plan_code'),
+                'pos_count': request.form.get('pos_count'),
+                'branch_count': request.form.get('branch_count'),
+                'billing_period': request.form.get('billing_period'),
+                'agreed_price': request.form.get('agreed_price'),
+                'discount_percent': request.form.get('discount_percent'),
+                'discount_amount': request.form.get('discount_amount'),
+                'total_agreed': request.form.get('total_agreed'),
+                'implementation_mode': request.form.get('implementation_mode'),
+                'optional_services': request.form.getlist('optional_services'),
+                'signer_name': request.form.get('signer_name'),
+                'signer_id': request.form.get('signer_id'),
+                'signed_at': request.form.get('signed_at'),
+            }
+        )
+    return payload
+
+
+def _eposone_apply_contract_file(organization_id: int, contact_id: int) -> None:
+    from nodeone.modules.contacts import service as contact_svc
+    from nodeone.modules.contacts.contract_upload import save_contact_contract_file
+    from nodeone.core.db import db
+
+    row = contact_svc.get_contact(int(organization_id), int(contact_id))
+    if row is None:
+        return
+    if request.form.get('remove_contract_file') in ('1', 'on', 'true', 'yes'):
+        row.contract_file_url = None
+        db.session.flush()
+        return
+    file_storage = request.files.get('contract_file')
+    if not file_storage or not (file_storage.filename or '').strip():
+        return
+    row.contract_file_url = save_contact_contract_file(int(organization_id), file_storage)
+    db.session.flush()
+
+
+@eposone_bp.route('/contacts/create', methods=['POST'])
+@login_required
+def eposone_contact_create():
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.core.services.contacts import ContactService
+    from nodeone.core.db import db
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    payload = _eposone_contact_form_payload(for_update=False)
     try:
         dto = ContactService.create(int(oid), payload)
+        try:
+            _eposone_apply_contract_file(int(oid), int(dto.id))
+            db.session.commit()
+        except ValueError as exc:
+            db.session.commit()
+            flash(str(exc), 'warning')
     except ContactService.ValidationError as exc:
         flash(str(exc), 'danger')
         return redirect(url_for('eposone.eposone_section', slug='contacts'))
     flash(f'Cliente {dto.display_name} creado correctamente.', 'success')
+    return redirect(url_for('eposone.eposone_section', slug='contacts', q=dto.display_name))
+
+
+@eposone_bp.route('/contacts/<int:contact_id>/update', methods=['POST'])
+@login_required
+def eposone_contact_update(contact_id: int):
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.core.services.contacts import ContactService
+    from nodeone.core.db import db
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    payload = _eposone_contact_form_payload(for_update=True)
+    # En edición POS/fiscal: no forzar consumer_final
+    if (payload.get('identification_type') or '') == 'consumer_final' and not payload.get('tax_id'):
+        pass
+    try:
+        dto = ContactService.update(int(oid), int(contact_id), payload)
+        try:
+            _eposone_apply_contract_file(int(oid), int(contact_id))
+            db.session.commit()
+        except ValueError as exc:
+            db.session.commit()
+            flash(str(exc), 'warning')
+    except ContactService.ValidationError as exc:
+        flash(str(exc), 'danger')
+        return redirect(url_for('eposone.eposone_section', slug='contacts'))
+    flash(f'Cliente {dto.display_name} actualizado.', 'success')
     return redirect(url_for('eposone.eposone_section', slug='contacts', q=dto.display_name))
 
 
@@ -2876,6 +2959,9 @@ def eposone_section(slug: str):
         q = (request.args.get('q') or '').strip()
         if oid is not None:
             contacts, contacts_total = ContactService.search(int(oid), q=q, limit=200)
+        import json as _json
+
+        contacts_json = _json.dumps([c.to_dict() for c in contacts], ensure_ascii=False)
         return render_template(
             'eposone/contacts.html',
             section_slug=key,
@@ -2883,6 +2969,7 @@ def eposone_section(slug: str):
             section_description=description,
             contacts=contacts,
             contacts_total=contacts_total,
+            contacts_json=contacts_json,
             search_q=q,
         )
     if key == 'products':

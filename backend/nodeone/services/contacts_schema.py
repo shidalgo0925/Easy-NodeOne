@@ -43,6 +43,25 @@ def ensure_contacts_schema(db, engine, printfn=None) -> None:
                 if printfn:
                     printfn(f'! en1_contact.is_cashier: {ex}')
 
+        # Re-leer columnas tras posibles ALTER anteriores
+        cols = {c['name'] for c in inspect(engine).get_columns('en1_contact')}
+        dialect = engine.dialect.name
+        clause = 'ADD COLUMN IF NOT EXISTS' if dialect == 'postgresql' else 'ADD COLUMN'
+        for col, typ in (
+            ('notes', 'TEXT'),
+            ('contract_file_url', 'VARCHAR(500)'),
+            ('commercial_json', 'TEXT'),
+        ):
+            if col in cols:
+                continue
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(f'ALTER TABLE en1_contact {clause} {col} {typ}'))
+                if printfn:
+                    printfn(f'+ en1_contact.{col}')
+            except Exception as ex:
+                if printfn:
+                    printfn(f'! en1_contact.{col}: {ex}')
     insp = inspect(engine)
     if 'en1_contact' not in insp.get_table_names():
         return

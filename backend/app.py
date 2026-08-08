@@ -2164,8 +2164,11 @@ def email_verified_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-def send_verification_email(user):
-    """Enviar email de verificación al usuario. Retorna (éxito: bool, detalle_error: str|None)."""
+def send_verification_email(user, *, brand: str | None = None):
+    """Enviar email de verificación al usuario. Retorna (éxito: bool, detalle_error: str|None).
+
+    brand='eposone' → asunto/marca Standalone (flujo /start). Resto → Easy NodeOne.
+    """
     try:
         if not EMAIL_TEMPLATES_AVAILABLE or not email_service:
             print(f"⚠️ Email service no disponible. No se enviará email de verificación a {user.email}")
@@ -2201,13 +2204,25 @@ def send_verification_email(user):
             base_url = (os.getenv('BASE_URL') or '').strip().rstrip('/') or 'https://app.example.com'
         
         verification_url = f"{base_url}/verify-email/{token}"
-        
+
+        brand_key = (brand or '').strip().lower()
+        if brand_key == 'eposone':
+            org_label = 'EPosOne'
+            subject = 'Verifica tu Email - EPosOne'
+        else:
+            org_label = None
+            subject = 'Verifica tu Email - Easy NodeOne'
+
         # Generar HTML del email
-        html_content = get_email_verification_email(user, verification_url)
+        html_content = get_email_verification_email(
+            user,
+            verification_url,
+            organization_name=org_label,
+        )
         
         # Enviar email
         success = email_service.send_email(
-            subject='Verifica tu Email - Easy NodeOne',
+            subject=subject,
             recipients=[user.email],
             html_content=html_content,
             email_type='email_verification',

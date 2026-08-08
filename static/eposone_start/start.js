@@ -319,12 +319,14 @@
     var ready = $('ready-banner');
     var goInstall = $('btn-go-install');
     var checkBtn = $('btn-check-verify');
+    var resendBtn = $('btn-resend-verify');
     var other = $('btn-other-tablet');
     var showCode = $('btn-show-code');
     if (waiting) waiting.hidden = !!verified;
     if (ready) ready.hidden = !verified;
     if (goInstall) goInstall.hidden = !verified;
     if (checkBtn) checkBtn.hidden = !!verified;
+    if (resendBtn) resendBtn.hidden = !!verified;
     if (other) other.hidden = !verified;
     if (showCode) showCode.hidden = !verified;
     if (verified) showActivationCode(true);
@@ -773,9 +775,49 @@
       pollReadyStatus(function (ok) {
         if (!ok) {
           var hint = $('verify-hint');
-          if (hint) hint.textContent = 'Todavía no vemos la verificación. Revisá el correo y volvé a intentar.';
+          if (hint) hint.textContent = 'Todavía no vemos la verificación. Revisá el correo (y spam) y volvé a intentar.';
         }
       });
+    });
+  }
+  if ($('btn-resend-verify')) {
+    $('btn-resend-verify').addEventListener('click', function () {
+      var btn = $('btn-resend-verify');
+      var hint = $('verify-hint');
+      if (!state.readyToken) {
+        if (hint) hint.textContent = 'Sesión de instalación no encontrada. Volvé a /start.';
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Reenviando…';
+      fetch('/api/public/eposone-start/resend-verification', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ready_token: state.readyToken }),
+      })
+        .then(function (r) {
+          return r.json().then(function (body) {
+            return { ok: r.ok, body: body };
+          });
+        })
+        .then(function (res) {
+          btn.disabled = false;
+          btn.textContent = 'Reenviar correo de verificación';
+          if (hint) {
+            hint.textContent =
+              (res.body && res.body.message) ||
+              (res.ok ? 'Reenviamos el correo de verificación.' : 'No pudimos reenviar. Intentá en unos minutos.');
+          }
+          if (res.body && res.body.already_verified) {
+            pollReadyStatus();
+          }
+        })
+        .catch(function () {
+          btn.disabled = false;
+          btn.textContent = 'Reenviar correo de verificación';
+          if (hint) hint.textContent = 'No pudimos reenviar. Intentá en unos minutos.';
+        });
     });
   }
   if ($('btn-other-tablet')) {

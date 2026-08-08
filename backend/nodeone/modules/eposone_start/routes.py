@@ -9,11 +9,9 @@ from nodeone.modules.eposone_start.service import (
     StartAssistantError,
     complete_start,
     download_cta_label,
-    mark_ready_email_sent_flag,
     play_store_url,
     ready_status,
-    send_standalone_ready_email,
-    should_send_ready_email,
+    resend_standalone_verification,
 )
 
 eposone_start_bp = Blueprint('eposone_start', __name__)
@@ -134,6 +132,7 @@ def start_complete():
 
 @eposone_start_bp.route('/api/public/eposone-start/ready-status', methods=['GET'])
 def start_ready_status():
+    """Estado Standalone post-/start. El mail de código lo asegura el service (idempotente)."""
     _require_eposone_surface()
     token = (
         (request.args.get('ready_token') or '').strip()
@@ -143,21 +142,25 @@ def start_ready_status():
         return jsonify({'ok': False, 'error': 'ready_token_missing', 'message': 'Falta sesión de instalación.'}), 400
     try:
         result = ready_status(ready_token=token, public_base=_public_base_from_request())
-        if result.get('email_verified') and result.get('activation') and should_send_ready_email(
-            int(result['user_id'])
-        ):
-            from models.saas import SaasOrganization
-            from models.users import User
+        return jsonify(result), 200
+    except StartAssistantError as exc:
+        return jsonify({'ok': False, 'error': exc.code, 'message': exc.message}), exc.http_status
 
-            user = User.query.get(int(result['user_id']))
-            org = SaasOrganization.query.get(int(result['organization_id']))
-            if user and org:
-                if send_standalone_ready_email(
-                    user=user,
-                    organization_name=str(org.name or ''),
-                    activation=result['activation'],
-                ):
-                    mark_ready_email_sent_flag(int(user.id))
+
+@eposone_start_bp.route('/api/public/eposone-start/resend-verification', methods=['POST'])
+def start_resend_verification():
+    """Reenvío del correo 1/2 (verificación) en flujo Standalone /start."""
+    _require_eposone_surface()
+    data = request.get_json(silent=True) or {}
+    token = (
+        (data.get('ready_token') or '').strip()
+        or (request.args.get('ready_token') or '').strip()
+        or (request.cookies.get('eposone_ready_token') or '').strip()
+    )
+    if not token:
+        return jsonify({'ok': False, 'error': 'ready_token_missing', 'message': 'Falta sesión de instalación.'}), 400
+    try:
+        result = resend_standalone_verification(ready_token=token)
         return jsonify(result), 200
     except StartAssistantError as exc:
         return jsonify({'ok': False, 'error': exc.code, 'message': exc.message}), exc.http_status

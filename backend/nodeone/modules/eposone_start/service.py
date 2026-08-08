@@ -328,9 +328,7 @@ def complete_start(
 
     verification_sent = False
     try:
-        from app import send_verification_email
-
-        ok_mail, _err = send_verification_email(user)
+        ok_mail, _err = send_standalone_verification_email(user)
         verification_sent = bool(ok_mail)
     except Exception:
         verification_sent = False
@@ -506,9 +504,10 @@ def _ensure_subscription_and_entitlement(
 
 
 def ready_status(*, ready_token: str, public_base: str | None = None) -> dict[str, Any]:
-    """Estado post-registro: solo entrega activación si el correo está verificado."""
+    """Estado post-registro Standalone: verificación + activación; mail de código idempotente."""
     from models.ets_activation_license import EtsActivationLicense
     from models.ets_activation_token import EtsActivationToken
+    from models.saas import SaasOrganization
     from models.users import User
     from nodeone.core.platform.activation_service import ActivationService
     from nodeone.modules.eposone_start.ready_session import load_ready_token
@@ -532,12 +531,18 @@ def ready_status(*, ready_token: str, public_base: str | None = None) -> dict[st
         'user_id': int(user.id),
         'play_store_url': play_store_url(),
         'download_cta_label': download_cta_label(),
+        'flow': 'standalone',
+        'step': 'awaiting_email_verification' if not verified else 'ready_to_install',
     }
     if not verified:
         out['activation'] = None
+        out['ready_email_sent'] = False
         out['wow'] = {
             'title': 'Revisá tu correo',
-            'subtitle': f'Te enviamos un enlace a {user.email}. Verificá para continuar.',
+            'subtitle': (
+                f'Te enviamos un enlace a {user.email}. '
+                'Confirmá tu correo para recibir el código de activación.'
+            ),
         }
         return out
 
@@ -550,7 +555,19 @@ def ready_status(*, ready_token: str, public_base: str | None = None) -> dict[st
             if lic is not None:
                 activation = ActivationService._token_public(tok, lic, public_base=public_base)
 
+    # Si el verify no pudo enviar el mail, un solo ensure idempotente (no duplica).
+    org = SaasOrganization.query.get(int(payload['oid']))
+    org_name = str(getattr(org, 'name', '') or '') if org else ''
+    ready_email_sent = False
+    if activation is not None:
+        ready_email_sent = ensure_standalone_ready_email_sent(
+            user=user,
+            organization_name=org_name,
+            activation=activation,
+        )
+
     out['activation'] = activation
+    out['ready_email_sent'] = ready_email_sent
     act_code = (activation or {}).get('activation_code') or (activation or {}).get('manual_code')
     out['installation'] = {
         'kind': 'activation_code' if act_code else None,
@@ -560,9 +577,28 @@ def ready_status(*, ready_token: str, public_base: str | None = None) -> dict[st
     out['wow'] = {
         'title': 'Tu EPosOne está listo',
         'subtitle': 'Descargá la app e introducí tu correo y código de activación.',
-        'checks': ['Correo verificado', 'Negocio listo', 'Código de activación listo'],
+        'checks': ['Correo verificado', 'Código de activación listo', 'Listo para instalar'],
     }
     return out
+
+
+def standalone_ready_email_already_sent(user_id: int) -> bool:
+    """Idempotencia por EmailLog — evita doble envío verify + ready-status."""
+    try:
+        from models.communications import EmailLog
+
+        row = (
+            EmailLog.query.filter_by(
+                recipient_id=int(user_id),
+                email_type='eposone_ready_install',
+                status='sent',
+            )
+            .order_by(EmailLog.id.desc())
+            .first()
+        )
+        return row is not None
+    except Exception:
+        return False
 
 
 def send_standalone_ready_email(
@@ -571,7 +607,7 @@ def send_standalone_ready_email(
     organization_name: str,
     activation: dict[str, Any],
 ) -> bool:
-    """Email de continuidad tras verificar correo (código + descarga)."""
+    """Email Standalone: código de activación + descarga APK (único template)."""
     try:
         from app import apply_email_config_from_db, email_service
         from email_templates import get_eposone_ready_install_email
@@ -609,13 +645,74 @@ def send_standalone_ready_email(
         return False
 
 
+def ensure_standalone_ready_email_sent(
+    *,
+    user,
+    organization_name: str,
+    activation: dict[str, Any],
+) -> bool:
+    """Único punto de envío del mail de código Standalone (idempotente)."""
+    if standalone_ready_email_already_sent(int(user.id)):
+        return True
+    return bool(
+        send_standalone_ready_email(
+            user=user,
+            organization_name=organization_name,
+            activation=activation,
+        )
+    )
+
+
+def send_standalone_verification_email(user) -> tuple[bool, str | None]:
+    """Correo 1/2 Standalone: solo verificación de email (marca EPosOne)."""
+    from app import send_verification_email
+
+    return send_verification_email(user, brand='eposone')
+
+
+def resend_standalone_verification(*, ready_token: str) -> dict[str, Any]:
+    """Reenvío del correo de verificación (flujo /start Standalone)."""
+    from models.users import User
+    from nodeone.modules.eposone_start.ready_session import load_ready_token
+
+    try:
+        payload = load_ready_token(ready_token)
+    except ValueError as exc:
+        raise StartAssistantError(str(exc), 'Sesión de instalación inválida o vencida.', http_status=401) from exc
+
+    user = User.query.get(int(payload['uid']))
+    if user is None:
+        raise StartAssistantError('ready_token_invalid', 'Sesión de instalación inválida.', http_status=401)
+    if bool(getattr(user, 'email_verified', False)):
+        return {
+            'ok': True,
+            'already_verified': True,
+            'email': user.email,
+            'message': 'Tu correo ya está verificado.',
+        }
+    ok, err = send_standalone_verification_email(user)
+    if not ok:
+        raise StartAssistantError(
+            'email_send_failed',
+            err or 'No pudimos reenviar el correo. Intentá de nuevo en unos minutos.',
+            http_status=502,
+        )
+    return {
+        'ok': True,
+        'already_verified': False,
+        'email': user.email,
+        'verification_email_sent': True,
+        'message': f'Reenviamos el enlace de verificación a {user.email}.',
+    }
+
+
 def deliver_standalone_ready_after_verify(
     *,
     user,
     organization_id: int,
     public_base: str | None = None,
 ) -> dict[str, Any]:
-    """Tras verify: asegurar activación pública, enviar email con código, devolver ready_token."""
+    """Tras verify: asegurar activación + mail de código (idempotente) + ready_token."""
     from models.ets_activation_license import EtsActivationLicense
     from models.ets_activation_token import EtsActivationToken
     from models.saas import SaasOrganization
@@ -641,7 +738,7 @@ def deliver_standalone_ready_after_verify(
                 user_id=int(user.id),
                 bound_email=str(user.email or ''),
                 public_base=public_base,
-                metadata={'source': 'eposone_verify_email'},
+                metadata={'source': 'eposone_verify_email', 'grace_days': STANDALONE_GRACE_DAYS},
             )
             tok_id = activation.get('token_id')
             tok = EtsActivationToken.query.get(int(tok_id)) if tok_id else None
@@ -651,12 +748,10 @@ def deliver_standalone_ready_after_verify(
 
     email_sent = False
     if activation is not None:
-        email_sent = bool(
-            send_standalone_ready_email(
-                user=user,
-                organization_name=org_name,
-                activation=activation,
-            )
+        email_sent = ensure_standalone_ready_email_sent(
+            user=user,
+            organization_name=org_name,
+            activation=activation,
         )
 
     ready_token = None
@@ -674,23 +769,4 @@ def deliver_standalone_ready_after_verify(
         'ready_token': ready_token,
         'activation': activation,
     }
-
-
-def mark_ready_email_sent_flag(user_id: int) -> None:
-    """Evita reenviar el mail de continuidad en cada visita a /start/ready."""
-    try:
-        from flask import session
-
-        session['eposone_ready_email_sent'] = int(user_id)
-    except Exception:
-        pass
-
-
-def should_send_ready_email(user_id: int) -> bool:
-    try:
-        from flask import session
-
-        return int(session.get('eposone_ready_email_sent') or 0) != int(user_id)
-    except Exception:
-        return True
 

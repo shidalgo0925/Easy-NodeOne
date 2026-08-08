@@ -85,29 +85,29 @@
     },
     "epayroll": {
       "code": "epayroll",
-      "name": "ePlanilla",
-      "description": "Nómina y gestión de empleados (disponible en prueba).",
+      "name": "EPayRoll",
+      "description": "Gestión de planilla para tu negocio.",
       "primary_domain": "epayroll.easytech.services",
-      "icon": "",
+      "icon": "images/logo-epayroll.png",
       "status": "active",
-      "version": "0.9-trial",
+      "version": "1.0",
       "surface": "product",
       "brand_preset": "epayroll",
-      "tagline": "Nómina",
-      "home_hint": "dashboard",
+      "tagline": "Gestión de planilla",
+      "home_hint": "epayroll.epayroll_home",
       "app_ids": ["epayroll"],
       "list_in_portal": true,
-      "logo_url": "",
-      "favicon_url": "",
+      "logo_url": "images/logo-epayroll-banner.png",
+      "favicon_url": "images/logo-epayroll.png",
       "licensing": {
         "model": "subscription",
         "saas_code": "epayroll"
       },
       "theme": {
-        "primary": "#4F46E5",
-        "primary_dark": "#312E81",
-        "accent": "#A5B4FC",
-        "background": "#EEF2FF"
+        "primary": "#0D9488",
+        "primary_dark": "#0F2744",
+        "accent": "#14B8A6",
+        "background": "#F0FDFA"
       }
     },
     "eclassone": {

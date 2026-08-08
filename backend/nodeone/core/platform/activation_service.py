@@ -257,6 +257,7 @@ def _claims_from(lic, tok) -> dict[str, Any]:
     return {
         'license_id': int(lic.id),
         'organization_id': int(lic.organization_id),
+        'customer_id': int(lic.customer_id) if getattr(lic, 'customer_id', None) else None,
         'product_code': str(lic.product_code),
         'modality': str(lic.modality),
         'implementation_strategy': str(lic.implementation_strategy),
@@ -283,6 +284,7 @@ class ActivationService:
         product_code: str = PRODUCT_CODE,
         contract_id: int | None = None,
         subscription_id: int | None = None,
+        customer_id: int | None = None,
         starts_at: datetime | None = None,
         ends_at: datetime | None = None,
         user_id: int | None = None,
@@ -294,19 +296,21 @@ class ActivationService:
         mod = _norm_modality(modality)
         strat = _norm_strategy(implementation_strategy, modality=mod)
         now = _now()
-        row = (
-            EtsActivationLicense.query.filter_by(
-                organization_id=int(organization_id),
-                product_code=product_code,
-                modality=mod,
-            )
-            .filter(EtsActivationLicense.status.in_(('issued', 'active')))
-            .order_by(EtsActivationLicense.id.desc())
-            .first()
-        )
+        cid = int(customer_id) if customer_id else None
+        q = EtsActivationLicense.query.filter_by(
+            organization_id=int(organization_id),
+            product_code=product_code,
+            modality=mod,
+        ).filter(EtsActivationLicense.status.in_(('issued', 'active')))
+        if cid:
+            q = q.filter_by(customer_id=cid)
+        else:
+            q = q.filter(EtsActivationLicense.customer_id.is_(None))
+        row = q.order_by(EtsActivationLicense.id.desc()).first()
         if row is None:
             row = EtsActivationLicense(
                 organization_id=int(organization_id),
+                customer_id=cid,
                 contract_id=contract_id,
                 subscription_id=subscription_id,
                 product_code=product_code,
@@ -322,7 +326,11 @@ class ActivationService:
             )
             db.session.add(row)
             db.session.commit()
-            _audit(organization_id, 'activation.license_issued', {'license_id': row.id, 'modality': mod})
+            _audit(
+                organization_id,
+                'activation.license_issued',
+                {'license_id': row.id, 'modality': mod, 'customer_id': cid},
+            )
         return row
 
     @classmethod
@@ -678,6 +686,7 @@ class ActivationService:
             'token': code,
             'license_id': int(lic.id),
             'organization_id': int(lic.organization_id),
+            'customer_id': int(lic.customer_id) if getattr(lic, 'customer_id', None) else None,
             'product_code': str(lic.product_code),
             'modality': str(lic.modality),
             'implementation_strategy': str(lic.implementation_strategy),
@@ -716,6 +725,7 @@ class ActivationService:
         organization_id: int,
         contract_id: int | None = None,
         subscription_id: int | None = None,
+        customer_id: int | None = None,
         user_id: int | None = None,
         bound_email: str | None = None,
         ends_at: datetime | None = None,
@@ -725,6 +735,8 @@ class ActivationService:
         """Helper /start Standalone: licencia + código de activación sin árbol ops."""
         meta = dict(metadata or {})
         meta.setdefault('source', 'eposone_start_assistant')
+        if customer_id:
+            meta['customer_id'] = int(customer_id)
         email = (bound_email or '').strip().lower() or None
         if not email and user_id:
             try:
@@ -741,6 +753,7 @@ class ActivationService:
             implementation_strategy='self_serve',
             contract_id=contract_id,
             subscription_id=subscription_id,
+            customer_id=customer_id,
             ends_at=ends_at,
             user_id=user_id,
             metadata=meta,

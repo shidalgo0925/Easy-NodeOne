@@ -1,7 +1,12 @@
 # P0 REFACTOR /start — Inventario + entrega CODITO (Standalone ≠ Connected)
 
 | Campo | Valor |
-|-------|--------|
+|------
+## Enmienda P1 (2026-08-08) — Cliente bajo ETS (sin cascarón)
+
+`/start` ya **no** crea `saas_organization` por comprador. El cliente comercial (`ets_commercial_customer`) vive bajo la compañía productiva ETS (`saas_organization.id=1` o `NODEONE_ETS_PROVIDER_ORG_ID`), con contrato/suscripción/licencia anclados por `customer_id`. El negocio operativo sigue diferido a EP1 (ADR-033).
+
+-|--------|
 | Fecha | 2026-08-07 |
 | Entorno | Dev EN1 (`develop`) — **sin** cambios LOCAL/APK en esta fase |
 | GO | P0 REFACTOR + NUEVO FLUJO STANDALONE |

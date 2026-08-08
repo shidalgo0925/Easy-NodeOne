@@ -42,29 +42,30 @@ class TestDownloadUrl(unittest.TestCase):
 
 
 class TestRecommendEngine(unittest.TestCase):
-    def test_cafe_recommends_business(self):
+    def test_cafe_recommends_standalone(self):
         from nodeone.modules.eposone_start.recommend import recommend_for_business_type
 
         r = recommend_for_business_type('Cafetería')
-        self.assertEqual(r['plan_code'], 'business')
-        self.assertEqual(r['modality'], 'connected')
+        self.assertEqual(r['plan_code'], 'standalone')
+        self.assertEqual(r['modality'], 'local')
         self.assertNotIn('price_label', r)
         self.assertNotIn('price_monthly', r)
-        self.assertTrue(any('POS' in line for line in r['capacity_lines']))
-        self.assertIn('3', r['includes_summary'])
+        self.assertTrue(any('local' in line.lower() or 'punto' in line.lower() for line in r['capacity_lines']))
 
-    def test_mini_super_recommends_starter(self):
+    def test_mini_super_recommends_standalone(self):
         from nodeone.modules.eposone_start.recommend import recommend_for_business_type
 
         r = recommend_for_business_type('Mini súper')
-        self.assertEqual(r['plan_code'], 'starter')
+        self.assertEqual(r['plan_code'], 'standalone')
 
-    def test_catalog_has_four_plans(self):
+    def test_catalog_standalone_only(self):
         from nodeone.modules.eposone_start.recommend import catalog_payload
 
         cat = catalog_payload('Restaurante')
-        self.assertEqual(len(cat['plans']), 4)
-        self.assertEqual(cat['recommendation']['plan_code'], 'business')
+        self.assertEqual(len(cat['plans']), 1)
+        self.assertEqual(cat['plans'][0]['plan_code'], 'standalone')
+        self.assertEqual(cat['recommendation']['plan_code'], 'standalone')
+        self.assertEqual(cat.get('flow'), 'standalone')
 
 
 class TestStartRoutes(unittest.TestCase):
@@ -269,24 +270,13 @@ class TestCommercialRegistration(unittest.TestCase):
         self.assertIsNotNone(row)
         self.assertEqual(int(row.contract_id), int(commercial['contract_id']))
 
-    def test_issue_install_code_is_org_level(self):
-        from unittest.mock import patch
-
+    def test_issue_install_code_is_stubbed(self):
         from nodeone.modules.eposone_start.service import _issue_install_code
 
-        with patch(
-            'nodeone.modules.eposone.device_provisioning.DeviceProvisioningService.ensure_provisioning_code',
-            return_value='ORG-CODE-99',
-        ) as mock_code:
-            with patch(
-                'nodeone.core.master.org_unit.OrgUnitService.create'
-            ) as mock_create:
-                info = _issue_install_code(self.oid, 'Negocio')
-        self.assertEqual(info['kind'], 'organization')
-        self.assertEqual(info['code'], 'ORG-CODE-99')
+        info = _issue_install_code(self.oid, 'Negocio')
+        self.assertIsNone(info['code'])
+        self.assertIsNone(info['kind'])
         self.assertIsNone(info['register_ref'])
-        mock_code.assert_called_once()
-        mock_create.assert_not_called()
 
 
 if __name__ == '__main__':

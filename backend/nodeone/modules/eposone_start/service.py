@@ -107,7 +107,7 @@ def _issue_install_code(organization_id: int, business_name: str) -> dict[str, A
 
 
 def _commercial_shell_org_name(*, person_name: str, email: str) -> str:
-    """Nombre de cascarón comercial — NUNCA el nombre del negocio (Café Amor)."""
+    """LEGACY — cascarón P0. Ya no se usa en complete_start."""
     person = (person_name or '').strip() or (email or '').split('@')[0] or 'Cliente'
     return f'Cliente EPosOne — {person}'[:200]
 
@@ -127,10 +127,10 @@ def complete_start(
     ip_address: str | None = None,
     public_base: str | None = None,
 ) -> dict[str, Any]:
-    """Registro comercial Standalone: Cliente ETS + licencia + código + APK.
+    """Registro comercial Standalone bajo compañía ETS (ADR-031).
 
-    Crea un cascarón comercial en EN1 (identidad de cliente), NO la empresa operativa.
-    El nombre de negocio (p. ej. Café Amor) solo va a metadata; se configura en EP1 (ADR-033).
+    Crea User + Cliente/Contrato/Suscripción/Licencia en la org productora ETS.
+    NO crea saas_organization cascarón ni árbol operativo (eso es EP1 / ADR-033).
     """
     from models.saas import SaasOrganization
     from models.users import User
@@ -139,17 +139,16 @@ def complete_start(
         ensure_customer_and_contract,
         link_subscription_to_contract,
     )
-    from nodeone.services.user_organization import ensure_membership
+    from nodeone.core.platform.ets_provider import ets_provider_organization_id
 
     name = (full_name or '').strip()
     mail = (email or '').strip().lower()
     pwd = password or ''
-    biz = (business_name or '').strip()  # opcional / CRM — no es Org EN1
+    biz = (business_name or '').strip()
     btype = normalize_business_type(business_type) if business_type else 'other'
     ctry = (country or '').strip() or DEFAULT_COUNTRY
-    # /start Standalone: siempre plan standalone (Connected = asesoría, fuera de este flujo)
     plan = STANDALONE_PLAN
-    _ = plan_code  # ignorar plan Connected enviado por UI legacy
+    _ = plan_code
 
     if not name or not mail or not pwd:
         raise StartAssistantError(
@@ -173,41 +172,32 @@ def complete_start(
             http_status=409,
         )
 
-    first_name, last_name = _split_display_name(name)
-    shell_name = _commercial_shell_org_name(person_name=name, email=mail)
-    org = SaasOrganization(
-        name=shell_name,
-        legal_name=shell_name,
-        subdomain=_unique_subdomain(f'ets-cli-{mail.split("@")[0]}'),
-        is_active=True,
-        registration_policy='invite_only',
-        timezone=DEFAULT_TZ,
-        fiscal_country=ctry[:120],
-        fiscal_email=mail[:200],
-    )
-    db.session.add(org)
-    db.session.flush()
+    provider_id = ets_provider_organization_id()
+    provider = SaasOrganization.query.get(int(provider_id))
+    if provider is None:
+        raise StartAssistantError(
+            'provider_missing',
+            'No está configurada la compañía ETS. Contactá a soporte.',
+            http_status=500,
+        )
 
+    first_name, last_name = _split_display_name(name)
     user = User(
         email=mail,
         first_name=first_name,
         last_name=last_name,
         country=ctry[:100],
-        organization_id=int(org.id),
+        organization_id=int(provider.id),
         is_admin=False,
         email_verified=False,
         is_active=True,
     )
     user.set_password(pwd)
     db.session.add(user)
-    db.session.flush()
-
-    ensure_membership(int(user.id), int(org.id), role='owner')
-    # Sin SaasOrgModule eposone: no es tenant operativo Connected
     db.session.commit()
 
     legal_meta = _record_legal_metadata(
-        organization_id=int(org.id),
+        organization_id=int(provider.id),
         user_id=int(user.id),
         accepted={'terms': True, 'privacy': True, 'eula': True},
         plan_code=plan,
@@ -216,7 +206,7 @@ def complete_start(
 
     try:
         commercial = ensure_customer_and_contract(
-            organization_id=int(org.id),
+            organization_id=int(provider.id),
             user_id=int(user.id),
             display_name=name,
             email=mail,
@@ -225,11 +215,11 @@ def complete_start(
             plan_code=plan,
             source='eposone_start_standalone',
             metadata={
-                'commercial_shell': True,
+                'provider_organization_id': int(provider.id),
                 'intended_business_name': biz or None,
                 'business_type': btype,
                 'legal_acceptance': legal_meta,
-                'note': 'Negocio operativo se crea en EP1 (ADR-033), no en EN1.',
+                'note': 'Cliente comercial ETS. Negocio operativo en EP1 (ADR-033).',
             },
         )
     except Exception as exc:
@@ -239,26 +229,30 @@ def complete_start(
             http_status=500,
         ) from exc
 
+    customer_id = int(commercial['customer_id'])
     grace_ends = datetime.utcnow() + timedelta(days=STANDALONE_GRACE_DAYS)
     try:
         sub_info = _ensure_subscription_and_entitlement(
-            organization_id=int(org.id),
+            organization_id=int(provider.id),
             user_id=int(user.id),
             plan_code=plan,
             legal_meta=legal_meta,
             business_type=btype,
             country=ctry,
+            customer_id=customer_id,
         )
         link_subscription_to_contract(
-            organization_id=int(org.id),
+            organization_id=int(provider.id),
             product_code=PRODUCT_CODE,
             contract_id=int(commercial['contract_id']),
+            customer_id=customer_id,
         )
         sub_info['contract_id'] = commercial['contract_id']
         sub_info['contract_number'] = commercial['contract_number']
         sub_info['modality'] = 'standalone'
         sub_info['grace_days'] = STANDALONE_GRACE_DAYS
         sub_info['grace_ends_at'] = grace_ends.isoformat() + 'Z'
+        sub_info['customer_id'] = customer_id
     except Exception as exc:
         raise StartAssistantError(
             'prepare_failed',
@@ -271,9 +265,10 @@ def complete_start(
         from nodeone.core.platform.activation_service import ActivationService
 
         activation_info = ActivationService.issue_for_organization_standalone(
-            organization_id=int(org.id),
+            organization_id=int(provider.id),
             contract_id=int(commercial['contract_id']),
             subscription_id=sub_info.get('subscription_id'),
+            customer_id=customer_id,
             user_id=int(user.id),
             bound_email=str(user.email or ''),
             ends_at=grace_ends,
@@ -283,15 +278,15 @@ def complete_start(
                 'commercial_modality': 'standalone',
                 'plan_code': plan,
                 'grace_days': STANDALONE_GRACE_DAYS,
-                'commercial_shell': True,
+                'customer_id': customer_id,
             },
         )
     except Exception as exc:
         import logging
 
         logging.getLogger(__name__).exception(
-            'eposone_start: activation issue failed org=%s: %s',
-            getattr(org, 'id', None),
+            'eposone_start: activation issue failed customer=%s: %s',
+            customer_id,
             exc,
         )
         activation_info = None
@@ -299,7 +294,7 @@ def complete_start(
     try:
         from nodeone.services.organization_context_resolver import set_pending_initial_organization
 
-        set_pending_initial_organization(int(user.id), int(org.id))
+        set_pending_initial_organization(int(user.id), int(provider.id))
     except Exception:
         pass
 
@@ -320,8 +315,9 @@ def complete_start(
 
         ready_token = issue_ready_token(
             user_id=int(user.id),
-            organization_id=int(org.id),
+            organization_id=int(provider.id),
             activation_token_id=int(act_token_id) if act_token_id else None,
+            customer_id=customer_id,
         )
     except Exception:
         ready_token = None
@@ -335,17 +331,18 @@ def complete_start(
 
     email_verified = bool(getattr(user, 'email_verified', False))
     checks = [
-        'Cliente ETS registrado',
+        'Cliente comercial ETS registrado',
         'Suscripción Standalone con 7 días de gracia',
         'Te enviamos un correo para verificar' if verification_sent else 'Revisá tu correo para verificar',
-        'Código de activación listo' if act_code else 'Activación en preparación',
+        'Código de activación listo tras verificar',
     ]
 
     return {
         'ok': True,
-        'organization_id': int(org.id),
-        'organization_name': org.name,
-        'commercial_shell': True,
+        'organization_id': int(provider.id),
+        'organization_name': provider.name,
+        'provider_organization_id': int(provider.id),
+        'commercial_shell': False,
         'user_id': int(user.id),
         'email': user.email,
         'business_type': btype,
@@ -357,7 +354,7 @@ def complete_start(
         'verification_email_sent': verification_sent,
         'ready_token': ready_token,
         'commercial': {
-            'customer_id': commercial['customer_id'],
+            'customer_id': customer_id,
             'contract_id': commercial['contract_id'],
             'contract_number': commercial['contract_number'],
             'modality': 'standalone',
@@ -367,6 +364,7 @@ def complete_start(
             'status': 'deferred_to_ep1',
             'ops_tree_created': False,
             'message': 'La configuración del negocio se hace en la app EPosOne tras activar.',
+            'adr': 'ADR-033',
         },
         'activation': activation_info if email_verified else None,
         'installation': {
@@ -388,6 +386,8 @@ def complete_start(
         'play_store_url': play_store_url(),
         'download_cta_label': download_cta_label(),
         'session': {'logged_in': False},
+        'flow': 'standalone',
+        'step': 'awaiting_email_verification' if not email_verified else 'ready_to_install',
         'wow': {
             'title': 'Revisá tu correo',
             'subtitle': (
@@ -398,6 +398,7 @@ def complete_start(
             'checks': checks,
         },
     }
+
 
 
 def _record_legal_metadata(
@@ -440,8 +441,8 @@ def _ensure_subscription_and_entitlement(
     legal_meta: dict[str, Any],
     business_type: str,
     country: str,
+    customer_id: int | None = None,
 ) -> dict[str, Any]:
-    from nodeone.core.platform.entitlement_service import EntitlementService
     from nodeone.core.platform.subscription_registry import SubscriptionRegistry
 
     plan = get_commercial_plan(plan_code)
@@ -452,6 +453,7 @@ def _ensure_subscription_and_entitlement(
         'business_type': business_type,
         'country': country,
         'legal_acceptance': legal_meta,
+        'customer_id': int(customer_id) if customer_id else None,
     }
     if trial_days > 0:
         ends = datetime.utcnow() + timedelta(days=trial_days)
@@ -461,11 +463,11 @@ def _ensure_subscription_and_entitlement(
             ends,
             user_id=int(user_id),
             metadata=metadata,
+            customer_id=int(customer_id) if customer_id else None,
         )
         status = 'trial'
         activation_label = f'Trial de {trial_days} días iniciado'
     else:
-        # Standalone: activación comercial al contratar (Dev: marca ACTIVE sin pasarela).
         rec = SubscriptionRegistry.activate(
             int(organization_id),
             PRODUCT_CODE,
@@ -476,30 +478,34 @@ def _ensure_subscription_and_entitlement(
         try:
             from models.ets_product_subscription import EtsProductSubscription
             from nodeone.core.db import db
+            import json
 
-            row = EtsProductSubscription.query.filter_by(
-                organization_id=int(organization_id),
-                product_code=PRODUCT_CODE,
-            ).first()
+            if customer_id:
+                row = EtsProductSubscription.query.filter_by(
+                    customer_id=int(customer_id),
+                    product_code=PRODUCT_CODE,
+                ).first()
+            else:
+                row = EtsProductSubscription.query.filter_by(
+                    organization_id=int(organization_id),
+                    product_code=PRODUCT_CODE,
+                ).first()
             if row is not None and metadata:
-                import json
-
+                if customer_id:
+                    row.customer_id = int(customer_id)
                 row.metadata_json = json.dumps(metadata, ensure_ascii=False)
                 db.session.commit()
         except Exception:
             pass
 
-    EntitlementService.ensure_for_subscription(
-        int(organization_id),
-        PRODUCT_CODE,
-        plan_code=plan_code,
-        user_id=int(user_id),
-    )
+    # Entitlement org-level Connected no aplica a clientes Standalone bajo ETS;
+    # la licencia de activación es el gate hacia EP1.
     return {
         'subscription_id': getattr(rec, 'id', None),
         'status': status,
         'activation_label': activation_label,
         'trial_days': trial_days,
+        'customer_id': int(customer_id) if customer_id else None,
     }
 
 
@@ -507,7 +513,7 @@ def ready_status(*, ready_token: str, public_base: str | None = None) -> dict[st
     """Estado post-registro Standalone: verificación + activación; mail de código idempotente."""
     from models.ets_activation_license import EtsActivationLicense
     from models.ets_activation_token import EtsActivationToken
-    from models.saas import SaasOrganization
+    from models.ets_commercial_customer import EtsCommercialCustomer
     from models.users import User
     from nodeone.core.platform.activation_service import ActivationService
     from nodeone.modules.eposone_start.ready_session import load_ready_token
@@ -548,21 +554,34 @@ def ready_status(*, ready_token: str, public_base: str | None = None) -> dict[st
 
     activation = None
     aid = payload.get('aid')
+    cid = payload.get('cid')
     if aid:
         tok = EtsActivationToken.query.get(int(aid))
         if tok is not None and int(tok.organization_id) == int(payload['oid']):
             lic = EtsActivationLicense.query.get(int(tok.license_id))
             if lic is not None:
-                activation = ActivationService._token_public(tok, lic, public_base=public_base)
+                if cid and getattr(lic, 'customer_id', None) and int(lic.customer_id) != int(cid):
+                    lic = None
+                if lic is not None:
+                    activation = ActivationService._token_public(tok, lic, public_base=public_base)
 
     # Si el verify no pudo enviar el mail, un solo ensure idempotente (no duplica).
-    org = SaasOrganization.query.get(int(payload['oid']))
-    org_name = str(getattr(org, 'name', '') or '') if org else ''
+    from models.ets_commercial_customer import EtsCommercialCustomer
+
+    cust = None
+    cid = payload.get('cid')
+    if cid:
+        cust = EtsCommercialCustomer.query.get(int(cid))
+    display = (
+        (cust.display_name if cust is not None else None)
+        or str(getattr(user, 'first_name', '') or '')
+        or 'EPosOne'
+    )
     ready_email_sent = False
     if activation is not None:
         ready_email_sent = ensure_standalone_ready_email_sent(
             user=user,
-            organization_name=org_name,
+            organization_name=str(display),
             activation=activation,
         )
 
@@ -715,30 +734,59 @@ def deliver_standalone_ready_after_verify(
     """Tras verify: asegurar activación + mail de código (idempotente) + ready_token."""
     from models.ets_activation_license import EtsActivationLicense
     from models.ets_activation_token import EtsActivationToken
-    from models.saas import SaasOrganization
+    from models.ets_commercial_customer import EtsCommercialCustomer
     from nodeone.core.platform.activation_service import ActivationService
     from nodeone.modules.eposone_start.ready_session import issue_ready_token
 
-    org = SaasOrganization.query.get(int(organization_id))
-    org_name = str(getattr(org, 'name', '') or '') if org else ''
-    activation = None
-    tok = (
-        EtsActivationToken.query.filter_by(organization_id=int(organization_id), status='active')
-        .order_by(EtsActivationToken.id.desc())
-        .first()
+    mail = (getattr(user, 'email', None) or '').strip().lower()
+    customer = EtsCommercialCustomer.query.filter_by(
+        organization_id=int(organization_id),
+        email=mail,
+    ).first()
+    if customer is None and getattr(user, 'id', None):
+        customer = EtsCommercialCustomer.query.filter_by(primary_user_id=int(user.id)).first()
+    customer_id = int(customer.id) if customer is not None else None
+    display = (
+        (customer.display_name if customer is not None else None)
+        or f'{getattr(user, "first_name", "") or ""}'.strip()
+        or 'EPosOne'
     )
-    if tok is not None:
-        lic = EtsActivationLicense.query.get(int(tok.license_id))
+
+    activation = None
+    tok = None
+    if customer_id:
+        lic = (
+            EtsActivationLicense.query.filter_by(
+                organization_id=int(organization_id),
+                customer_id=customer_id,
+                modality='standalone',
+            )
+            .filter(EtsActivationLicense.status.in_(('issued', 'active')))
+            .order_by(EtsActivationLicense.id.desc())
+            .first()
+        )
         if lic is not None:
-            activation = ActivationService._token_public(tok, lic, public_base=public_base)
+            tok = (
+                EtsActivationToken.query.filter_by(license_id=int(lic.id), status='active')
+                .order_by(EtsActivationToken.id.desc())
+                .first()
+            )
+            if tok is not None:
+                activation = ActivationService._token_public(tok, lic, public_base=public_base)
+
     if activation is None:
         try:
             activation = ActivationService.issue_for_organization_standalone(
                 organization_id=int(organization_id),
+                customer_id=customer_id,
                 user_id=int(user.id),
-                bound_email=str(user.email or ''),
+                bound_email=mail,
                 public_base=public_base,
-                metadata={'source': 'eposone_verify_email', 'grace_days': STANDALONE_GRACE_DAYS},
+                metadata={
+                    'source': 'eposone_verify_email',
+                    'grace_days': STANDALONE_GRACE_DAYS,
+                    'customer_id': customer_id,
+                },
             )
             tok_id = activation.get('token_id')
             tok = EtsActivationToken.query.get(int(tok_id)) if tok_id else None
@@ -750,7 +798,7 @@ def deliver_standalone_ready_after_verify(
     if activation is not None:
         email_sent = ensure_standalone_ready_email_sent(
             user=user,
-            organization_name=org_name,
+            organization_name=str(display),
             activation=activation,
         )
 
@@ -760,6 +808,7 @@ def deliver_standalone_ready_after_verify(
             user_id=int(user.id),
             organization_id=int(organization_id),
             activation_token_id=int(tok.id) if tok is not None else None,
+            customer_id=customer_id,
         )
     except Exception:
         ready_token = None

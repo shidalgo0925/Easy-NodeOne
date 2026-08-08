@@ -17,15 +17,22 @@ def _serializer():
     return URLSafeTimedSerializer(str(secret), salt=READY_SALT)
 
 
-def issue_ready_token(*, user_id: int, organization_id: int, activation_token_id: int | None) -> str:
-    return _serializer().dumps(
-        {
-            'uid': int(user_id),
-            'oid': int(organization_id),
-            'aid': int(activation_token_id) if activation_token_id else None,
-            'src': 'eposone_start',
-        }
-    )
+def issue_ready_token(
+    *,
+    user_id: int,
+    organization_id: int,
+    activation_token_id: int | None,
+    customer_id: int | None = None,
+) -> str:
+    payload = {
+        'uid': int(user_id),
+        'oid': int(organization_id),
+        'aid': int(activation_token_id) if activation_token_id else None,
+        'src': 'eposone_start',
+    }
+    if customer_id:
+        payload['cid'] = int(customer_id)
+    return _serializer().dumps(payload)
 
 
 def load_ready_token(token: str, *, max_age: int = READY_MAX_AGE) -> dict[str, Any]:

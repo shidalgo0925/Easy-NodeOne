@@ -8,7 +8,11 @@ from nodeone.core.db import db
 
 
 class EtsCommercialCustomer(db.Model):
-    """Persona natural o jurídica con relación comercial con ETS."""
+    """Persona natural o jurídica con relación comercial con ETS.
+
+    organization_id = compañía productora ETS (proveedor), no el negocio operativo del cliente.
+    Varios clientes pueden compartir la misma org proveedor.
+    """
 
     __tablename__ = 'ets_commercial_customer'
 
@@ -17,7 +21,6 @@ class EtsCommercialCustomer(db.Model):
         db.Integer,
         db.ForeignKey('saas_organization.id', ondelete='CASCADE'),
         nullable=False,
-        unique=True,
         index=True,
     )
     display_name = db.Column(db.String(200), nullable=False)
@@ -31,3 +34,7 @@ class EtsCommercialCustomer(db.Model):
 
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.Index('uq_ets_commercial_customer_provider_email', 'organization_id', 'email', unique=True),
+    )

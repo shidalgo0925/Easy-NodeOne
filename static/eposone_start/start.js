@@ -46,7 +46,7 @@
   var state = {
     screen: 1,
     businessType: 'Cafetería',
-    planCode: 'business',
+    planCode: 'standalone',
     recommendation: null,
     created: false,
     result: null,

@@ -241,6 +241,12 @@ def register_admin_platform_org_routes(app):
         allow = platform_visible_organization_ids()
         if allow is not None:
             orgs = [o for o in orgs if int(o.id) in allow]
+        try:
+            from nodeone.core.platform.ets_provider import is_legacy_standalone_commercial_shell
+
+            orgs = [o for o in orgs if not is_legacy_standalone_commercial_shell(o)]
+        except Exception:
+            pass
         return render_template('admin/organizations_list.html', organizations=orgs, tenant_public_base=_tenant_public_base())
 
     @app.route('/admin/organizations/new', methods=['GET', 'POST'])

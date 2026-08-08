@@ -41,6 +41,8 @@ class EtsProductSubscription(db.Model):
         nullable=True,
         index=True,
     )
+    # Cliente comercial ETS (Standalone bajo proveedor). NULL = legado Connected por org.
+    customer_id = db.Column(db.Integer, nullable=True, index=True)
     created_by_user_id = db.Column(db.Integer, nullable=True)
     updated_by_user_id = db.Column(db.Integer, nullable=True)
 
@@ -48,6 +50,6 @@ class EtsProductSubscription(db.Model):
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
-        db.UniqueConstraint('organization_id', 'product_code', name='uq_ets_product_subscription_org_product'),
+        # Uniques parciales reales en PG vía ensure_ets_commercial_schema.
         db.Index('ix_ets_sub_org_status', 'organization_id', 'status'),
     )

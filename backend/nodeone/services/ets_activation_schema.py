@@ -12,6 +12,30 @@ def ensure_ets_activation_schema(db, engine, printfn=None) -> None:
     _ensure_license(engine, dialect, tables, printfn)
     tables = set(inspect(engine).get_table_names())
     _ensure_token(engine, dialect, tables, printfn)
+    _migrate_license_customer_id(engine, dialect, printfn)
+
+
+def _migrate_license_customer_id(engine, dialect: str, printfn) -> None:
+    insp = inspect(engine)
+    if 'ets_activation_license' not in set(insp.get_table_names()):
+        return
+    cols = {c['name'] for c in insp.get_columns('ets_activation_license')}
+    if 'customer_id' in cols:
+        if printfn:
+            printfn('ets_activation_license.customer_id: ya existe')
+        return
+    if dialect == 'postgresql':
+        stmts = [
+            'ALTER TABLE ets_activation_license ADD COLUMN IF NOT EXISTS customer_id INTEGER',
+            'CREATE INDEX IF NOT EXISTS ix_ets_activation_license_customer ON ets_activation_license (customer_id)',
+        ]
+    else:
+        stmts = ['ALTER TABLE ets_activation_license ADD COLUMN customer_id INTEGER']
+    with engine.begin() as conn:
+        for s in stmts:
+            conn.execute(text(s))
+    if printfn:
+        printfn('ets_activation_license.customer_id: columna añadida')
 
 
 def _ensure_license(engine, dialect: str, tables: set[str], printfn) -> None:

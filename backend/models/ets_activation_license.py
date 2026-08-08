@@ -17,6 +17,7 @@ class EtsActivationLicense(db.Model):
         nullable=False,
         index=True,
     )
+    customer_id = db.Column(db.Integer, nullable=True, index=True)
     contract_id = db.Column(db.Integer, nullable=True, index=True)
     subscription_id = db.Column(db.Integer, nullable=True, index=True)
     product_code = db.Column(db.String(64), nullable=False, default='eposone', index=True)

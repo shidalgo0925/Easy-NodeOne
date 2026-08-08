@@ -163,7 +163,7 @@ def start_ready_status():
 
 @eposone_start_bp.route('/api/public/eposone-start/resend-verification', methods=['POST'])
 def start_resend_verification():
-    """Reenvío del correo 1/2 (verificación) en flujo Standalone /start."""
+    """Reenvío del correo de verificación (misma vía que registro web)."""
     _require_eposone_surface()
     data = request.get_json(silent=True) or {}
     token = (

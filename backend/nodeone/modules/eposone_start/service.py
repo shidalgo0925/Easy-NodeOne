@@ -202,30 +202,31 @@ def complete_start(
             country=ctry,
             intended_business_name=biz or None,
         )
+        user = User(
+            email=mail,
+            first_name=first_name,
+            last_name=last_name,
+            country=ctry[:100],
+            organization_id=int(provider.id),
+            is_admin=False,
+            email_verified=False,
+            is_active=True,
+        )
+        if hasattr(user, 'linked_contact_id'):
+            user.linked_contact_id = int(contact.id)
+        user.set_password(pwd)
+        db.session.add(user)
+        # Un solo commit: evita contacto/customer huérfanos si falla el user.
         db.session.commit()
+    except StartAssistantError:
+        raise
     except Exception as exc:
         db.session.rollback()
         raise StartAssistantError(
             'prepare_failed',
-            'No pudimos crear el contacto comercial en ETS. Intenta nuevamente.',
+            'No pudimos crear el acceso. Intenta nuevamente.',
             http_status=500,
         ) from exc
-
-    user = User(
-        email=mail,
-        first_name=first_name,
-        last_name=last_name,
-        country=ctry[:100],
-        organization_id=int(provider.id),
-        is_admin=False,
-        email_verified=False,
-        is_active=True,
-    )
-    if hasattr(user, 'linked_contact_id'):
-        user.linked_contact_id = int(contact.id)
-    user.set_password(pwd)
-    db.session.add(user)
-    db.session.commit()
 
     legal_meta = _record_legal_metadata(
         organization_id=int(provider.id),
@@ -385,18 +386,14 @@ def complete_start(
     except Exception:
         ready_token = None
 
-    verification_sent = False
-    try:
-        ok_mail, _err = send_standalone_verification_email(user)
-        verification_sent = bool(ok_mail)
-    except Exception:
-        verification_sent = False
+    # Misma vía que registro web: apply SMTP + send_verification_email (app.py).
+    verification_sent, verification_err = _send_registration_verification_email(user)
 
     email_verified = bool(getattr(user, 'email_verified', False))
     checks = [
         'Cliente comercial ETS registrado',
         'Suscripción Standalone con 7 días de gracia',
-        'Te enviamos un correo para verificar' if verification_sent else 'Revisá tu correo para verificar',
+        'Te enviamos un correo para verificar' if verification_sent else 'No pudimos enviar el correo de verificación',
         'Código de activación listo tras verificar',
     ]
 
@@ -415,6 +412,7 @@ def complete_start(
         'requires_email_verification': not email_verified,
         'email_verified': email_verified,
         'verification_email_sent': verification_sent,
+        'verification_email_error': verification_err,
         'ready_token': ready_token,
         'commercial': {
             'customer_id': customer_id,
@@ -576,10 +574,9 @@ def _ensure_subscription_and_entitlement(
 
 
 def ready_status(*, ready_token: str, public_base: str | None = None) -> dict[str, Any]:
-    """Estado post-registro Standalone: verificación + activación; mail de código idempotente."""
+    """Solo lectura: ¿email verificado? ¿código listo? No envía correo (evita solape con verify)."""
     from models.ets_activation_license import EtsActivationLicense
     from models.ets_activation_token import EtsActivationToken
-    from models.ets_commercial_customer import EtsCommercialCustomer
     from models.users import User
     from nodeone.core.platform.activation_service import ActivationService
     from nodeone.modules.eposone_start.ready_session import load_ready_token
@@ -613,7 +610,7 @@ def ready_status(*, ready_token: str, public_base: str | None = None) -> dict[st
             'title': 'Revisá tu correo',
             'subtitle': (
                 f'Te enviamos un enlace a {user.email}. '
-                'Confirmá tu correo para recibir el código de activación.'
+                'Confirmá tu correo para ver el código de activación aquí.'
             ),
         }
         return out
@@ -631,28 +628,8 @@ def ready_status(*, ready_token: str, public_base: str | None = None) -> dict[st
                 if lic is not None:
                     activation = ActivationService._token_public(tok, lic, public_base=public_base)
 
-    # Si el verify no pudo enviar el mail, un solo ensure idempotente (no duplica).
-    from models.ets_commercial_customer import EtsCommercialCustomer
-
-    cust = None
-    cid = payload.get('cid')
-    if cid:
-        cust = EtsCommercialCustomer.query.get(int(cid))
-    display = (
-        (cust.display_name if cust is not None else None)
-        or str(getattr(user, 'first_name', '') or '')
-        or 'EPosOne'
-    )
-    ready_email_sent = False
-    if activation is not None:
-        ready_email_sent = ensure_standalone_ready_email_sent(
-            user=user,
-            organization_name=str(display),
-            activation=activation,
-        )
-
     out['activation'] = activation
-    out['ready_email_sent'] = ready_email_sent
+    out['ready_email_sent'] = standalone_ready_email_already_sent(int(user.id))
     act_code = (activation or {}).get('activation_code') or (activation or {}).get('manual_code')
     out['installation'] = {
         'kind': 'activation_code' if act_code else None,
@@ -668,7 +645,7 @@ def ready_status(*, ready_token: str, public_base: str | None = None) -> dict[st
 
 
 def standalone_ready_email_already_sent(user_id: int) -> bool:
-    """Idempotencia por EmailLog — evita doble envío verify + ready-status."""
+    """Idempotencia: un solo mail 'listo' por usuario (post-verify)."""
     try:
         from models.communications import EmailLog
 
@@ -692,7 +669,7 @@ def send_standalone_ready_email(
     organization_name: str,
     activation: dict[str, Any],
 ) -> bool:
-    """Email Standalone: código de activación + descarga APK (único template)."""
+    """Único correo post-verify: código + APK. No usar desde ready-status (solo lectura)."""
     try:
         from app import apply_email_config_from_db, email_service
         from email_templates import get_eposone_ready_install_email
@@ -748,15 +725,23 @@ def ensure_standalone_ready_email_sent(
     )
 
 
-def send_standalone_verification_email(user) -> tuple[bool, str | None]:
-    """Correo 1/2 Standalone: solo verificación de email (marca EPosOne)."""
-    from app import send_verification_email
+def _send_registration_verification_email(user) -> tuple[bool, str | None]:
+    """Misma secuencia que registro web: apply SMTP + send_verification_email."""
+    from app import apply_email_config_from_db, send_verification_email
 
-    return send_verification_email(user, brand='eposone')
+    try:
+        apply_email_config_from_db()
+    except Exception:
+        pass
+    try:
+        # brand solo cambia asunto/etiqueta; el motor es el de registro.
+        return send_verification_email(user, brand='eposone')
+    except Exception as exc:
+        return False, str(exc).strip()[:300] or 'Error al enviar el correo de verificación.'
 
 
 def resend_standalone_verification(*, ready_token: str) -> dict[str, Any]:
-    """Reenvío del correo de verificación (flujo /start Standalone)."""
+    """Reenvío por la misma vía que el registro (no camino SMTP paralelo)."""
     from models.users import User
     from nodeone.modules.eposone_start.ready_session import load_ready_token
 
@@ -775,7 +760,7 @@ def resend_standalone_verification(*, ready_token: str) -> dict[str, Any]:
             'email': user.email,
             'message': 'Tu correo ya está verificado.',
         }
-    ok, err = send_standalone_verification_email(user)
+    ok, err = _send_registration_verification_email(user)
     if not ok:
         raise StartAssistantError(
             'email_send_failed',

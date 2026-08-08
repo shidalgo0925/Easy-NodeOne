@@ -742,8 +742,15 @@
         } catch (e) {}
         renderWow(res.body);
         go(8, false);
-        if (res.body.requires_email_verification) startPoll();
-        else if (res.body.email_verified && res.body.activation) applyReadyUi(true);
+        if (res.body.requires_email_verification) {
+          var hint = $('verify-hint');
+          if (hint && res.body.verification_email_sent === false) {
+            hint.textContent =
+              res.body.verification_email_error ||
+              'No pudimos enviar el correo. Usá «Reenviar» o revisá spam.';
+          }
+          startPoll();
+        } else if (res.body.email_verified && res.body.activation) applyReadyUi(true);
       })
       .catch(function () {
         btn.disabled = false;

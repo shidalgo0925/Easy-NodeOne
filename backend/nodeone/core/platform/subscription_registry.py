@@ -333,6 +333,7 @@ class SubscriptionRegistry:
         metadata: dict[str, Any] | None = None,
         scope_organization_id: int | None = None,
         sync_licenses: bool = False,
+        customer_id: int | None = None,
     ) -> SubscriptionRecord:
         """Crea/reabre suscripción en TRIAL. El Trial lo origina EN1 (no la APK)."""
         from app import db
@@ -347,7 +348,19 @@ class SubscriptionRegistry:
 
         now = _now()
         start = starts_at or now
-        row = EtsProductSubscription.query.filter_by(organization_id=oid, product_code=code).first()
+        cid = int(customer_id) if customer_id else None
+        if cid:
+            row = EtsProductSubscription.query.filter_by(customer_id=cid, product_code=code).first()
+        else:
+            row = EtsProductSubscription.query.filter_by(
+                organization_id=oid, product_code=code, customer_id=None
+            ).first()
+            if row is None:
+                row = (
+                    EtsProductSubscription.query.filter_by(organization_id=oid, product_code=code)
+                    .filter(EtsProductSubscription.customer_id.is_(None))
+                    .first()
+                )
         if row is not None and str(row.status) in _OPEN_FOR_CREATE and str(row.status) != SubscriptionStatus.SUSPENDED.value:
             if str(row.status) in (
                 SubscriptionStatus.TRIAL.value,
@@ -364,6 +377,7 @@ class SubscriptionRegistry:
         if row is None:
             row = EtsProductSubscription(
                 organization_id=oid,
+                customer_id=cid,
                 product_code=code,
                 status=SubscriptionStatus.TRIAL.value,
                 starts_at=start,
@@ -384,6 +398,8 @@ class SubscriptionRegistry:
             row.ends_at = None
             row.trial_ends_at = trial_ends_at
             row.reason = None
+            if cid:
+                row.customer_id = cid
             if metadata is not None:
                 row.metadata_json = _dump_metadata(metadata)
             row.updated_by_user_id = user_id
@@ -394,13 +410,23 @@ class SubscriptionRegistry:
         _audit(
             oid,
             'subscription.created' if created else 'subscription.trial_started',
-            {'subscription_id': rec.id, 'product_code': code, 'status': rec.status},
+            {
+                'subscription_id': rec.id,
+                'product_code': code,
+                'status': rec.status,
+                'customer_id': cid,
+            },
         )
         if not created:
             _audit(
                 oid,
                 'subscription.trial_started',
-                {'subscription_id': rec.id, 'product_code': code, 'trial_ends_at': trial_ends_at.isoformat()},
+                {
+                    'subscription_id': rec.id,
+                    'product_code': code,
+                    'trial_ends_at': trial_ends_at.isoformat(),
+                    'customer_id': cid,
+                },
             )
         return rec
 

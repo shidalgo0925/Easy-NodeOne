@@ -14,6 +14,8 @@ def ensure_ets_commercial_schema(db, engine, printfn=None) -> None:
     tables = set(inspect(engine).get_table_names())
     _ensure_contract(engine, dialect, tables, printfn)
     _ensure_subscription_contract_id(engine, dialect, printfn)
+    _migrate_customer_under_provider(engine, dialect, printfn)
+    _migrate_subscription_customer_id(engine, dialect, printfn)
 
 
 def _ensure_customer(engine, dialect: str, tables: set[str], printfn) -> None:
@@ -164,3 +166,74 @@ def _ensure_subscription_contract_id(engine, dialect: str, printfn) -> None:
             conn.execute(text(idx))
     if printfn:
         printfn('ets_product_subscription.contract_id: columna añadida')
+
+
+def _migrate_customer_under_provider(engine, dialect: str, printfn) -> None:
+    """Varios clientes comerciales bajo la misma org proveedor ETS (ADR-031 §4.1)."""
+    insp = inspect(engine)
+    if 'ets_commercial_customer' not in set(insp.get_table_names()):
+        return
+    if dialect != 'postgresql':
+        if printfn:
+            printfn('ets_commercial_customer multi-provider: skip (non-pg)')
+        return
+    with engine.begin() as conn:
+        conn.execute(text('ALTER TABLE ets_commercial_customer DROP CONSTRAINT IF EXISTS uq_ets_commercial_customer_org'))
+        conn.execute(
+            text(
+                'CREATE UNIQUE INDEX IF NOT EXISTS uq_ets_commercial_customer_provider_email '
+                'ON ets_commercial_customer (organization_id, email)'
+            )
+        )
+    if printfn:
+        printfn('ets_commercial_customer: unique (organization_id, email) — multi-cliente bajo ETS')
+
+
+def _migrate_subscription_customer_id(engine, dialect: str, printfn) -> None:
+    """Suscripción por cliente comercial (Standalone bajo ETS) sin romper Connected legado."""
+    insp = inspect(engine)
+    if 'ets_product_subscription' not in set(insp.get_table_names()):
+        return
+    cols = {c['name'] for c in insp.get_columns('ets_product_subscription')}
+    if dialect != 'postgresql':
+        if 'customer_id' not in cols:
+            with engine.begin() as conn:
+                conn.execute(text('ALTER TABLE ets_product_subscription ADD COLUMN customer_id INTEGER'))
+        if printfn:
+            printfn('ets_product_subscription.customer_id: added (non-pg, sin índices parciales)')
+        return
+
+    with engine.begin() as conn:
+        if 'customer_id' not in cols:
+            conn.execute(
+                text(
+                    'ALTER TABLE ets_product_subscription '
+                    'ADD COLUMN IF NOT EXISTS customer_id INTEGER '
+                    'REFERENCES ets_commercial_customer(id) ON DELETE SET NULL'
+                )
+            )
+            conn.execute(
+                text(
+                    'CREATE INDEX IF NOT EXISTS ix_ets_product_subscription_customer '
+                    'ON ets_product_subscription (customer_id)'
+                )
+            )
+        conn.execute(
+            text('ALTER TABLE ets_product_subscription DROP CONSTRAINT IF EXISTS uq_ets_product_subscription_org_product')
+        )
+        conn.execute(
+            text(
+                'CREATE UNIQUE INDEX IF NOT EXISTS uq_ets_sub_org_product_legacy '
+                'ON ets_product_subscription (organization_id, product_code) '
+                'WHERE customer_id IS NULL'
+            )
+        )
+        conn.execute(
+            text(
+                'CREATE UNIQUE INDEX IF NOT EXISTS uq_ets_sub_customer_product '
+                'ON ets_product_subscription (customer_id, product_code) '
+                'WHERE customer_id IS NOT NULL'
+            )
+        )
+    if printfn:
+        printfn('ets_product_subscription.customer_id + uniques parciales OK')

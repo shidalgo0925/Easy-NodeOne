@@ -6,7 +6,6 @@ from typing import Any
 
 from nodeone.core.platform.commercial_plans import (
     get_commercial_plan,
-    list_commercial_plans,
 )
 
 BUSINESS_TYPES: tuple[str, ...] = (
@@ -20,17 +19,17 @@ BUSINESS_TYPES: tuple[str, ...] = (
     'Otro',
 )
 
-# Orientativo — evoluciona sin cambiar la estructura del asistente.
-_RECOMMEND_BY_TYPE: dict[str, str] = {
-    'Restaurante': 'business',
-    'Cafetería': 'business',
-    'Bar': 'business',
-    'Tienda': 'starter',
-    'Mini súper': 'starter',
-    'Farmacia': 'starter',
-    'Servicios': 'starter',
-    'Otro': 'starter',
-}
+# /start Standalone: siempre Standalone (Connected = asesoría fuera de este flujo).
+_RECOMMEND_BY_TYPE: dict[str, str] = {t: 'standalone' for t in (
+    'Restaurante',
+    'Cafetería',
+    'Bar',
+    'Tienda',
+    'Mini súper',
+    'Farmacia',
+    'Servicios',
+    'Otro',
+)}
 
 _BLURB: dict[str, str] = {
     'standalone': 'Ideal para un solo punto de venta que opera localmente.',
@@ -115,7 +114,7 @@ def plan_public_view(plan_code: str | None) -> dict[str, Any]:
 
 def recommend_for_business_type(business_type: str | None) -> dict[str, Any]:
     btype = normalize_business_type(business_type)
-    plan_code = _RECOMMEND_BY_TYPE.get(btype, 'starter')
+    plan_code = 'standalone'
     view = plan_public_view(plan_code)
     if btype in ('Restaurante', 'Bar', 'Mini súper', 'Servicios', 'Otro'):
         article = 'un'
@@ -124,26 +123,28 @@ def recommend_for_business_type(business_type: str | None) -> dict[str, Any]:
     return {
         'business_type': btype,
         'recommended': True,
-        'headline': f'Para {article} {btype.lower()} como la tuya recomendamos {view["display_name"]}.',
+        'headline': (
+            f'Para {article} {btype.lower()} como la tuya: registro comercial ETS + '
+            'EPosOne Standalone (7 días de gracia). El negocio se configura en la app.'
+        ),
         **view,
     }
 
 
 def other_plan_options(*, exclude_plan: str | None = None) -> list[dict[str, Any]]:
-    skip = (exclude_plan or '').strip().lower()
-    out: list[dict[str, Any]] = []
-    for plan in list_commercial_plans():
-        view = plan_public_view(plan['code'])
-        view['recommended'] = view['plan_code'] == skip
-        out.append(view)
-    return out
+    """/start solo ofrece Standalone. Connected queda fuera de este flujo."""
+    _ = exclude_plan
+    view = plan_public_view('standalone')
+    view['recommended'] = True
+    return [view]
 
 
 def catalog_payload(business_type: str | None = None) -> dict[str, Any]:
     btype = normalize_business_type(business_type) if business_type else None
-    reco = recommend_for_business_type(btype) if btype else None
+    reco = recommend_for_business_type(btype or 'Cafetería')
     return {
         'business_types': list(BUSINESS_TYPES),
         'recommendation': reco,
-        'plans': other_plan_options(exclude_plan=(reco or {}).get('plan_code')),
+        'plans': other_plan_options(exclude_plan='standalone'),
+        'flow': 'standalone',
     }

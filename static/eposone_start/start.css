@@ -311,6 +311,13 @@ body {
   display: block;
 }
 
+/* .btn { display:block } no debe anular hidden (bug UX verify). */
+[hidden],
+.btn[hidden],
+.is-hidden {
+  display: none !important;
+}
+
 .btn:disabled { opacity: 0.55; cursor: wait; }
 .btn-primary { background: var(--ep-orange); color: #fff; }
 .btn-secondary { background: #fff; color: var(--ep-navy); border: 1px solid var(--ep-line); }

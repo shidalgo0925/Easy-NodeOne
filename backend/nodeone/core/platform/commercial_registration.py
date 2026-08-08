@@ -1,6 +1,6 @@
-"""Alta comercial mínima (ADR-031): Cliente + Contrato.
+"""Alta comercial mínima (ADR-031): Cliente + Contrato bajo compañía ETS.
 
-No crea recursos operacionales (sucursal/POS/caja).
+No crea recursos operacionales (sucursal/POS/caja) ni cascarón-tenant por comprador.
 """
 
 from __future__ import annotations
@@ -34,24 +34,30 @@ def ensure_customer_and_contract(
     plan_code: str,
     source: str = 'eposone_start_assistant',
     metadata: dict[str, Any] | None = None,
+    phone: str | None = None,
 ) -> dict[str, Any]:
-    """Crea (o reutiliza) Cliente 1:1 con org y un Contrato activo del producto."""
+    """Crea (o reutiliza) Cliente bajo org proveedor ETS + Contrato activo del producto.
+
+    organization_id = compañía productiva ETS (no el negocio del comprador).
+    """
     from models.ets_commercial_contract import EtsCommercialContract
     from models.ets_commercial_customer import EtsCommercialCustomer
     from nodeone.core.db import db
 
     oid = int(organization_id)
+    mail = (email or '').strip().lower()[:200]
     meta = dict(metadata or {})
     meta_json = json.dumps(meta, ensure_ascii=False) if meta else None
     now = datetime.utcnow()
     modality = plan_modality(plan_code)
 
-    customer = EtsCommercialCustomer.query.filter_by(organization_id=oid).first()
+    customer = EtsCommercialCustomer.query.filter_by(organization_id=oid, email=mail).first()
     if customer is None:
         customer = EtsCommercialCustomer(
             organization_id=oid,
             display_name=(display_name or '').strip()[:200] or 'Cliente',
-            email=(email or '').strip().lower()[:200],
+            email=mail,
+            phone=(phone or '').strip()[:64] or None,
             country=(country or '').strip()[:120] or None,
             status='registered',
             primary_user_id=int(user_id),
@@ -63,15 +69,19 @@ def ensure_customer_and_contract(
         db.session.flush()
     else:
         customer.display_name = (display_name or customer.display_name)[:200]
-        customer.email = (email or customer.email).strip().lower()[:200]
+        customer.email = mail
         if country:
             customer.country = country.strip()[:120]
+        if phone:
+            customer.phone = phone.strip()[:64]
         customer.primary_user_id = int(user_id)
         customer.updated_at = now
+        if meta_json:
+            customer.metadata_json = meta_json
 
     contract = (
         EtsCommercialContract.query.filter_by(
-            organization_id=oid,
+            customer_id=int(customer.id),
             product_code=product_code,
             status='active',
         )
@@ -106,20 +116,41 @@ def ensure_customer_and_contract(
         'modality': contract.modality,
         'plan_code': contract.plan_code,
         'product_code': contract.product_code,
+        'organization_id': oid,
     }
 
 
-def link_subscription_to_contract(*, organization_id: int, product_code: str, contract_id: int) -> None:
+def link_subscription_to_contract(
+    *,
+    organization_id: int,
+    product_code: str,
+    contract_id: int,
+    customer_id: int | None = None,
+) -> None:
     """Ancla la suscripción vigente al Contrato (ADR-031)."""
     from models.ets_product_subscription import EtsProductSubscription
     from nodeone.core.db import db
 
-    row = EtsProductSubscription.query.filter_by(
-        organization_id=int(organization_id),
-        product_code=product_code,
-    ).first()
+    if customer_id:
+        row = EtsProductSubscription.query.filter_by(
+            customer_id=int(customer_id),
+            product_code=product_code,
+        ).first()
+    else:
+        row = EtsProductSubscription.query.filter_by(
+            organization_id=int(organization_id),
+            product_code=product_code,
+            customer_id=None,
+        ).first()
+        if row is None:
+            row = EtsProductSubscription.query.filter_by(
+                organization_id=int(organization_id),
+                product_code=product_code,
+            ).first()
     if row is None:
         return
     row.contract_id = int(contract_id)
+    if customer_id and not row.customer_id:
+        row.customer_id = int(customer_id)
     row.updated_at = datetime.utcnow()
     db.session.commit()

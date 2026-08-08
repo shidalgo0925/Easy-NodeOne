@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
@@ -14,6 +15,41 @@ _EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 
 CONTACT_TYPES = ('person', 'company', 'consumer_final')
 ID_TYPES = ('ruc', 'cedula', 'passport', 'consumer_final')
+
+_COMMERCIAL_KEYS = (
+    'plan_code',
+    'pos_count',
+    'branch_count',
+    'billing_period',
+    'agreed_price',
+    'discount_percent',
+    'discount_amount',
+    'total_agreed',
+    'implementation_mode',
+    'optional_services',
+    'signer_name',
+    'signer_id',
+    'signed_at',
+)
+
+
+def _commercial_from_data(data: dict[str, Any]) -> str | None:
+    """Arma commercial_json desde campos del form (2º tiempo). Vacío → None."""
+    profile: dict[str, Any] = {}
+    for key in _COMMERCIAL_KEYS:
+        if key == 'optional_services':
+            services = data.get('optional_services')
+            if isinstance(services, (list, tuple)):
+                cleaned = [str(s).strip() for s in services if str(s).strip()]
+                if cleaned:
+                    profile['optional_services'] = cleaned
+            continue
+        val = _norm(str(data.get(key))) if data.get(key) is not None else ''
+        if val:
+            profile[key] = val
+    if not profile:
+        return None
+    return json.dumps(profile, ensure_ascii=False)
 
 
 class ContactValidationError(ValueError):
@@ -102,11 +138,20 @@ def validate_contact_payload(data: dict[str, Any], *, organization_id: int, excl
         'is_tax_exempt': bool(data.get('is_tax_exempt')),
         'active': bool(data.get('active', True)),
     }
-    # Foto: solo vía subida en rutas admin (_apply_contact_photo), no borrar en updates de texto.
+    # Foto / contrato: subida en rutas admin; no borrar si no vienen en el payload.
     if 'image_url' in data:
         payload['image_url'] = _norm_image_url(data.get('image_url'))
+    if 'contract_file_url' in data:
+        payload['contract_file_url'] = _norm_image_url(data.get('contract_file_url'))
+    # Expediente comercial (opcional / 2º tiempo). Solo toca notes+JSON si el bloque se envió.
+    if data.get('_commercial_submitted'):
+        payload['notes'] = _norm(data.get('notes')) or None
+        commercial = _commercial_from_data(data)
+        if commercial is not None:
+            payload['commercial_json'] = commercial
+        elif data.get('_commercial_clear'):
+            payload['commercial_json'] = None
     return payload
-
 
 def _norm_image_url(value: Any) -> str | None:
     url = _norm(str(value) if value is not None else None)

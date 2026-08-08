@@ -132,6 +132,46 @@
               <dd>{{ [contact.province, contact.district, contact.township, contact.country]|select|join(', ') or '—' }}</dd>
             </dl>
           </div>
+          {% set c = contact.commercial_profile() %}
+          {% if contact.notes or contact.contract_file_url or c %}
+          <div class="col-12 mt-2 pt-2 border-top">
+            <h2 class="h6 text-muted mb-2">Expediente comercial</h2>
+            <dl class="mb-0">
+              {% if contact.notes %}
+              <dt>Observaciones</dt>
+              <dd>{{ contact.notes }}</dd>
+              {% endif %}
+              {% if c.plan_code %}
+              <dt>Plan</dt>
+              <dd>{{ c.plan_code }}{% if c.billing_period %} · {{ c.billing_period }}{% endif %}</dd>
+              {% endif %}
+              {% if c.pos_count or c.branch_count %}
+              <dt>Capacidad</dt>
+              <dd>{{ c.pos_count or '—' }} POS · {{ c.branch_count or '—' }} sucursales</dd>
+              {% endif %}
+              {% if c.agreed_price or c.total_agreed %}
+              <dt>Precios</dt>
+              <dd>
+                Acordado {{ c.agreed_price or '—' }}
+                {% if c.discount_percent %} · Desc. {{ c.discount_percent }}%{% endif %}
+                {% if c.total_agreed %} · Total {{ c.total_agreed }}{% endif %}
+              </dd>
+              {% endif %}
+              {% if c.implementation_mode %}
+              <dt>Implementación</dt>
+              <dd>{{ c.implementation_mode }}</dd>
+              {% endif %}
+              {% if c.signer_name or c.signed_at %}
+              <dt>Firma</dt>
+              <dd>{{ c.signer_name or '—' }}{% if c.signer_id %} · {{ c.signer_id }}{% endif %}{% if c.signed_at %} · {{ c.signed_at }}{% endif %}</dd>
+              {% endif %}
+              {% if contact.contract_file_url %}
+              <dt>Contrato</dt>
+              <dd><a href="{{ contact.contract_file_url }}" target="_blank" rel="noopener">Ver archivo</a></dd>
+              {% endif %}
+            </dl>
+          </div>
+          {% endif %}
           <div class="col-12 mt-2 pt-2 border-top">
             <div class="small text-muted">
               Creado {{ contact.created_at }} · Actualizado {{ contact.updated_at }}

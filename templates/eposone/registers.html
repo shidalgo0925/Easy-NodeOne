@@ -374,9 +374,9 @@
                         <tr>
                             <th>Caja</th>
                             <th>Cerrado</th>
-                            <th class="text-end">Cierre</th>
-                            <th class="text-end">Esperado</th>
-                            <th class="text-end">Diferencia</th>
+                            <th class="text-end" title="Efectivo contado en cajón">Ef. contado</th>
+                            <th class="text-end" title="Efectivo esperado en cajón">Ef. esperado</th>
+                            <th class="text-end" title="Diferencia de efectivo">Dif. ef.</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -386,7 +386,7 @@
                             <td class="small text-muted">
                                 {% if shift.closed_at %}{{ shift.closed_at.strftime('%d/%m/%Y %H:%M') }}{% else %}—{% endif %}
                             </td>
-                            <td class="text-end">{{ '%.2f'|format(shift.closing_balance or 0) }}</td>
+                            <td class="text-end">{{ '%.2f'|format(shift.counted_amount if shift.counted_amount is not none else (shift.closing_balance or 0)) }}</td>
                             <td class="text-end">{{ '%.2f'|format(shift.expected_balance or 0) }}</td>
                             <td class="text-end {% if shift.cash_variance and shift.cash_variance|abs > 0.01 %}text-warning{% endif %}">
                                 {{ '%.2f'|format(shift.cash_variance or 0) }}

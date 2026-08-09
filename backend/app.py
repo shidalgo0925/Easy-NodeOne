@@ -1909,6 +1909,86 @@ def inject_turnstile_context():
         return {'turnstile_enabled': False, 'turnstile_site_key': ''}
 
 
+_AUTH_FULLBLEED_ENDPOINTS = frozenset(
+    {
+        'auth.login',
+        'login',
+        'register',
+        'forgot_password',
+    }
+)
+
+
+@app.context_processor
+def inject_auth_split_context():
+    """Login/registro/forgot: layout full-bleed + vitrina (assets oficiales)."""
+    out = {
+        'auth_fullbleed': False,
+        'auth_panel_products': [],
+        'auth_panel_logos': [],
+        'auth_showcase_products': [],
+    }
+    if not has_request_context():
+        return out
+    ep = request.endpoint or ''
+    if ep not in _AUTH_FULLBLEED_ENDPOINTS:
+        return out
+    out['auth_fullbleed'] = True
+    # Mapa cerrado objeto → asset (ver static/images/auth/ASSET_MAP.md).
+    # No regenerar logos.
+    out['auth_showcase_products'] = [
+        {
+            'num': '01',
+            'name': 'EPosOne',
+            'code': 'eposone',
+            'tagline': 'Punto de venta inteligente',
+            'desc': 'Sistema POS completo para tu operación diaria',
+            'logo': 'images/auth/card-eposone.png',
+        },
+        {
+            'num': '02',
+            'name': 'EPayRoll',
+            'code': 'epayroll',
+            'tagline': 'Gestión de planilla',
+            'desc': 'Administra empleados, planillas y pagos',
+            'logo': 'images/auth/card-epayroll.png',
+        },
+        {
+            'num': '03',
+            'name': 'Easy Class One',
+            'code': 'eclassone',
+            'tagline': 'Plataforma de IA educativa',
+            'desc': 'Crea, enseña y evalúa con apoyo inteligente',
+            'logo': 'images/auth/card-easyclassone.png',
+        },
+        {
+            'num': '04',
+            'name': 'EM+acción',
+            'code': 'em',
+            'tagline': 'Marketing con resultados',
+            'desc': 'Automatiza campañas y mide el impacto',
+            'logo': 'images/auth/card-em.png',
+        },
+        {
+            'num': '05',
+            'name': 'EasyIA',
+            'code': 'easyia',
+            'tagline': 'Inteligencia que trabaja contigo',
+            'desc': 'Pregunta. Analiza. Decide. Actúa.',
+            'logo': 'images/auth/card-easyia.png',
+        },
+        {
+            'num': '06',
+            'name': 'Easy Thesis',
+            'code': 'thesis',
+            'tagline': 'Gestión de tesis',
+            'desc': 'Acompaña cada etapa del proceso académico',
+            'logo': 'images/auth/card-easythesis.png',
+        },
+    ]
+    return out
+
+
 @app.context_processor
 def inject_admin_nav_context():
     """

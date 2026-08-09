@@ -1,7 +1,13 @@
-{# Cloudflare Turnstile widget (solo si turnstile_enabled + turnstile_site_key) #}
+{# Cloudflare Turnstile — integrado en el flujo de auth #}
 {% if turnstile_enabled and turnstile_site_key %}
-<div class="mb-3 d-flex justify-content-center">
-    <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="light"></div>
+<div class="auth-gate__verify">
+    <span class="auth-gate__verify-label">Verificación de seguridad</span>
+    <div class="auth-turnstile">
+        <div class="cf-turnstile"
+             data-sitekey="{{ turnstile_site_key }}"
+             data-theme="light"
+             data-size="flexible"></div>
+    </div>
 </div>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 {% endif %}

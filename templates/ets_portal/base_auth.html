@@ -9,26 +9,18 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ets-portal.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/auth-login.css') }}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --color-primary: #0f4c81;
+            --color-accent: #0ea5e9;
+            --color-border: #e2e8f0;
+            --auth-cta: #0f4c81;
+            --auth-accent: #0ea5e9;
+        }
+    </style>
     {% block head_extra %}{% endblock %}
 </head>
-<body class="ets-portal ets-portal--auth">
-    <header class="ets-portal-header">
-        <div class="ets-portal-header__inner">
-            <a class="ets-portal-brand" href="{{ url_for('auth.login') }}">
-                <img class="ets-portal-brand__logo"
-                     src="{{ url_for('static', filename=get_nav_logo()) }}?v={{ get_nav_logo_cache_key() }}"
-                     alt="{{ brand_name|default(get_nav_brand_name()) }}"
-                     width="48" height="48"
-                     decoding="async">
-                <span class="ets-portal-brand__name">{{ brand_name|default(get_nav_brand_name()) }}</span>
-            </a>
-            <nav class="ets-portal-nav" aria-label="Cuenta">
-                <a href="{{ url_for('auth.login') }}" class="ets-portal-nav__link">Iniciar sesión</a>
-                <a href="{{ url_for('register') }}" class="ets-portal-nav__link">Crear cuenta</a>
-            </nav>
-        </div>
-    </header>
-
+<body class="ets-portal ets-portal--auth auth-fullbleed">
     <main class="ets-portal-main ets-portal-main--auth">
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -41,9 +33,5 @@
         {% endwith %}
         {% block content %}{% endblock %}
     </main>
-
-    <footer class="ets-portal-footer">
-        <p>Easy Technology Services · Portal de cuenta</p>
-    </footer>
 </body>
 </html>

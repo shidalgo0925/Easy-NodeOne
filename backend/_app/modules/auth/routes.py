@@ -27,6 +27,16 @@ def _organizations_for_login_form(user=None):
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
+        from nodeone.services.cloudflare_turnstile import require_turnstile_from_request
+
+        ok_cf, err_cf = require_turnstile_from_request(request)
+        if not ok_cf:
+            flash(err_cf or 'Verificación de seguridad fallida.', 'error')
+            return render_template(
+                _auth_template('login.html'),
+                saas_organizations=[],
+                login_email=request.form.get('email', ''),
+            )
         email = request.form.get('email', '')
         password = request.form.get('password', '')
         success, user, error = service.login(email, password)

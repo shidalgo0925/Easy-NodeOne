@@ -93,6 +93,18 @@ def register_public_auth_legacy_routes(app):
                 return None
 
         if request.method == 'POST':
+            from nodeone.services.cloudflare_turnstile import require_turnstile_from_request
+
+            ok_cf, err_cf = require_turnstile_from_request(request)
+            if not ok_cf:
+                flash(err_cf or 'Verificación de seguridad fallida.', 'error')
+                return render_template(
+                    _tpl('register.html'),
+                    valid_countries=VALID_COUNTRIES,
+                    invite_token=session.get('pending_invite_token'),
+                    register_next=register_next,
+                    registration_policy_banner=_registration_banner(),
+                )
             email = request.form.get('email', '').strip()
             password = request.form.get('password', '')
             first_name = request.form.get('first_name', '').strip()
@@ -692,6 +704,13 @@ def register_public_auth_legacy_routes(app):
         )
 
         if request.method == 'POST':
+            from nodeone.services.cloudflare_turnstile import require_turnstile_from_request
+
+            ok_cf, err_cf = require_turnstile_from_request(request)
+            if not ok_cf:
+                flash(err_cf or 'Verificación de seguridad fallida.', 'error')
+                return render_template(_tpl('forgot_password.html'))
+
             email = request.form.get('email', '').strip().lower()
             if not email:
                 flash('Por favor, ingresa tu correo electrónico.', 'error')

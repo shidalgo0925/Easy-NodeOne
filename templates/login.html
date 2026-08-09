@@ -56,6 +56,7 @@
                                 </div>
                                 <a href="{{ url_for('forgot_password') }}" class="small">¿Olvidaste tu contraseña?</a>
                             </div>
+                            {% include 'partials/turnstile_widget.html' %}
                             <div class="d-grid">
                                 <button type="submit" class="btn btn-primary btn-lg">Entrar</button>
                             </div>

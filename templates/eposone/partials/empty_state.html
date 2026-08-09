@@ -1,6 +1,6 @@
 {# EPosOne DS — empty state
-   title, text?, icon?=fa-inbox, action_url?, action_label? #}
-<div class="epos-empty">
+   title, text?, icon?=fa-inbox, action_url?, action_label?, compact?=false #}
+<div class="epos-empty{% if compact %} epos-empty--compact{% endif %}">
     <div class="epos-empty__icon" aria-hidden="true">
         <i class="fas {{ icon|default('fa-inbox') }}"></i>
     </div>

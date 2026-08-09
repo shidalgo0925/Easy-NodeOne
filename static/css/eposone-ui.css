@@ -215,7 +215,21 @@ body[data-platform-app-accent="eposone"],
     display: flex;
     flex-direction: column;
     gap: 2px;
-    min-width: 8.5rem;
+    flex: 0 1 auto;
+    min-width: 7.5rem;
+    max-width: 11rem;
+    width: auto;
+}
+
+.en1-eposone-page .epos-filter-field--grow {
+    flex: 1 1 12rem;
+    max-width: 18rem;
+    min-width: 10rem;
+}
+
+.en1-eposone-page .epos-filter-field--sm {
+    max-width: 8.5rem;
+    min-width: 6.5rem;
 }
 
 .en1-eposone-page .epos-filter-field label {
@@ -240,17 +254,47 @@ body[data-platform-app-accent="eposone"],
     flex-wrap: wrap;
     gap: var(--epos-space-2);
     margin-left: auto;
+    align-items: flex-end;
 }
 
-/* Pedidos: rangos rápidos arriba · Aplicar/Limpiar abajo */
-.en1-eposone-page .epos-orders-filter-actions {
+.en1-eposone-page .epos-filter-bar__primary {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
     align-items: flex-end;
+    gap: var(--epos-space-2);
+    width: 100%;
+}
+
+.en1-eposone-page .epos-filter-bar__more {
+    display: none;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--epos-space-2);
+    width: 100%;
+    margin-top: var(--epos-space-2);
+    padding-top: var(--epos-space-2);
+    border-top: 1px solid var(--epos-border);
+}
+
+.en1-eposone-page .epos-filter-bar.is-expanded .epos-filter-bar__more {
+    display: flex;
+}
+
+.en1-eposone-page .epos-filter-bar__toggle {
+    white-space: nowrap;
+}
+
+/* Pedidos: presets + acciones en una sola fila (evita hueco vacío a la derecha) */
+.en1-eposone-page .epos-orders-filter-actions {
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
     justify-content: flex-end;
     gap: var(--epos-space-2);
     margin-left: auto;
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    max-width: 100%;
 }
 
 .en1-eposone-page .epos-orders-filter-actions .epos-filter-bar__presets {
@@ -262,6 +306,7 @@ body[data-platform-app-accent="eposone"],
     flex-wrap: wrap;
     gap: var(--epos-space-2);
     justify-content: flex-end;
+    align-items: center;
 }
 
 /* ——— Status badges ——— */
@@ -474,6 +519,15 @@ body[data-platform-app-accent="eposone"],
     text-align: center;
     padding: var(--epos-space-6) var(--epos-space-4);
     color: var(--epos-ink-2);
+}
+
+.en1-eposone-page .epos-empty--compact {
+    padding: 1.25rem 1rem;
+}
+
+.en1-eposone-page .epos-empty--compact .epos-empty__icon {
+    font-size: 1.25rem;
+    margin-bottom: 0.35rem;
 }
 
 .en1-eposone-page .epos-empty__icon {
@@ -840,13 +894,33 @@ body[data-platform-app-accent="eposone"],
 
 /* ——— Responsive tablet ——— */
 @media (max-width: 991.98px) {
-    .en1-eposone-page .epos-filter-bar__actions {
+    .en1-eposone-page .epos-filter-bar__actions,
+    .en1-eposone-page .epos-orders-filter-actions {
         margin-left: 0;
         width: 100%;
+        justify-content: flex-start;
+    }
+    .en1-eposone-page .epos-filter-field,
+    .en1-eposone-page .epos-filter-field--grow {
+        max-width: calc(50% - 0.35rem);
+        flex: 1 1 calc(50% - 0.35rem);
     }
     .en1-eposone-page .epos-kpi__value,
     .en1-eposone-page .en1-kpi-value {
         font-size: 1.25rem;
+    }
+}
+
+@media (min-width: 992px) and (max-width: 1399.98px) {
+    /* Tablet landscape / laptop angosto: no estirar campos a todo el ancho */
+    .en1-eposone-page .epos-filter-field {
+        max-width: 10.5rem;
+    }
+    .en1-eposone-page .epos-filter-field--grow {
+        max-width: 16rem;
+    }
+    .en1-eposone-page .epos-filter-bar {
+        padding: var(--epos-space-2) var(--epos-space-3);
     }
 }
 

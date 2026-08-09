@@ -1705,7 +1705,102 @@ def eposone_shift_detail(shift_id: int):
         supervisor_ok=supervisor_ok,
         day_filter=report.get('day_filter') or {},
         shifts_back_register_ref=back_register_ref,
+        cashiers=_cashier_contacts_for_org(int(oid), active_only=False),
     )
+
+
+@eposone_bp.route('/shifts/<int:shift_id>/correct', methods=['POST'])
+@login_required
+def eposone_shift_correct(shift_id: int):
+    """Corregir cierre: cajero, apertura, contado, ajustes y recibido declarado."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.commerce.authorization import CommerceAuthorizationService
+    from nodeone.core.commerce.order import OrderValidationError
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.shift_correction_service import apply_shift_close_correction
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+
+    supervisor_ok = CommerceAuthorizationService.user_is_supervisor(current_user, int(oid))
+    try:
+        from nodeone.modules.eposone.settings_service import EposoneSettingsService
+
+        if not EposoneSettingsService.runtime_for(int(oid)).supervisor_approval_required:
+            supervisor_ok = True
+    except Exception:
+        pass
+    if not supervisor_ok:
+        flash('Se requiere supervisor para corregir un cierre.', 'danger')
+        return _redirect_shift_detail(shift_id)
+
+    reason = (request.form.get('reason') or '').strip()
+    cashier_raw = (request.form.get('cashier_contact_id') or '').strip()
+    cashier_contact_id = None
+    if cashier_raw:
+        try:
+            cashier_contact_id = int(cashier_raw)
+        except ValueError:
+            flash('Cajero no válido.', 'danger')
+            return _redirect_shift_detail(shift_id)
+
+    def _float_or_none(key: str) -> float | None:
+        raw = (request.form.get(key) or '').strip()
+        if raw == '':
+            return None
+        try:
+            return float(raw)
+        except ValueError:
+            raise OrderValidationError(f'{key}_invalid')
+
+    try:
+        opening_balance = _float_or_none('opening_balance')
+        counted_amount = _float_or_none('counted_amount')
+        adjustment_amount = _float_or_none('adjustment_amount')
+    except OrderValidationError:
+        flash('Montos no válidos.', 'danger')
+        return _redirect_shift_detail(shift_id)
+
+    adjustment_type = (request.form.get('adjustment_type') or '').strip().lower() or None
+    declared_methods: dict[str, float] = {}
+    for key, val in request.form.items():
+        if not key.startswith('declared_'):
+            continue
+        method_key = key[len('declared_') :].strip().lower()
+        if not method_key:
+            continue
+        raw = (val or '').strip()
+        if raw == '':
+            continue
+        try:
+            declared_methods[method_key] = float(raw)
+        except ValueError:
+            flash(f'Monto declarado inválido ({method_key}).', 'danger')
+            return _redirect_shift_detail(shift_id)
+
+    try:
+        apply_shift_close_correction(
+            int(oid),
+            int(shift_id),
+            actor_user_id=getattr(current_user, 'id', None),
+            reason=reason,
+            cashier_contact_id=cashier_contact_id,
+            opening_balance=opening_balance,
+            counted_amount=counted_amount,
+            adjustment_type=adjustment_type,
+            adjustment_amount=adjustment_amount,
+            declared_methods=declared_methods or None,
+            source_app_id='eposone',
+        )
+    except OrderValidationError as exc:
+        flash(str(exc).replace('_', ' '), 'danger')
+        return _redirect_shift_detail(shift_id)
+
+    flash('Cierre corregido. Revisá el arqueo y la bitácora.', 'success')
+    return _redirect_shift_detail(shift_id)
 
 
 @eposone_bp.route('/registers/<int:shift_id>/reconcile', methods=['POST'])

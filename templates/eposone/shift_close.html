@@ -113,6 +113,16 @@
             {% else %}
             <p class="text-muted small mb-0">Sin pagos en este período.</p>
             {% endif %}
+            {% if report.declared_methods %}
+            <hr class="my-2">
+            <p class="small text-muted mb-1">Recibido declarado (última corrección)</p>
+            {% for key, amt in report.declared_methods.items() %}
+            <div class="d-flex justify-content-between py-1">
+                <span class="text-muted">{{ key }}</span>
+                <span>B/. {{ '%.2f'|format(amt) }}</span>
+            </div>
+            {% endfor %}
+            {% endif %}
         </div>
     </div>
 
@@ -206,6 +216,13 @@
         </form>
         {% endif %}
 
+        {% if report.can_correct and supervisor_ok and day_mode == 'all' %}
+        <button type="button" class="btn btn-lg btn-outline-warning"
+                data-bs-toggle="modal" data-bs-target="#correctShiftModal">
+            <i class="fas fa-edit me-2"></i>Corregir cierre
+        </button>
+        {% endif %}
+
         {% if day_mode == 'day' %}
         <a href="{{ url_for('eposone.eposone_shift_detail', shift_id=shift.id) }}" class="btn btn-lg btn-outline-secondary">
             Ver todo el turno
@@ -218,9 +235,121 @@
         </a>
         {% endif %}
     </div>
+
+    {% if report.corrections %}
+    <div class="epos-card mb-4">
+        <div class="epos-card-body">
+            <h2 class="epos-section-label mb-3">Bitácora de correcciones</h2>
+            {% for c in report.corrections|reverse %}
+            <div class="border-bottom py-2 {% if not loop.last %}mb-1{% endif %}">
+                <div class="small text-muted">{{ c.at }}{% if c.by_user_id %} · user #{{ c.by_user_id }}{% endif %}</div>
+                <div class="small">{{ c.reason }}</div>
+                {% if c.after %}
+                <div class="small text-muted">
+                    Apertura {{ '%.2f'|format(c.after.opening_balance or 0) }}
+                    · Contado {% if c.after.counted_amount is not none %}{{ '%.2f'|format(c.after.counted_amount) }}{% else %}—{% endif %}
+                    · Esperado {% if c.after.expected_balance is not none %}{{ '%.2f'|format(c.after.expected_balance) }}{% else %}—{% endif %}
+                    {% if c.after.cashier_name %} · {{ c.after.cashier_name }}{% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 {% include 'eposone/partials/reconcile_shift_modal.html' %}
+
+{% if report.can_correct and supervisor_ok and day_mode == 'all' %}
+<div class="modal fade" id="correctShiftModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <form method="post" action="{{ url_for('eposone.eposone_shift_correct', shift_id=shift.id) }}" class="modal-content">
+            {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+            <div class="modal-header">
+                <h5 class="modal-title">Corregir cierre — turno #{{ shift.id }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted">
+                    Ajustá cajero, fondo, efectivo contado y recibido declarado por método.
+                    Los pagos del sistema no se borran; el arqueo de cajón sigue siendo solo efectivo.
+                </p>
+                <div class="mb-3">
+                    <label class="form-label" for="correct_reason">Motivo <span class="text-danger">*</span></label>
+                    <textarea class="form-control" name="reason" id="correct_reason" rows="2" required minlength="5"
+                              placeholder="Ej. fondo mal registrado / contado real de cajera"></textarea>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="correct_cashier">Cajero</label>
+                        <select class="form-select" name="cashier_contact_id" id="correct_cashier">
+                            <option value="">— Sin cambiar —</option>
+                            {% for c in cashiers or [] %}
+                            <option value="{{ c.id }}" {% if shift.cashier_contact_id == c.id %}selected{% endif %}>
+                                {{ c.display_name }} (#{{ c.id }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="correct_opening">Fondo apertura</label>
+                        <input type="number" step="0.01" min="0" class="form-control" name="opening_balance"
+                               id="correct_opening" value="{{ '%.2f'|format(shift.opening_balance or 0) }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="correct_counted">Ef. contado</label>
+                        <input type="number" step="0.01" min="0" class="form-control" name="counted_amount"
+                               id="correct_counted"
+                               value="{% if shift.counted_amount is not none %}{{ '%.2f'|format(shift.counted_amount) }}{% endif %}">
+                    </div>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="correct_adj_type">Ajuste tesorería</label>
+                        <select class="form-select" name="adjustment_type" id="correct_adj_type">
+                            <option value="">Sin ajuste</option>
+                            <option value="cash_in">Ingreso (cash_in)</option>
+                            <option value="cash_out">Egreso (cash_out)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="correct_adj_amt">Monto ajuste</label>
+                        <input type="number" step="0.01" min="0" class="form-control" name="adjustment_amount"
+                               id="correct_adj_amt" placeholder="0.00">
+                    </div>
+                </div>
+                <h3 class="h6">Recibido declarado por método</h3>
+                <p class="small text-muted">Comparar vs sistema; no modifica los pagos OD.</p>
+                {% set declared = report.declared_methods or {} %}
+                {% if report.payment_methods %}
+                <div class="row g-2">
+                    {% for m in report.payment_methods %}
+                    <div class="col-md-4">
+                        <label class="form-label small" for="declared_{{ m.method_key }}">
+                            {{ m.label }} <span class="text-muted">(sist. {{ '%.2f'|format(m.amount) }})</span>
+                        </label>
+                        <input type="number" step="0.01" min="0" class="form-control form-control-sm"
+                               name="declared_{{ m.method_key }}" id="declared_{{ m.method_key }}"
+                               value="{{ '%.2f'|format(declared.get(m.method_key, m.amount)) }}">
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="small text-muted mb-0">Sin métodos en el turno; podés corregir solo arqueo/cajero.</p>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-warning"
+                        onclick="return confirm('¿Aplicar corrección a este cierre?');">
+                    Guardar corrección
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
 
 <div class="modal fade" id="movementModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">

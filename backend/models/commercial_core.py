@@ -170,6 +170,8 @@ class CoreCashShift(db.Model):
     )
     # Idempotencia POS (Device Bearer / offline retry)
     client_shift_id = db.Column(db.String(64), nullable=True, index=True)
+    # Auditoría de correcciones de cierre (BO supervisor) — JSON lista de eventos
+    correction_json = db.Column(db.Text, nullable=True)
 
     movements = db.relationship(
         'CoreCashMovement',

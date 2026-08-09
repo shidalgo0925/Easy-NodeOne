@@ -12,11 +12,34 @@
             Cierres
         </h1>
         <p class="text-muted small mb-0">
-            Turnos del día {{ board.day_local }} · click en Ver → Arqueo del turno
+            Historial de cierres
+            {% if board.date_from or board.date_to %}
+            ({{ board.date_from or '…' }} → {{ board.date_to or board.day_local }})
+            {% else %}
+            · día de negocio {{ board.day_local }}
+            {% endif %}
+            · click en Ver → Arqueo del turno
         </p>
     </div>
 
     {{ occ_subnav('cierres') }}
+
+    <form class="row g-2 align-items-end mb-3" method="get" action="{{ url_for('eposone.eposone_occ_cierres') }}">
+        <div class="col-auto">
+            <label class="form-label small mb-0" for="occ-cierres-from">Desde</label>
+            <input class="form-control form-control-sm" type="date" id="occ-cierres-from" name="from"
+                   value="{{ board.date_from or '' }}">
+        </div>
+        <div class="col-auto">
+            <label class="form-label small mb-0" for="occ-cierres-to">Hasta</label>
+            <input class="form-control form-control-sm" type="date" id="occ-cierres-to" name="to"
+                   value="{{ board.date_to or '' }}">
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('eposone.eposone_occ_cierres') }}">Últimos 14 días</a>
+        </div>
+    </form>
 
     <div class="d-flex flex-wrap gap-3 small text-muted mb-3">
         <span>Abiertos: <strong>{{ s.shifts_open }}</strong></span>

@@ -779,7 +779,7 @@ def eposone_occ_hoy():
 @eposone_bp.route('/control/cierres')
 @login_required
 def eposone_occ_cierres():
-    """ADR-025 OCC Fase A — vista Cierres del día."""
+    """ADR-025 OCC Fase A — vista Cierres (historial reciente + abiertos)."""
     denied = _require_eposone_admin()
     if denied is not None:
         return denied
@@ -789,7 +789,13 @@ def eposone_occ_cierres():
     oid = resolve_organization_id()
     if oid is None:
         abort(400)
-    board = build_operations_control_cierres(int(oid))
+    date_from = (request.args.get('from') or request.args.get('date_from') or '').strip() or None
+    date_to = (request.args.get('to') or request.args.get('date_to') or '').strip() or None
+    board = build_operations_control_cierres(
+        int(oid),
+        date_from=date_from,
+        date_to=date_to,
+    )
     return render_template(
         'eposone/occ_cierres.html',
         board=board,

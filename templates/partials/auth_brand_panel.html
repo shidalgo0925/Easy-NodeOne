@@ -1,0 +1,47 @@
+{# Panel derecho — vitrina ecosistema (assets oficiales; no navegación) #}
+<aside class="auth-gate__stage" aria-label="Ecosistema Easy Technology Services">
+    <div class="auth-gate__stage-glow" aria-hidden="true"></div>
+    <div class="auth-gate__stage-net" aria-hidden="true"></div>
+
+    <div class="auth-gate__stage-inner">
+        <header class="auth-gate__stage-head">
+            <h2 class="auth-gate__stage-title">
+                Un solo acceso.
+                <span>Todo tu ecosistema.</span>
+            </h2>
+            <p class="auth-gate__stage-copy">
+                Administra, vende, enseña y crece con nuestras plataformas integradas, diseñadas para ti.
+            </p>
+        </header>
+
+        {% if auth_showcase_products %}
+        <ul class="auth-showcase" aria-label="Productos del ecosistema">
+            {% for p in auth_showcase_products %}
+            <li class="auth-showcase__card{% if not p.logo %} auth-showcase__card--wordmark{% endif %}{% if p.code in ['easyia', 'em', 'epayroll', 'thesis'] %} auth-showcase__card--lg{% endif %}{% if p.code in ['eposone', 'eclassone'] %} auth-showcase__card--visual{% endif %}">
+                <div class="auth-showcase__media{% if not p.logo %} auth-showcase__media--text{% endif %}">
+                    {% if p.logo %}
+                    <img src="{{ url_for('static', filename=p.logo) }}?v=10"
+                         alt="{{ p.name }}"
+                         width="96" height="64"
+                         loading="lazy" decoding="async">
+                    {% else %}
+                    <span class="auth-showcase__wordmark" aria-hidden="true">{{ p.name }}</span>
+                    {% endif %}
+                </div>
+                <div class="auth-showcase__copy">
+                    <strong class="auth-showcase__name">{{ p.name }}</strong>
+                    <span class="auth-showcase__tag">{{ p.tagline }}{% if p.desc %}. {{ p.desc }}{% endif %}</span>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <ul class="auth-trust" aria-label="Beneficios">
+            <li><i class="fas fa-shield-alt" aria-hidden="true"></i><span>Seguro y confiable</span></li>
+            <li><i class="fas fa-cloud" aria-hidden="true"></i><span>Siempre disponible</span></li>
+            <li><i class="fas fa-chart-line" aria-hidden="true"></i><span>Todo integrado</span></li>
+            <li><i class="fas fa-headset" aria-hidden="true"></i><span>Soporte experto</span></li>
+        </ul>
+    </div>
+</aside>

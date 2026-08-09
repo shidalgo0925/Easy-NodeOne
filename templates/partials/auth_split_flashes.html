@@ -1,0 +1,13 @@
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="auth-gate__flashes">
+    {% for category, message in messages %}
+    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show flash-auto-dismiss mb-2" role="alert" data-auto-dismiss-ms="10000">
+        <div class="flash-auto-dismiss__content">{{ message }}</div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        <div class="flash-auto-dismiss__progress" aria-hidden="true"></div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}

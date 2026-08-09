@@ -265,7 +265,7 @@
         }
     </style>
 </head>
-<body{% if current_user.is_authenticated and show_erp_admin_chrome and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'auth.select_organization', 'index', 'login', 'register'] %} data-erp-app-chrome="1"{% endif %}{% if platform_app_shell_active %} data-platform-app-shell="1"{% endif %}{% if app_nav_native_active %} data-app-nav-native="1"{% endif %}{% if platform_shell_app_accent %} data-platform-app-accent="{{ platform_shell_app_accent }}"{% endif %}>
+<body class="{% if auth_fullbleed %}auth-fullbleed{% endif %}"{% if current_user.is_authenticated and show_erp_admin_chrome and request.endpoint not in ['auth.index', 'auth.login', 'auth.register', 'auth.select_organization', 'index', 'login', 'register'] %} data-erp-app-chrome="1"{% endif %}{% if platform_app_shell_active %} data-platform-app-shell="1"{% endif %}{% if app_nav_native_active %} data-app-nav-native="1"{% endif %}{% if platform_shell_app_accent %} data-platform-app-accent="{{ platform_shell_app_accent }}"{% endif %}>
     <a href="#main-content" class="skip-link visually-hidden-focusable">Saltar al contenido</a>
     <!-- Topbar única: logo + nombre + menú + usuario -->
     <nav class="navbar navbar-expand-lg navbar-landing fixed-top">
@@ -667,6 +667,7 @@
             {% endif %}
         {% endwith %}
         {% else %}
+        {% if not auth_fullbleed %}
         <!-- Flash Messages para páginas públicas -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -682,6 +683,9 @@
             {% endif %}
         {% endwith %}
         <div class="container py-4">
+        {% else %}
+        <div class="auth-fullbleed-main">
+        {% endif %}
         {% endif %}
         {% block page_content %}
                     {% block content %}{% endblock %}
@@ -692,7 +696,9 @@
         </div>
         {% else %}
         </div>
+        {% if not auth_fullbleed %}
         {% include 'partials/site_footer.html' %}
+        {% endif %}
         {% endif %}
     </main>
 

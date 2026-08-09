@@ -1,164 +1,126 @@
 {% extends "base.html" %}
 
-{% block title %}Registro — {{ get_nav_brand_name() }}{% endblock %}
+{% block title %}Crear cuenta — Easy Technology Services{% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/auth-login.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/auth-login.css') }}?v=gate13">
 <style>
-    body .container.mt-3 .alert,
-    main .alert.position-relative {
-        position: relative;
-        z-index: 2;
-    }
     .register-optional-details > summary {
-        cursor: pointer;
-        user-select: none;
-        list-style: none;
+        cursor: pointer; user-select: none; list-style: none;
+        font-size: 0.875rem; font-weight: 600; color: #334155; padding: 0.55rem 0;
     }
     .register-optional-details > summary::-webkit-details-marker { display: none; }
-    .register-optional-details > summary::before {
-        content: '\25B6';
-        display: inline-block;
-        margin-right: 0.35rem;
-        font-size: 0.65em;
-        transform: translateY(-0.05em);
-    }
-    .register-optional-details[open] > summary::before { transform: rotate(90deg) translateY(-0.05em); }
-    .auth-login-card .register-optional-details {
-        background: color-mix(in srgb, var(--color-surface-alt, #f8f9fa) 88%, transparent);
-        border-color: var(--color-border, #dee2e6) !important;
-    }
-    .auth-login-card.auth-sheet-compact .register-optional-details .pt-3 {
-        padding-top: 0.35rem !important;
-    }
-    .auth-login-card.auth-sheet-compact .register-optional-details {
-        margin-bottom: 0.35rem !important;
-    }
 </style>
 {% endblock %}
 
 {% block page_content %}
-<div class="auth-login-page w-100">
-    <div class="auth-login-page__inner">
-        <div class="row justify-content-center">
-            <div class="col-12 col-sm-11 col-md-9 col-lg-7 col-xl-6">
-                <div class="card auth-login-card auth-sheet-compact">
-                    <div class="card-header text-white text-center">
-                        <h2 class="mb-0"><i class="fas fa-user-plus me-1" aria-hidden="true"></i>Registro de usuario</h2>
-                        <p class="auth-login-sub mb-0">{{ get_nav_brand_name() }}</p>
+<div class="auth-gate">
+    <section class="auth-gate__access">
+        <div class="auth-gate__access-inner">
+            <div class="auth-gate__brands">
+                <a class="auth-gate__brand-link auth-gate__brand-link--ets" href="{{ url_for('index') }}">
+                    <img src="{{ url_for('static', filename='images/auth/ets-logo.png') }}"
+                         alt="Easy Technology Services" width="180" height="64" decoding="async">
+                </a>
+                <a class="auth-gate__brand-link auth-gate__brand-link--en1" href="{{ url_for('index') }}">
+                    <img src="{{ url_for('static', filename='images/auth/en1-logo.png') }}"
+                         alt="Easy NodeOne" width="180" height="64" decoding="async">
+                </a>
+            </div>
+
+            <h1 class="auth-gate__title">Crear cuenta</h1>
+            <p class="auth-gate__lead">Registrate para acceder al ecosistema Easy Technology Services</p>
+            {% include 'partials/auth_split_flashes.html' %}
+
+            <form method="POST" id="registerForm" novalidate>
+                {% if register_next %}<input type="hidden" name="next" value="{{ register_next }}">{% endif %}
+                {% if invite_token %}
+                <input type="hidden" name="invite_token" value="{{ invite_token }}">
+                <div class="alert alert-info py-2 small mb-2" role="alert">Invitación: mismo <strong>correo</strong> que la invitación.</div>
+                {% endif %}
+                {% if registration_policy_banner %}
+                <div class="alert alert-warning py-2 small mb-2" role="status">{{ registration_policy_banner }}</div>
+                {% endif %}
+
+                <div class="auth-field">
+                    <label for="email">Correo electrónico <span class="text-danger">*</span></label>
+                    <div class="auth-field-control">
+                        <i class="fas fa-envelope" aria-hidden="true"></i>
+                        <input type="email" class="form-control" id="email" name="email" required
+                               autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false"
+                               placeholder="ejemplo@easytech.services">
                     </div>
-                    <div class="card-body">
-                        <form method="POST" id="registerForm" class="auth-sheet-material" novalidate>
-                            {% if register_next %}
-                            <input type="hidden" name="next" value="{{ register_next }}">
-                            {% endif %}
-                            {% if invite_token %}
-                            <input type="hidden" name="invite_token" value="{{ invite_token }}">
-                            <div class="alert alert-info py-1 px-2 mb-1 small" role="alert">
-                                Invitación: mismo <strong>correo</strong> que la invitación.
+                </div>
+                <div class="row g-2">
+                    <div class="col-12 col-md-6">
+                        <div class="auth-field">
+                            <label for="first_name">Nombre <span class="text-danger">*</span></label>
+                            <div class="auth-field-control">
+                                <input type="text" class="form-control" id="first_name" name="first_name" required autocomplete="given-name">
                             </div>
-                            {% endif %}
-                            {% if registration_policy_banner %}
-                            <div class="alert alert-warning py-2 small mb-2" role="status">{{ registration_policy_banner }}</div>
-                            {% endif %}
-                            <div class="auth-sheet-field">
-                                <label for="email" class="form-label">Correo electrónico <span class="text-danger">*</span></label>
-                                <input type="email" class="form-control form-control-sm" id="email" name="email" required
-                                       autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false"
-                                       placeholder="tu@correo.com">
-                            </div>
-                            <div class="row g-1 g-sm-2 auth-sheet-field">
-                                <div class="col-12 col-md-6">
-                                    <label for="first_name" class="form-label">Nombre <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control form-control-sm" id="first_name" name="first_name" required autocomplete="given-name">
-                                </div>
-                                <div class="col-12 col-md-6">
-                                    <label for="last_name" class="form-label">Apellido <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control form-control-sm" id="last_name" name="last_name" required autocomplete="family-name">
-                                </div>
-                            </div>
-                            <div class="auth-sheet-field">
-                                <label for="password" class="form-label">Contraseña <span class="text-danger">*</span></label>
-                                <div class="input-group input-group-sm">
-                                    <input type="password" class="form-control" id="password" name="password" required minlength="6"
-                                           autocomplete="new-password" placeholder="Mín. 6 caracteres"
-                                           title="Mínimo 6 caracteres. Es la misma clave que al entrar. Si falla, revisá mayúsculas."
-                                           aria-describedby="password-help-register">
-                                    <button type="button" class="btn btn-outline-secondary px-2" id="togglePasswordBtn"
-                                            aria-label="Mostrar contraseña" title="Mostrar contraseña">
-                                        <i class="fas fa-eye" id="togglePasswordIcon" aria-hidden="true"></i>
-                                    </button>
-                                </div>
-                                <div id="password-help-register" class="form-text text-muted">Mín. 6 · misma clave que al entrar</div>
-                            </div>
-
-                            <details class="register-optional-details border rounded-2 px-2 py-0">
-                                <summary class="small fw-semibold py-1">
-                                    Teléfono e identidad <span class="text-muted fw-normal">(opcional)</span>
-                                </summary>
-                                <div class="pt-3 pb-0">
-                                    <div class="auth-sheet-field">
-                                        <label for="phone" class="form-label">Teléfono</label>
-                                        <input type="tel" class="form-control form-control-sm" id="phone" name="phone" autocomplete="tel">
-                                    </div>
-                                    <div class="auth-sheet-field">
-                                        <label for="country" class="form-label">País</label>
-                                        <select class="form-select form-select-sm" id="country" name="country" autocomplete="country">
-                                            <option value="">No indicar ahora</option>
-                                            {% if valid_countries %}
-                                                {% for country in valid_countries %}
-                                                    <option value="{{ country }}">{{ country }}</option>
-                                                {% endfor %}
-                                            {% endif %}
-                                        </select>
-                                    </div>
-                                    <div class="auth-sheet-field mb-0">
-                                        <label for="cedula_or_passport" class="form-label">Cédula / DNI / pasaporte</label>
-                                        <input type="text" class="form-control form-control-sm" id="cedula_or_passport" name="cedula_or_passport"
-                                               placeholder="Opcional" autocomplete="off"
-                                               title="Con país elegido validamos formato (ej. Panamá: 8 dígitos). Podés completar en perfil.">
-                                    </div>
-                                </div>
-                            </details>
-
-                            {% include 'partials/turnstile_widget.html' %}
-                            <div class="d-grid auth-sheet-field mb-0">
-                                <button type="submit" class="btn btn-primary">Registrarse</button>
-                            </div>
-                        </form>
-
-                        <div class="auth-login-divider"><span>O con Google</span></div>
-                        <div class="auth-login-oauth d-grid">
-                            <a href="{{ url_for('oauth_login', provider='google') }}"
-                               class="btn btn-sm btn-auth-google d-flex align-items-center justify-content-center gap-2">
-                                <i class="fab fa-google" aria-hidden="true"></i>
-                                <span>Continuar con Google</span>
-                            </a>
                         </div>
-
-                        <details class="auth-login-meta">
-                            <summary class="text-muted small" style="cursor: pointer;">¿No funciona Google?</summary>
-                            <p class="text-muted small mt-1 mb-0" style="font-size: 0.7rem;">
-                                Correo y contraseña arriba.
-                                <a href="{{ url_for('member_pages.help_page') }}#oauth-config" class="alert-link">Ayuda</a>
-                            </p>
-                        </details>
-
-                        <hr class="my-2">
-                        <div class="text-center">
-                            <p class="text-muted small mb-0" style="font-size: 0.75rem;">¿Ya tienes cuenta?</p>
-                            <a href="{{ url_for('auth.login') }}" class="btn btn-sm btn-outline-primary mt-1">Iniciar sesión</a>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="auth-field">
+                            <label for="last_name">Apellido <span class="text-danger">*</span></label>
+                            <div class="auth-field-control">
+                                <input type="text" class="form-control" id="last_name" name="last_name" required autocomplete="family-name">
+                            </div>
                         </div>
                     </div>
                 </div>
-                {% if show_public_app_version %}
-                <p class="text-center text-muted small mt-1 mb-0" style="font-size: 0.7rem;">
-                    <span class="opacity-75">v{{ nodeone_app_version }}</span>
-                </p>
-                {% endif %}
-            </div>
+                <div class="auth-field">
+                    <label for="password">Contraseña <span class="text-danger">*</span></label>
+                    <div class="auth-field-control">
+                        <i class="fas fa-lock" aria-hidden="true"></i>
+                        <input type="password" class="form-control" id="password" name="password" required minlength="6"
+                               autocomplete="new-password" placeholder="Mín. 6 caracteres">
+                        <button type="button" class="auth-eye" id="togglePasswordBtn" aria-label="Mostrar contraseña">
+                            <i class="fas fa-eye" id="togglePasswordIcon" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <details class="register-optional-details">
+                    <summary>Teléfono e identidad (opcional)</summary>
+                    <div class="pb-2">
+                        <div class="auth-field">
+                            <label for="phone">Teléfono</label>
+                            <div class="auth-field-control">
+                                <input type="tel" class="form-control" id="phone" name="phone" autocomplete="tel">
+                            </div>
+                        </div>
+                        <div class="auth-field">
+                            <label for="country">País</label>
+                            <div class="auth-field-control">
+                                <select class="form-control" id="country" name="country" autocomplete="country">
+                                    <option value="">No indicar ahora</option>
+                                    {% if valid_countries %}{% for country in valid_countries %}<option value="{{ country }}">{{ country }}</option>{% endfor %}{% endif %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="auth-field mb-0">
+                            <label for="cedula_or_passport">Cédula / DNI / pasaporte</label>
+                            <div class="auth-field-control">
+                                <input type="text" class="form-control" id="cedula_or_passport" name="cedula_or_passport" autocomplete="off">
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                {% include 'partials/turnstile_widget.html' %}
+                <button type="submit" class="auth-gate__submit">Registrarse</button>
+            </form>
+
+            <div class="auth-gate__divider"><span>o continúa con</span></div>
+            <a href="{{ url_for('oauth_login', provider='google') }}" class="btn btn-auth-google w-100 d-flex align-items-center justify-content-center gap-2">
+                <i class="fab fa-google" aria-hidden="true"></i><span>Continuar con Google</span>
+            </a>
+            <p class="auth-gate__signup">¿Ya tienes cuenta? <a href="{{ url_for('auth.login') }}">Iniciar sesión</a></p>
         </div>
-    </div>
+    </section>
+    {% include 'partials/auth_brand_panel.html' %}
+    {% include 'partials/auth_gate_footer.html' %}
 </div>
 {% endblock %}
 
@@ -172,51 +134,37 @@ document.addEventListener('DOMContentLoaded', function() {
     const country = document.getElementById('country');
     const cedulaOrPassport = document.getElementById('cedula_or_passport');
     const optionalDetails = document.querySelector('.register-optional-details');
-
     if (togglePwdBtn && password) {
         togglePwdBtn.addEventListener('click', function() {
             const show = password.getAttribute('type') === 'password';
             password.setAttribute('type', show ? 'text' : 'password');
-            togglePwdBtn.setAttribute('aria-label', show ? 'Ocultar contraseña' : 'Mostrar contraseña');
-            togglePwdBtn.setAttribute('title', show ? 'Ocultar contraseña' : 'Mostrar contraseña');
             if (togglePwdIcon) {
                 togglePwdIcon.classList.toggle('fa-eye', !show);
                 togglePwdIcon.classList.toggle('fa-eye-slash', show);
             }
         });
     }
-
     function validateCedulaFormat() {
+        if (!country || !cedulaOrPassport) return true;
         const countryValue = country.value;
         const cedulaValue = cedulaOrPassport.value.trim();
-
         if (!cedulaValue || !countryValue) return true;
-
         if (countryValue === 'Panamá') {
             const cleaned = cedulaValue.replace(/[-\s.]/g, '');
             if (!/^\d{7,10}$/.test(cleaned)) {
-                cedulaOrPassport.setCustomValidity(
-                    'La cédula panameña debe tener entre 7 y 10 dígitos (ej.: 8-780-382, 8-123-4567 o 81234567)'
-                );
+                cedulaOrPassport.setCustomValidity('La cédula panameña debe tener entre 7 y 10 dígitos');
                 return false;
             }
         }
-
         cedulaOrPassport.setCustomValidity('');
         return true;
     }
-
-    country.addEventListener('change', validateCedulaFormat);
-    cedulaOrPassport.addEventListener('input', validateCedulaFormat);
-
-    form.addEventListener('submit', function(e) {
+    if (country) country.addEventListener('change', validateCedulaFormat);
+    if (cedulaOrPassport) cedulaOrPassport.addEventListener('input', validateCedulaFormat);
+    if (form) form.addEventListener('submit', function(e) {
         if (!validateCedulaFormat()) {
             e.preventDefault();
-            if (optionalDetails && !optionalDetails.open) {
-                optionalDetails.open = true;
-                cedulaOrPassport.focus();
-            }
-            return false;
+            if (optionalDetails && !optionalDetails.open) { optionalDetails.open = true; cedulaOrPassport.focus(); }
         }
     });
 });

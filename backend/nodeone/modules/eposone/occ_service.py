@@ -301,15 +301,104 @@ def build_operations_control_cierres(
     organization_id: int,
     *,
     only_closed: bool = False,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    lookback_days: int = 14,
 ) -> dict[str, Any]:
-    """Vista Cierres — misma fuente que Hoy, lista completa del día."""
-    board = build_operations_control_today(organization_id)
-    rows = board['rows']
+    """Vista Cierres — historial reciente (no solo el día de hoy).
+
+    Incluye turnos abiertos actuales + cerrados en la ventana de fechas.
+    Sin ``date_from``/``date_to``: últimos ``lookback_days`` días de negocio.
+    """
+    oid = int(organization_id)
+    start_today, end_today, day_local, zone = _biz_bounds_today(oid)
+    meta_map = _register_branch_map(oid)
+
+    raw_from = (date_from or '').strip()[:10] or None
+    raw_to = (date_to or '').strip()[:10] or None
+    range_start = None
+    range_end = None
+    try:
+        if raw_from:
+            range_start, _ = TimeZoneService.day_bounds_utc_naive(raw_from, zone)
+        if raw_to:
+            _, range_end = TimeZoneService.day_bounds_utc_naive(raw_to, zone)
+    except ValueError:
+        raw_from = None
+        raw_to = None
+        range_start = None
+        range_end = None
+
+    if range_start is None and range_end is None:
+        # Ventana por defecto: últimos N días hasta fin del día de negocio actual.
+        anchor = datetime.now(zone).date() - timedelta(days=max(1, int(lookback_days)) - 1)
+        range_start, _ = TimeZoneService.day_bounds_utc_naive(anchor.isoformat(), zone)
+        range_end = end_today
+        raw_from = anchor.isoformat()
+        raw_to = day_local
+    elif range_start is None:
+        range_start = range_end - timedelta(days=max(1, int(lookback_days)))
+    elif range_end is None:
+        range_end = end_today
+
+    open_shifts = (
+        CoreCashShift.query.filter_by(organization_id=oid)
+        .filter(CoreCashShift.status.in_((CASH_SHIFT_OPEN, CASH_SHIFT_RECONCILING)))
+        .order_by(CoreCashShift.opened_at.desc())
+        .all()
+    )
+    closed_q = CoreCashShift.query.filter_by(
+        organization_id=oid, status=CASH_SHIFT_CLOSED
+    ).filter(
+        CoreCashShift.closed_at.isnot(None),
+        CoreCashShift.closed_at >= range_start,
+        CoreCashShift.closed_at < range_end,
+    )
+    closed_shifts = closed_q.order_by(CoreCashShift.closed_at.desc()).limit(100).all()
+
+    # Abiertos primero, luego cerrados recientes
+    seen: set[int] = set()
+    shifts: list[CoreCashShift] = []
+    for s in list(open_shifts) + list(closed_shifts):
+        sid = int(s.id)
+        if sid in seen:
+            continue
+        seen.add(sid)
+        shifts.append(s)
+
+    rows = [shift_control_row(s, meta=meta_map.get(str(s.register_ref))) for s in shifts]
     if only_closed:
         rows = [r for r in rows if r['shift_status'] == CASH_SHIFT_CLOSED]
+
+    open_n = sum(1 for r in rows if r['shift_status'] == CASH_SHIFT_OPEN)
+    closed_n = sum(1 for r in rows if r['shift_status'] == CASH_SHIFT_CLOSED)
+    alert_n = sum(1 for r in rows if r['occ_status'] == OCC_STATUS_ALERT)
+    warn_n = sum(1 for r in rows if r['occ_status'] == OCC_STATUS_WARN)
+    sales_total = _money(sum(r['sales'] for r in rows))
+    branches = sorted(
+        {r['branch_name'] for r in rows if r['branch_name'] and r['branch_name'] != '—'}
+    )
+
     return {
-        **board,
+        'day_local': day_local,
+        'timezone': str(getattr(zone, 'key', None) or zone),
+        'date_from': raw_from,
+        'date_to': raw_to,
+        'summary': {
+            'branches': len(branches) or len({r['branch_ref'] for r in rows if r['branch_ref']}),
+            'shifts_open': open_n,
+            'shifts_closed': closed_n,
+            'shifts_total': len(rows),
+            'differences': alert_n,
+            'alerts': alert_n + warn_n,
+            'sales': sales_total,
+            'currency': 'USD',
+        },
         'rows': rows,
+        'problems': [r for r in rows if r['occ_status'] in (OCC_STATUS_ALERT, OCC_STATUS_WARN, OCC_STATUS_OPEN)][
+            :20
+        ],
+        'branches_list': branches,
         'view': 'cierres',
     }
 

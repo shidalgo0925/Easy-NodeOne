@@ -61,87 +61,96 @@
     </div>
     {% endif %}
 
-    <form method="get" class="epos-filter-bar" id="epos-orders-filters">
-        <div class="epos-filter-field" style="min-width:10rem; flex:1 1 12rem;">
-            <label for="epos-orders-q">Buscar</label>
-            <input class="form-control" type="search" id="epos-orders-q" name="q" value="{{ q|default('') }}" placeholder="EN1, local, mesa, cliente…">
-        </div>
-        <div class="epos-filter-field">
-            <label for="epos-orders-from">Desde</label>
-            <input class="form-control" type="date" id="epos-orders-from" name="from" value="{{ date_from|default('') }}">
-        </div>
-        <div class="epos-filter-field">
-            <label for="epos-orders-to">Hasta</label>
-            <input class="form-control" type="date" id="epos-orders-to" name="to" value="{{ date_to|default('') }}">
-        </div>
-        <div class="epos-filter-field">
-            <label for="epos-orders-table">Mesa</label>
-            <input class="form-control" type="text" id="epos-orders-table" name="table" value="{{ table_filter|default('') }}">
-        </div>
-        <div class="epos-filter-field">
-            <label for="epos-orders-register">Caja</label>
-            <input class="form-control" type="text" id="epos-orders-register" name="register" value="{{ register_filter|default('') }}">
-        </div>
-        <div class="epos-filter-field">
-            <label for="epos-orders-pos">POS</label>
-            <input class="form-control" type="text" id="epos-orders-pos" name="pos" value="{{ pos_filter|default('') }}">
-        </div>
-        <div class="epos-filter-field">
-            <label for="epos-orders-cashier">Cajero</label>
-            <input class="form-control" type="text" id="epos-orders-cashier" name="cashier" value="{{ cashier_filter|default('') }}">
-        </div>
-        <div class="epos-filter-field">
-            <label for="epos-orders-customer">Cliente</label>
-            <input class="form-control" type="text" id="epos-orders-customer" name="customer" value="{{ customer_filter|default('') }}">
-        </div>
-        <div class="epos-filter-field">
-            <label for="epos-orders-status">Estado</label>
-            <select name="status" id="epos-orders-status" class="form-select">
-                <option value="">Todos</option>
-                {% for st in ('open', 'draft', 'sent', 'ready', 'delivered', 'cancelled', 'returned') %}
-                <option value="{{ st }}" {% if status_filter == st %}selected{% endif %}>{{ st }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="epos-filter-field">
-            <label for="epos-orders-pay">Pago</label>
-            <select name="payment_status" id="epos-orders-pay" class="form-select">
-                <option value="">Todos</option>
-                {% for st in ('unpaid', 'partial', 'paid') %}
-                <option value="{{ st }}" {% if payment_filter == st %}selected{% endif %}>{{ st }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="epos-filter-field">
-            <label for="epos-orders-per-page">Por página</label>
-            <select name="per_page" id="epos-orders-per-page" class="form-select">
-                {% for n in per_page_choices|default([15, 25, 50, 100]) %}
-                <option value="{{ n }}" {% if per_page|default(15) == n %}selected{% endif %}>{{ n }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <input type="hidden" name="page" id="epos-orders-page" value="1">
-        <div class="epos-filter-bar__actions epos-orders-filter-actions">
-            <div class="epos-filter-bar__presets" role="group" aria-label="Rango rápido">
-                <button type="button" class="btn btn-sm btn-outline-primary" id="epos-orders-today"
-                        data-today="{{ today_local|default('') }}"
-                        title="Pedidos abiertos hoy (zona horaria efectiva)">
-                    <i class="fas fa-calendar-day me-1"></i>Hoy
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-primary" id="epos-orders-yesterday"
-                        data-today="{{ today_local|default('') }}"
-                        title="Pedidos abiertos ayer (zona horaria efectiva)">
-                    <i class="fas fa-calendar-minus me-1"></i>Ayer
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-primary" id="epos-orders-week"
-                        data-today="{{ today_local|default('') }}"
-                        title="Pedidos abiertos desde el lunes hasta hoy">
-                    <i class="fas fa-calendar-week me-1"></i>Esta Semana
-                </button>
+    {% set more_open = (table_filter or register_filter or pos_filter or cashier_filter or customer_filter or (per_page|default(15) != 15)) %}
+    <form method="get" class="epos-filter-bar epos-filter-bar--orders{% if more_open %} is-expanded{% endif %}" id="epos-orders-filters">
+        <div class="epos-filter-bar__primary">
+            <div class="epos-filter-field epos-filter-field--grow">
+                <label for="epos-orders-q">Buscar</label>
+                <input class="form-control" type="search" id="epos-orders-q" name="q" value="{{ q|default('') }}" placeholder="EN1, local, mesa, cliente…">
             </div>
-            <div class="epos-orders-filter-actions__primary">
-                <button type="submit" class="btn btn-sm btn-primary">Aplicar</button>
-                <a href="{{ url_for('eposone.eposone_section', slug='orders') }}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+            <div class="epos-filter-field epos-filter-field--sm">
+                <label for="epos-orders-from">Desde</label>
+                <input class="form-control" type="date" id="epos-orders-from" name="from" value="{{ date_from|default('') }}">
+            </div>
+            <div class="epos-filter-field epos-filter-field--sm">
+                <label for="epos-orders-to">Hasta</label>
+                <input class="form-control" type="date" id="epos-orders-to" name="to" value="{{ date_to|default('') }}">
+            </div>
+            <div class="epos-filter-field epos-filter-field--sm">
+                <label for="epos-orders-status">Estado</label>
+                <select name="status" id="epos-orders-status" class="form-select">
+                    <option value="">Todos</option>
+                    {% for st in ('open', 'draft', 'sent', 'ready', 'delivered', 'cancelled', 'returned') %}
+                    <option value="{{ st }}" {% if status_filter == st %}selected{% endif %}>{{ st }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="epos-filter-field epos-filter-field--sm">
+                <label for="epos-orders-pay">Pago</label>
+                <select name="payment_status" id="epos-orders-pay" class="form-select">
+                    <option value="">Todos</option>
+                    {% for st in ('unpaid', 'partial', 'paid') %}
+                    <option value="{{ st }}" {% if payment_filter == st %}selected{% endif %}>{{ st }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <input type="hidden" name="page" id="epos-orders-page" value="1">
+            <div class="epos-filter-bar__actions epos-orders-filter-actions">
+                <div class="epos-filter-bar__presets" role="group" aria-label="Rango rápido">
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="epos-orders-today"
+                            data-today="{{ today_local|default('') }}"
+                            title="Pedidos abiertos hoy (zona horaria efectiva)">
+                        <i class="fas fa-calendar-day me-1"></i>Hoy
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="epos-orders-yesterday"
+                            data-today="{{ today_local|default('') }}"
+                            title="Pedidos abiertos ayer (zona horaria efectiva)">
+                        <i class="fas fa-calendar-minus me-1"></i>Ayer
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="epos-orders-week"
+                            data-today="{{ today_local|default('') }}"
+                            title="Pedidos abiertos desde el lunes hasta hoy">
+                        <i class="fas fa-calendar-week me-1"></i>Esta Semana
+                    </button>
+                </div>
+                <div class="epos-orders-filter-actions__primary">
+                    <button type="button" class="btn btn-sm btn-outline-secondary epos-filter-bar__toggle" id="epos-orders-more-toggle"
+                            aria-expanded="{{ 'true' if more_open else 'false' }}" aria-controls="epos-orders-more-filters">
+                        <i class="fas fa-sliders-h me-1"></i><span data-label-more>Más filtros</span>
+                    </button>
+                    <button type="submit" class="btn btn-sm btn-primary">Aplicar</button>
+                    <a href="{{ url_for('eposone.eposone_section', slug='orders') }}" class="btn btn-sm btn-outline-secondary">Limpiar</a>
+                </div>
+            </div>
+        </div>
+        <div class="epos-filter-bar__more" id="epos-orders-more-filters">
+            <div class="epos-filter-field epos-filter-field--sm">
+                <label for="epos-orders-table">Mesa</label>
+                <input class="form-control" type="text" id="epos-orders-table" name="table" value="{{ table_filter|default('') }}">
+            </div>
+            <div class="epos-filter-field epos-filter-field--sm">
+                <label for="epos-orders-register">Caja</label>
+                <input class="form-control" type="text" id="epos-orders-register" name="register" value="{{ register_filter|default('') }}">
+            </div>
+            <div class="epos-filter-field epos-filter-field--sm">
+                <label for="epos-orders-pos">POS</label>
+                <input class="form-control" type="text" id="epos-orders-pos" name="pos" value="{{ pos_filter|default('') }}">
+            </div>
+            <div class="epos-filter-field">
+                <label for="epos-orders-cashier">Cajero</label>
+                <input class="form-control" type="text" id="epos-orders-cashier" name="cashier" value="{{ cashier_filter|default('') }}">
+            </div>
+            <div class="epos-filter-field">
+                <label for="epos-orders-customer">Cliente</label>
+                <input class="form-control" type="text" id="epos-orders-customer" name="customer" value="{{ customer_filter|default('') }}">
+            </div>
+            <div class="epos-filter-field epos-filter-field--sm">
+                <label for="epos-orders-per-page">Por página</label>
+                <select name="per_page" id="epos-orders-per-page" class="form-select">
+                    {% for n in per_page_choices|default([15, 25, 50, 100]) %}
+                    <option value="{{ n }}" {% if per_page|default(15) == n %}selected{% endif %}>{{ n }}</option>
+                    {% endfor %}
+                </select>
             </div>
         </div>
     </form>
@@ -245,7 +254,7 @@
             </div>
             {% endif %}
             {% else %}
-                {% with title='Sin pedidos', text='Ajustá filtros o esperá sincronización desde la tablet.', icon='fa-receipt' %}
+                {% with title='Sin pedidos', text='Ajustá filtros o esperá sync de la tablet.', icon='fa-receipt', compact=true %}
                 {% include 'eposone/partials/empty_state.html' %}
                 {% endwith %}
             {% endif %}
@@ -262,6 +271,20 @@
   var perPageSel = document.getElementById('epos-orders-per-page');
   var pageHidden = document.getElementById('epos-orders-page');
   var countdownEl = document.getElementById('epos-orders-countdown');
+  var moreToggle = document.getElementById('epos-orders-more-toggle');
+
+  if (moreToggle && form) {
+    moreToggle.addEventListener('click', function () {
+      var open = form.classList.toggle('is-expanded');
+      moreToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      var label = moreToggle.querySelector('[data-label-more]');
+      if (label) label.textContent = open ? 'Menos filtros' : 'Más filtros';
+    });
+    if (form.classList.contains('is-expanded')) {
+      var labelInit = moreToggle.querySelector('[data-label-more]');
+      if (labelInit) labelInit.textContent = 'Menos filtros';
+    }
+  }
 
   function shiftIsoDate(isoDate, days) {
     var parts = (isoDate || '').split('-').map(Number);

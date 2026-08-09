@@ -1899,6 +1899,17 @@ def _nav_can_permission(perm_code: str) -> bool:
 
 
 @app.context_processor
+def inject_turnstile_context():
+    """Cloudflare Turnstile (login/registro/forgot) — keys vía env."""
+    try:
+        from nodeone.services.cloudflare_turnstile import turnstile_template_vars
+
+        return turnstile_template_vars()
+    except Exception:
+        return {'turnstile_enabled': False, 'turnstile_site_key': ''}
+
+
+@app.context_processor
 def inject_admin_nav_context():
     """
     Flags y listas para base.html / admin (sidebar y dropdown).

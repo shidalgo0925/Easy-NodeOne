@@ -14,6 +14,9 @@ Cambios = **v1.1+** + GO arquitectura. No reinterpretar.
 
 **Importante:** `/api/eposone/cash/shifts*` (sesión BO `@login_required`) **no** es este contrato. La tablet **solo** usa `/api/v1/cash/*` con Device Token.
 
+**Modalidad:** este contrato aplica a instalaciones **Connected** (device provisionado a org EN1).  
+**Standalone:** la APK **no** llama estos endpoints de turnos; cierres quedan locales. Ver spec §0.
+
 ---
 
 ## 1. Headers obligatorios

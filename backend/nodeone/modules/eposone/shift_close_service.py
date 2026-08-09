@@ -203,11 +203,20 @@ def shift_activity_stats(
     )
     payment_count = len(pay_rows)
     orders_count = len({int(order.id) for _pay, order in pay_rows})
+    collected = 0.0
+    for pay, _order in pay_rows:
+        kind = str(pay.kind or 'payment').lower()
+        amt = _money(pay.amount)
+        if kind in ('refund', 'reembolso'):
+            collected -= amt
+        else:
+            collected += amt
     return {
         'payment_count': payment_count,
         'treasury_count': treasury_count,
         'orders_count': orders_count,
         'activity_count': payment_count + treasury_count,
+        'sales_collected': _money(collected),
     }
 
 

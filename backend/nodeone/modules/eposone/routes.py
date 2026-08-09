@@ -505,6 +505,7 @@ def _shift_operational_row(
         'payment_count': int(activity['payment_count']),
         'treasury_count': int(activity['treasury_count']),
         'orders_count': int(activity['orders_count']),
+        'sales_collected': float(activity.get('sales_collected') or 0),
     }
 
 

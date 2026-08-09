@@ -183,9 +183,10 @@
                             <th>Caja</th>
                             <th>Cajero</th>
                             <th>Cerrado</th>
-                            <th class="text-end">Cierre</th>
-                            <th class="text-end">Esperado</th>
-                            <th class="text-end">Dif.</th>
+                            <th class="text-end" title="Suma de todos los métodos de pago del turno">Total cobrado</th>
+                            <th class="text-end" title="Efectivo contado en cajón (arqueo)">Ef. contado</th>
+                            <th class="text-end" title="Efectivo esperado en cajón (ADR-009)">Ef. esperado</th>
+                            <th class="text-end" title="Diferencia de efectivo (contado − esperado)">Dif. ef.</th>
                             <th class="text-end" title="Pagos del turno + movimientos de tesorería">Ops.</th>
                             <th></th>
                         </tr>
@@ -209,7 +210,8 @@
                             <td class="small text-muted">
                                 {% if shift.closed_at %}{{ shift.closed_at.strftime('%d/%m/%Y %H:%M') }}{% else %}—{% endif %}
                             </td>
-                            <td class="text-end">{{ '%.2f'|format(shift.closing_balance or 0) }}</td>
+                            <td class="text-end fw-semibold">{{ '%.2f'|format(row.sales_collected or 0) }}</td>
+                            <td class="text-end">{{ '%.2f'|format(shift.counted_amount if shift.counted_amount is not none else (shift.closing_balance or 0)) }}</td>
                             <td class="text-end">{{ '%.2f'|format(shift.expected_balance or 0) }}</td>
                             <td class="text-end {% if shift.cash_variance and shift.cash_variance|abs > 0.01 %}text-warning{% endif %}">
                                 {{ '%.2f'|format(shift.cash_variance or 0) }}

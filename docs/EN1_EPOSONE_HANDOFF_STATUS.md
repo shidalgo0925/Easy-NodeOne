@@ -133,7 +133,7 @@ Doc/EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md
 | Bootstrap `cashiers` / `cashiers_version` | ✅ mismo `GET /api/v1/devices/bootstrap` |
 | Sync Up con `cashier_contact_id` | ✅ turno / pedido / pago / reembolso / movimiento |
 | Login local APK + Keystore | ⏸ P2 |
-| Apertura / cierre turno HTTP Device Bearer | ✅ EN1 [`EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md`](EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md) · cableado APK = **P2** |
+| Apertura / cierre turno HTTP Device Bearer | ✅ EN1 [`EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md`](EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md) · cableado APK = **P2 solo Connected** (Standalone = local, sin push) |
 | Apertura excepcional BO | ✅ Turnos UI |
 
 ---
@@ -144,9 +144,9 @@ Doc/EN1_EPOSONE_ORDER_DOMAIN_SPEC_V1.md
 |--------|--------|
 | H1 · H2 | Congelado |
 | H2.5 Cajero | EN1 listo · contrato congelado · APK = Hito 4 |
-| Cash Shift HTTP | **v1.0 congelado** · pendiente recepción P2 |
+| Cash Shift HTTP | **v1.0 congelado** · pendiente recepción P2 (**Connected only**) |
 | H3 dominio/API + contrato HTTP | Congelado (docs) |
 | H3C BO cobro | Hecho en EN1 · E2E multi-POS = Hito 4 |
 | TZ Fase 1 | Hecho en EN1 |
 | Inventario | No hasta Hito 5 |
-| P2 | Cablear HTTP H3 + cobro tablet + cajero H2.5 + **turnos cash** |
+| P2 | Cablear HTTP H3 + cobro tablet + cajero H2.5 + **turnos cash (Connected; Standalone N/A)** |

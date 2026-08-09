@@ -9,15 +9,29 @@
 
 ---
 
+## 0. Alcance por modalidad (obligatorio)
+
+| Modalidad | ¿EP1 empuja open/close a EN1? | Notas |
+|-----------|------------------------------|--------|
+| **Connected** (POS enlazado a org EN1) | **Sí** | Mismos cierres en tablet y EN1 (Turnos / OCC). Camino feliz = cajero en EP1. |
+| **Standalone** | **No** | Caja/cierres solo locales en el device. EN1 **no** es SoT de esos turnos. No es un bug. |
+
+Prog2 cablea HTTP `/api/v1/cash/shifts*` **solo en Connected**. Standalone no encola ni pushea turnos a EN1.
+
+Cierre desde BO EN1 = **emergencia** (Connected), no reemplazo del cierre del cajero en EP1.
+
+---
+
 ## 1. Quién abre / cierra
 
 | Actor | Abre | Cierra | Notas |
 |-------|------|--------|--------|
-| **POS (tablet)** | Flujo normal | Flujo normal | Device Bearer · caja fija del device |
-| **BO EN1** | Excepción / lab | Excepción / emergencia | Sesión admin · UI Turnos |
+| **POS Connected** | Flujo normal | Flujo normal | Device Bearer · caja fija del device · **push a EN1** |
+| **POS Standalone** | Local | Local | Sin sync de turnos a EN1 |
+| **BO EN1** | Excepción / lab | Excepción / emergencia | Sesión admin · UI Turnos · solo Connected |
 | **Sync Up legado** | Handler existe | Handler existe | Prog2 **no** lo usa para desbloqueo; usa HTTP v1 |
 
-El device ya está provisionado a una **Caja** (`register_ref`). La APK no elige caja al abrir.
+El device Connected ya está provisionado a una **Caja** (`register_ref`). La APK no elige caja al abrir.
 
 ---
 
@@ -67,10 +81,11 @@ Toda apertura/cierre POS lleva `cashier_contact_id` (Hito 2.5 §5).
 
 ## 6. Criterio de desbloqueo Prog2
 
-Con este spec + contrato HTTP + tag EN1, Prog2 cablea:
+Con este spec + contrato HTTP + tag EN1, Prog2 cablea **en Connected**:
 
 - enqueue al abrir/cerrar caja
 - push con Device Token
 - mapear `shift_id` / `shift_number` a la sesión local
 
-Hasta entonces el cierre local de la APK **no** actualiza EN1 (comportamiento esperado).
+Hasta entonces el cierre local de la APK Connected **no** actualiza EN1 (comportamiento esperado).  
+Standalone: sin cambio — no hay paridad de cierres con EN1.

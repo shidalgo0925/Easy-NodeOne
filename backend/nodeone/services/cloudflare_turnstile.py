@@ -52,15 +52,20 @@ def verify_turnstile_token(token: str, *, remote_ip: str | None = None) -> tuple
         return False, 'Completá la verificación de seguridad e intentá de nuevo.'
     secret = turnstile_secret_key()
     payload: dict[str, str] = {'secret': secret, 'response': tok}
+    # Solo IP de borde Cloudflare. remote_addr detrás de nginx (p.ej. 127.0.0.1)
+    # puede hacer fallar siteverify.
     if remote_ip:
         payload['remoteip'] = str(remote_ip)
     try:
         resp = requests.post(_VERIFY_URL, data=payload, timeout=_TIMEOUT_SEC)
         data = resp.json() if resp.ok else {}
-    except Exception:
+    except Exception as exc:
+        print(f'⚠️ turnstile siteverify error: {exc}')
         return False, 'No se pudo validar la verificación de seguridad. Reintentá.'
     if bool(data.get('success')):
         return True, ''
+    codes = data.get('error-codes') or []
+    print(f'⚠️ turnstile rejected error-codes={codes!r}')
     return False, 'Verificación de seguridad fallida. Reintentá.'
 
 
@@ -71,7 +76,9 @@ def require_turnstile_from_request(request) -> tuple[bool, str]:
     token = (request.form.get('cf-turnstile-response') or '').strip()
     ip = None
     try:
-        ip = request.headers.get('CF-Connecting-IP') or request.remote_addr
+        # Solo confiar en CF-Connecting-IP (proxy Cloudflare). No usar remote_addr.
+        raw = (request.headers.get('CF-Connecting-IP') or '').strip()
+        ip = raw or None
     except Exception:
         ip = None
     return verify_turnstile_token(token, remote_ip=ip)

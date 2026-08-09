@@ -375,13 +375,24 @@ def build_shift_close_report(
     if counted is not None:
         variance = _money(counted - expected_official)
 
+    from nodeone.modules.eposone.shift_correction_service import list_shift_corrections
+
+    corrections = list_shift_corrections(shift)
+    last_declared = None
+    if corrections:
+        last_declared = corrections[-1].get('declared_methods')
+
     return {
         'shift': shift,
         'status': status,
         'can_reconcile': status == CASH_SHIFT_OPEN and day_filter['mode'] == 'all',
         'can_close': status == CASH_SHIFT_RECONCILING and day_filter['mode'] == 'all',
         'can_move': status == CASH_SHIFT_OPEN and day_filter['mode'] == 'all',
+        'can_correct': status in (CASH_SHIFT_CLOSED, CASH_SHIFT_RECONCILING, CASH_SHIFT_OPEN)
+        and day_filter['mode'] == 'all',
         'day_filter': day_filter,
+        'corrections': corrections,
+        'declared_methods': last_declared,
         'sales': {
             'gross': _money(sales_gross),
             'refunds': _money(refunds_total),

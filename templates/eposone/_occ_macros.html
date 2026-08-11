@@ -53,6 +53,7 @@
                 <th>Sucursal</th>
                 <th>Caja</th>
                 <th>Cajero</th>
+                <th>Custodio</th>
                 <th class="text-end" title="Suma de todos los métodos de pago">Total cobrado</th>
                 <th class="text-end" title="Efectivo esperado en cajón">Ef. esperado</th>
                 <th class="text-end" title="Efectivo contado en cajón">Ef. contado</th>
@@ -70,6 +71,16 @@
                     <div class="small text-muted"><code>{{ row.register_ref }}</code></div>
                 </td>
                 <td>{{ row.cashier_name }}</td>
+                <td>
+                    {% if row.custodian_cashier_name %}
+                    {{ row.custodian_cashier_name }}
+                    {% if row.custodian_cashier_contact_id and row.cashier_contact_id and row.custodian_cashier_contact_id != row.cashier_contact_id %}
+                    <div class="small text-muted">≠ cajero</div>
+                    {% endif %}
+                    {% else %}
+                    —
+                    {% endif %}
+                </td>
                 <td class="text-end">{{ '%.2f'|format(row.sales) }}</td>
                 <td class="text-end">{{ '%.2f'|format(row.expected) }}</td>
                 <td class="text-end">{% if row.counted is not none %}{{ '%.2f'|format(row.counted) }}{% else %}—{% endif %}</td>
@@ -80,7 +91,7 @@
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="9" class="text-muted text-center py-4">Sin turnos en el rango seleccionado.</td></tr>
+            <tr><td colspan="10" class="text-muted text-center py-4">Sin turnos en el rango seleccionado.</td></tr>
             {% endfor %}
         </tbody>
     </table>

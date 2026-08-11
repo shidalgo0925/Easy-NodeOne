@@ -5,10 +5,6 @@ from __future__ import annotations
 from flask import Blueprint, jsonify, request
 from flask_login import current_user
 
-from nodeone.modules.eposone.cash_shift_http_service import (
-    CashShiftHttpError,
-    CashShiftHttpService,
-)
 from nodeone.modules.eposone.device_provisioning import (
     DeviceProvisioningError,
     DeviceProvisioningService,
@@ -19,6 +15,16 @@ eposone_cash_v1_bp = Blueprint(
     __name__,
     url_prefix='/api/v1/cash',
 )
+
+
+def _cash_http():
+    """Lazy — evita ciclo register → cash_shifts → cash_shift_http → app → register."""
+    from nodeone.modules.eposone.cash_shift_http_service import (
+        CashShiftHttpError,
+        CashShiftHttpService,
+    )
+
+    return CashShiftHttpError, CashShiftHttpService
 
 
 def _device_from_request():
@@ -45,6 +51,7 @@ def _device_from_request():
 
 
 def _err(exc: Exception):
+    CashShiftHttpError, _ = _cash_http()
     if isinstance(exc, (DeviceProvisioningError, CashShiftHttpError)):
         return jsonify({'error': exc.code}), int(exc.http_status)
     raise exc
@@ -53,6 +60,7 @@ def _err(exc: Exception):
 @eposone_cash_v1_bp.route('/shifts/current', methods=['GET'])
 def cash_shift_current():
     """Turno abierto o en arqueo de la caja del device."""
+    CashShiftHttpError, CashShiftHttpService = _cash_http()
     try:
         device = _device_from_request()
         shift = CashShiftHttpService.get_current(device)
@@ -66,6 +74,7 @@ def cash_shift_current():
 @eposone_cash_v1_bp.route('/shifts', methods=['POST'])
 def cash_shift_open():
     """Abrir turno en la caja provisionada al device."""
+    CashShiftHttpError, CashShiftHttpService = _cash_http()
     try:
         device = _device_from_request()
         body = request.get_json(silent=True) or {}
@@ -82,6 +91,7 @@ def cash_shift_open():
 
 @eposone_cash_v1_bp.route('/shifts/<int:shift_id>', methods=['GET'])
 def cash_shift_get(shift_id: int):
+    CashShiftHttpError, CashShiftHttpService = _cash_http()
     try:
         device = _device_from_request()
         shift = CashShiftHttpService.get_shift(device, shift_id)
@@ -93,10 +103,52 @@ def cash_shift_get(shift_id: int):
 @eposone_cash_v1_bp.route('/shifts/<int:shift_id>/close', methods=['POST'])
 def cash_shift_close(shift_id: int):
     """Cierre POS en un paso (arqueo + close). Idempotente si ya closed."""
+    CashShiftHttpError, CashShiftHttpService = _cash_http()
     try:
         device = _device_from_request()
         body = request.get_json(silent=True) or {}
         shift = CashShiftHttpService.close_shift(device, shift_id, body)
+        return jsonify({'shift': shift})
+    except (DeviceProvisioningError, CashShiftHttpError) as exc:
+        return _err(exc)
+
+
+@eposone_cash_v1_bp.route('/shifts/<int:shift_id>/custody/handover', methods=['POST'])
+def cash_shift_custody_offer(shift_id: int):
+    """ADR-036 modo B: custodio ofrece handover."""
+    CashShiftHttpError, CashShiftHttpService = _cash_http()
+    try:
+        device = _device_from_request()
+        body = request.get_json(silent=True) or {}
+        shift = CashShiftHttpService.offer_handover(device, shift_id, body)
+        return jsonify({'shift': shift})
+    except (DeviceProvisioningError, CashShiftHttpError) as exc:
+        return _err(exc)
+
+
+@eposone_cash_v1_bp.route(
+    '/shifts/<int:shift_id>/custody/handover/<handover_id>/accept', methods=['POST']
+)
+def cash_shift_custody_accept(shift_id: int, handover_id: str):
+    CashShiftHttpError, CashShiftHttpService = _cash_http()
+    try:
+        device = _device_from_request()
+        body = request.get_json(silent=True) or {}
+        shift = CashShiftHttpService.accept_handover(device, shift_id, handover_id, body)
+        return jsonify({'shift': shift})
+    except (DeviceProvisioningError, CashShiftHttpError) as exc:
+        return _err(exc)
+
+
+@eposone_cash_v1_bp.route(
+    '/shifts/<int:shift_id>/custody/handover/<handover_id>/reject', methods=['POST']
+)
+def cash_shift_custody_reject(shift_id: int, handover_id: str):
+    CashShiftHttpError, CashShiftHttpService = _cash_http()
+    try:
+        device = _device_from_request()
+        body = request.get_json(silent=True) or {}
+        shift = CashShiftHttpService.reject_handover(device, shift_id, handover_id, body)
         return jsonify({'shift': shift})
     except (DeviceProvisioningError, CashShiftHttpError) as exc:
         return _err(exc)

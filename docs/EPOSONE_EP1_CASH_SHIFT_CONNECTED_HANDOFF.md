@@ -45,3 +45,4 @@ Hoy el cajero cierra en la tablet y EN1 no se entera → turnos abiertos/mezclad
 - Historial `GET` de cierres para el POS (fase aparte)
 - Sync legado `open_cash_shift` / `close_cash_shift` como camino de desbloqueo
 - Paridad de cierres Standalone ↔ EN1
+- Modo **CHAIN_OF_CUSTODY** (ADR-036) — ver [`EN1_EPOSONE_CASH_SHIFT_MODE_B_DELTA.md`](EN1_EPOSONE_CASH_SHIFT_MODE_B_DELTA.md); este handoff = **SIMPLE** / v1.0

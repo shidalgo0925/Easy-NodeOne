@@ -77,6 +77,15 @@
                             Requerir supervisor en reembolsos y movimientos manuales de caja
                         </label>
                     </div>
+                    <div class="mt-3">
+                        <label class="form-label small mb-1" for="cash_operation_mode">Modo de operación de caja (ADR-036)</label>
+                        <select class="form-select form-select-sm" id="cash_operation_mode" name="cash_operation_mode">
+                            {% set mode = (settings.cash_operation_mode if settings else 'SIMPLE') or 'SIMPLE' %}
+                            <option value="SIMPLE" {% if mode == 'SIMPLE' %}selected{% endif %}>SIMPLE — cajero = custodio</option>
+                            <option value="CHAIN_OF_CUSTODY" {% if mode == 'CHAIN_OF_CUSTODY' %}selected{% endif %}>CHAIN_OF_CUSTODY — handover de custodia</option>
+                        </select>
+                        <div class="form-text">En modo B el cierre exige custodio actual; el cambio de cajero se hace por handover en el POS.</div>
+                    </div>
                 </div>
                 <div class="col-12 col-lg-4 text-lg-end">
                     <button type="submit" class="btn btn-sm btn-primary">

@@ -8,9 +8,11 @@
 | Base URL Dev | `https://appdev.easynodeone.com` |
 | Destino APK | Copiar a `Doc/` del repo EPosOne |
 | Audiencia | **Prog2** — cablear Bearer + `/api/v1/cash/shifts*` **sin inventar** |
-| Relacionado | Hito 2.5 cajero · ADR-009 · Order Domain HTTP |
+| Relacionado | Hito 2.5 cajero · ADR-009 · Order Domain HTTP · **ADR-036** modos caja ([doc](ADR-036-CASH-OPERATION-MODES-CHAIN-OF-CUSTODY.md)) · delta modo B **v1.1 borrador** ([MODE_B_DELTA](EN1_EPOSONE_CASH_SHIFT_MODE_B_DELTA.md)) |
 
-Cambios = **v1.1+** + GO arquitectura. No reinterpretar.
+Cambios a v1.0 = **v1.1+** + GO arquitectura. No reinterpretar.
+
+**Modos (ADR-036):** este contrato **v1.0** = modo **SIMPLE** (default). `CHAIN_OF_CUSTODY` no forma parte de v1.0; ver delta.
 
 **Importante:** `/api/eposone/cash/shifts*` (sesión BO `@login_required`) **no** es este contrato. La tablet **solo** usa `/api/v1/cash/*` con Device Token.
 

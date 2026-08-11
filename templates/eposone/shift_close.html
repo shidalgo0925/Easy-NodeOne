@@ -41,6 +41,13 @@
                     <div class="small mt-1">
                         Cajero actual: <strong>{{ shift.cashier_name or 'Sin asignar' }}</strong>
                         {% if shift.cashier_contact_id %}<span class="text-muted"> · #{{ shift.cashier_contact_id }}</span>{% endif %}
+                        {% if shift.custodian_cashier_contact_id %}
+                        <br>Custodio: <strong>{{ shift.custodian_cashier_name or shift.cashier_name or '—' }}</strong>
+                        <span class="text-muted"> · #{{ shift.custodian_cashier_contact_id }}</span>
+                        {% endif %}
+                        {% if cash_operation_mode %}
+                        <br><span class="badge text-bg-secondary">Modo {{ cash_operation_mode }}</span>
+                        {% endif %}
                     </div>
                 </div>
             </div>

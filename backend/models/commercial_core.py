@@ -172,6 +172,11 @@ class CoreCashShift(db.Model):
     client_shift_id = db.Column(db.String(64), nullable=True, index=True)
     # Auditoría de correcciones de cierre (BO supervisor) — JSON lista de eventos
     correction_json = db.Column(db.Text, nullable=True)
+    # ADR-036 CHAIN_OF_CUSTODY — custodio actual del cajón
+    custodian_cashier_contact_id = db.Column(
+        db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True, index=True
+    )
+    custodian_cashier_name = db.Column(db.String(120), nullable=True)
 
     movements = db.relationship(
         'CoreCashMovement',
@@ -179,6 +184,30 @@ class CoreCashShift(db.Model):
         lazy='dynamic',
         cascade='all, delete-orphan',
     )
+
+
+class CoreCashCustodyHandover(db.Model):
+    """Oferta de handover de custodia (ADR-036 modo B)."""
+
+    __tablename__ = 'core_cash_custody_handover'
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    shift_id = db.Column(
+        db.Integer, db.ForeignKey('core_cash_shift.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    from_cashier_contact_id = db.Column(
+        db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True
+    )
+    to_cashier_contact_id = db.Column(
+        db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True
+    )
+    status = db.Column(db.String(32), nullable=False, default='pending')  # pending|accepted|rejected
+    notes = db.Column(db.String(500), nullable=True)
+    offered_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    resolved_at = db.Column(db.DateTime, nullable=True)
 
 
 class CoreCashMovement(db.Model):

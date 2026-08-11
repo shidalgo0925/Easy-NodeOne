@@ -2,6 +2,41 @@
 
 from datetime import datetime, timedelta
 
+
+def _fulfill_ets_license_from_service(service, organization_id: int) -> None:
+    """Tras compra Tienda: activar suscripción + entitlement ETS si program_slug es producto."""
+    try:
+        slug = (getattr(service, 'program_slug', None) or '').strip().lower()
+        if not slug:
+            return
+        from nodeone.core.platform.product_context import SURFACE_PRODUCT
+        from nodeone.core.platform.product_registry import ProductRegistry
+        from nodeone.core.platform.subscription_registry import SubscriptionRegistry
+        from nodeone.core.platform.entitlement_service import EntitlementService
+        from models.ets_product_entitlement import EtsProductEntitlement
+
+        definition = ProductRegistry.get(slug)
+        if definition is None or definition.surface != SURFACE_PRODUCT:
+            return
+
+        oid = int(organization_id)
+        SubscriptionRegistry.activate(oid, slug)
+        existing = EtsProductEntitlement.query.filter_by(
+            organization_id=oid, product_code=slug
+        ).first()
+        plan = (
+            str(existing.plan_code)
+            if existing is not None and (existing.plan_code or '').strip()
+            else 'starter'
+        )
+        EntitlementService.ensure_for_subscription(oid, slug, plan_code=plan)
+    except Exception as exc:
+        print(
+            f'⚠️ ETS license fulfill falló service_id={getattr(service, "id", None)} '
+            f'org={organization_id}: {exc}'
+        )
+
+
 def send_payment_to_odoo(payment, user, cart=None):
     """
     Envía webhook a Odoo cuando se confirma un pago
@@ -178,6 +213,9 @@ def process_cart_after_payment(cart, payment):
                 _pu = M.User.query.get(payment.user_id)
                 _cart_org = int(getattr(_pu, 'organization_id', None) or 1) if _pu else 1
                 service = M.Service.query.filter_by(id=service_id, organization_id=_cart_org).first()
+                if service is None:
+                    # Catálogo puede ser de la org vendedora distinta a la del comprador
+                    service = M.Service.query.get(service_id)
                 user_service = None
                 if service:
                     user_service = M.UserService.query.filter_by(
@@ -197,7 +235,9 @@ def process_cart_after_payment(cart, payment):
                     M.db.session.add(user_service)
                     M.db.session.flush()
                     user_services_created.append(user_service)
-                
+
+                if service:
+                    _fulfill_ets_license_from_service(service, _cart_org) 
                 # Verificar si es un servicio con cita agendada (tiene slot_id en metadata)
                 slot_id = metadata.get('slot_id')
                 if slot_id and metadata.get('requires_appointment'):

@@ -199,7 +199,7 @@ class TestCashShiftHttpIdempotencyHeader(unittest.TestCase):
         cls.client = flask_app.test_client()
         assert 'eposone_cash_v1' in flask_app.blueprints
 
-    @patch('nodeone.modules.eposone.cash_shifts_v1_routes.CashShiftHttpService.open_shift')
+    @patch('nodeone.modules.eposone.cash_shift_http_service.CashShiftHttpService.open_shift')
     @patch(
         'nodeone.modules.eposone.cash_shifts_v1_routes.DeviceProvisioningService.authenticate_bearer'
     )

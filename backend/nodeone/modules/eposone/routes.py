@@ -1689,9 +1689,12 @@ def eposone_shift_detail(shift_id: int):
     register_name = str(getattr(reg, 'name', None) or shift.register_ref)
 
     supervisor_ok = CommerceAuthorizationService.user_is_supervisor(current_user, int(oid))
+    cash_operation_mode = 'SIMPLE'
     try:
+        from nodeone.modules.eposone.cash_operation_mode import resolve_cash_operation_mode
         from nodeone.modules.eposone.settings_service import EposoneSettingsService
 
+        cash_operation_mode = resolve_cash_operation_mode(int(oid))
         if not EposoneSettingsService.runtime_for(int(oid)).supervisor_approval_required:
             supervisor_ok = True
     except Exception:
@@ -1703,6 +1706,7 @@ def eposone_shift_detail(shift_id: int):
         shift=shift,
         register_name=register_name,
         supervisor_ok=supervisor_ok,
+        cash_operation_mode=cash_operation_mode,
         day_filter=report.get('day_filter') or {},
         shifts_back_register_ref=back_register_ref,
         cashiers=_cashier_contacts_for_org(int(oid), active_only=False),
@@ -2179,6 +2183,9 @@ def eposone_settings_save():
     elif panel == 'seguridad':
         update_kwargs = {
             'supervisor_approval_required': request.form.get('supervisor_approval_required') == '1',
+            'cash_operation_mode': (
+                request.form.get('cash_operation_mode') or 'SIMPLE'
+            ).strip(),
         }
         label = 'Caja'
         redirect_slug = redirect_slug or 'registers'

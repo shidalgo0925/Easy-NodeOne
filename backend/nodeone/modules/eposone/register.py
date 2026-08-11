@@ -36,11 +36,14 @@ def register_eposone_blueprints(app) -> None:
 
         if 'eposone_orders_v1' not in app.blueprints:
             app.register_blueprint(eposone_orders_v1_bp)
-        # Hito cash-shift HTTP: Device Bearer open/close
-        from nodeone.modules.eposone.cash_shifts_v1_routes import eposone_cash_v1_bp
+        # Hito cash-shift HTTP: Device Bearer open/close (try aparte: evita ciclo de import)
+        try:
+            from nodeone.modules.eposone.cash_shifts_v1_routes import eposone_cash_v1_bp
 
-        if 'eposone_cash_v1' not in app.blueprints:
-            app.register_blueprint(eposone_cash_v1_bp)
+            if 'eposone_cash_v1' not in app.blueprints:
+                app.register_blueprint(eposone_cash_v1_bp)
+        except ImportError as cash_exc:
+            print(f'Warning: No se pudo registrar eposone_cash_v1_bp: {cash_exc}')
         from nodeone.modules.eposone.public_routes import eposone_public_bp
 
         if 'eposone_public' not in app.blueprints:

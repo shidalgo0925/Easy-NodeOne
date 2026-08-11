@@ -56,8 +56,51 @@ def _register_meta(organization_id: int, register_ref: str) -> tuple[str, str]:
 
 
 def shift_to_http_dict(row: CoreCashShift, *, include_expected: bool = False) -> dict[str, Any]:
+    from models.commercial_core import CoreCashCustodyHandover
+    from nodeone.modules.eposone.cash_operation_mode import resolve_cash_operation_mode
+
     caja_id, caja_name = _register_meta(int(row.organization_id), str(row.register_ref))
     status = str(row.status or '')
+    mode = resolve_cash_operation_mode(int(row.organization_id))
+    custodian_id = getattr(row, 'custodian_cashier_contact_id', None)
+    if custodian_id is None:
+        custodian_id = row.cashier_contact_id
+    custodian_name = getattr(row, 'custodian_cashier_name', None) or row.cashier_name
+
+    pending = None
+    from nodeone.modules.eposone.cash_operation_mode import CASH_MODE_CHAIN_OF_CUSTODY
+
+    # Solo modo B consulta handover (SIMPLE evita hit a BD / contexto en tests).
+    if mode == CASH_MODE_CHAIN_OF_CUSTODY and status in (
+        CASH_SHIFT_OPEN,
+        CASH_SHIFT_RECONCILING,
+    ):
+        hov = (
+            CoreCashCustodyHandover.query.filter_by(
+                organization_id=int(row.organization_id),
+                shift_id=int(row.id),
+                status='pending',
+            )
+            .order_by(CoreCashCustodyHandover.id.desc())
+            .first()
+        )
+        if hov is not None:
+            pending = {
+                'handover_id': f'hov_{int(hov.id)}',
+                'from_cashier_contact_id': (
+                    int(hov.from_cashier_contact_id)
+                    if hov.from_cashier_contact_id is not None
+                    else None
+                ),
+                'to_cashier_contact_id': (
+                    int(hov.to_cashier_contact_id)
+                    if hov.to_cashier_contact_id is not None
+                    else None
+                ),
+                'offered_at': hov.offered_at.isoformat() + 'Z' if hov.offered_at else None,
+                'status': 'pending',
+            }
+
     data: dict[str, Any] = {
         'shift_id': int(row.id),
         'shift_number': int(row.id),
@@ -69,6 +112,12 @@ def shift_to_http_dict(row: CoreCashShift, *, include_expected: bool = False) ->
             int(row.cashier_contact_id) if row.cashier_contact_id is not None else None
         ),
         'cashier_name': row.cashier_name,
+        'custodian_cashier_contact_id': (
+            int(custodian_id) if custodian_id is not None else None
+        ),
+        'custodian_cashier_name': custodian_name,
+        'cash_operation_mode': mode,
+        'pending_handover': pending,
         'status': status,
         'opening_float': float(row.opening_balance or 0),
         'opening_balance': float(row.opening_balance or 0),
@@ -234,6 +283,21 @@ class CashShiftHttpService:
         except CashierValidationError as exc:
             raise _map_cashier_error(exc) from exc
 
+        from models.commercial_core import CoreCashCustodyHandover
+        from nodeone.modules.eposone.cash_operation_mode import is_chain_of_custody
+
+        if is_chain_of_custody(oid):
+            custodian_id = getattr(row, 'custodian_cashier_contact_id', None)
+            if custodian_id is None:
+                custodian_id = row.cashier_contact_id
+            if custodian_id is not None and int(cashier.id) != int(custodian_id):
+                raise CashShiftHttpError('custody_required', http_status=409)
+            pending = CoreCashCustodyHandover.query.filter_by(
+                organization_id=oid, shift_id=int(shift_id), status='pending'
+            ).first()
+            if pending is not None:
+                raise CashShiftHttpError('handover_pending', http_status=409)
+
         if 'counted_amount' in body:
             counted_raw = body.get('counted_amount')
         elif 'closing_float' in body:
@@ -266,3 +330,158 @@ class CashShiftHttpService:
         row = CoreCashShift.query.filter_by(organization_id=oid, id=int(shift_id)).first()
         assert row is not None
         return shift_to_http_dict(row)
+
+    @staticmethod
+    def _require_shift_for_device(device, shift_id: int) -> CoreCashShift:
+        oid = int(device.organization_id)
+        ref = _device_register(device)
+        row = CoreCashShift.query.filter_by(organization_id=oid, id=int(shift_id)).first()
+        if row is None or str(row.register_ref) != ref:
+            raise CashShiftHttpError('shift_not_found', http_status=404)
+        return row
+
+    @staticmethod
+    def offer_handover(device, shift_id: int, body: dict[str, Any]) -> dict[str, Any]:
+        from app import db
+        from models.commercial_core import CoreCashCustodyHandover
+        from nodeone.modules.eposone.cash_operation_mode import is_chain_of_custody
+
+        oid = int(device.organization_id)
+        if not is_chain_of_custody(oid):
+            raise CashShiftHttpError('cash_operation_mode_mismatch', http_status=409)
+
+        row = CashShiftHttpService._require_shift_for_device(device, shift_id)
+        if str(row.status) != CASH_SHIFT_OPEN:
+            raise CashShiftHttpError('cash_shift_not_open', http_status=409)
+
+        try:
+            from_c = CashierService.require_cashier(
+                oid, body.get('from_cashier_contact_id'), active=True
+            )
+            to_c = CashierService.require_cashier(
+                oid, body.get('to_cashier_contact_id'), active=True
+            )
+        except CashierValidationError as exc:
+            raise _map_cashier_error(exc) from exc
+
+        if int(from_c.id) == int(to_c.id):
+            raise CashShiftHttpError('cashier_contact_id_invalid', http_status=400)
+
+        custodian_id = getattr(row, 'custodian_cashier_contact_id', None) or row.cashier_contact_id
+        if custodian_id is None or int(from_c.id) != int(custodian_id):
+            raise CashShiftHttpError('not_custodian', http_status=403)
+
+        existing = CoreCashCustodyHandover.query.filter_by(
+            organization_id=oid, shift_id=int(shift_id), status='pending'
+        ).first()
+        if existing is not None:
+            raise CashShiftHttpError('handover_pending', http_status=409)
+
+        notes = str(body.get('notes') or '').strip() or None
+        hov = CoreCashCustodyHandover(
+            organization_id=oid,
+            shift_id=int(shift_id),
+            from_cashier_contact_id=int(from_c.id),
+            to_cashier_contact_id=int(to_c.id),
+            status='pending',
+            notes=notes,
+            offered_at=datetime.utcnow(),
+        )
+        db.session.add(hov)
+        db.session.commit()
+        return shift_to_http_dict(row, include_expected=True)
+
+    @staticmethod
+    def _parse_handover_id(raw: str) -> int:
+        text = str(raw or '').strip()
+        if text.startswith('hov_'):
+            text = text[4:]
+        try:
+            return int(text)
+        except (TypeError, ValueError) as exc:
+            raise CashShiftHttpError('handover_not_found', http_status=404) from exc
+
+    @staticmethod
+    def accept_handover(
+        device, shift_id: int, handover_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        from app import db
+        from models.commercial_core import CoreCashCustodyHandover
+        from nodeone.modules.eposone.cash_operation_mode import is_chain_of_custody
+
+        oid = int(device.organization_id)
+        if not is_chain_of_custody(oid):
+            raise CashShiftHttpError('cash_operation_mode_mismatch', http_status=409)
+
+        row = CashShiftHttpService._require_shift_for_device(device, shift_id)
+        hid = CashShiftHttpService._parse_handover_id(handover_id)
+        hov = CoreCashCustodyHandover.query.filter_by(
+            organization_id=oid, shift_id=int(shift_id), id=hid
+        ).first()
+        if hov is None:
+            raise CashShiftHttpError('handover_not_found', http_status=404)
+        if str(hov.status) != 'pending':
+            raise CashShiftHttpError('handover_pending', http_status=409)
+
+        try:
+            actor = CashierService.require_cashier(
+                oid, body.get('cashier_contact_id'), active=True
+            )
+        except CashierValidationError as exc:
+            raise _map_cashier_error(exc) from exc
+
+        if hov.to_cashier_contact_id is None or int(actor.id) != int(hov.to_cashier_contact_id):
+            raise CashShiftHttpError('not_handover_target', http_status=403)
+
+        name = str(actor.display_name or '').strip() or None
+        hov.status = 'accepted'
+        hov.resolved_at = datetime.utcnow()
+        row.custodian_cashier_contact_id = int(actor.id)
+        row.custodian_cashier_name = name
+        # Cajero “actual” del turno sigue siendo quien abrió; custodio es quien tiene el cajón.
+        # Opcional: también actualizar cashier_* para UI — alinear a custodio para reportes.
+        row.cashier_contact_id = int(actor.id)
+        row.cashier_name = name
+        row.cashier_changed_at = datetime.utcnow()
+        db.session.commit()
+        return shift_to_http_dict(row, include_expected=True)
+
+    @staticmethod
+    def reject_handover(
+        device, shift_id: int, handover_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        from app import db
+        from models.commercial_core import CoreCashCustodyHandover
+        from nodeone.modules.eposone.cash_operation_mode import is_chain_of_custody
+
+        oid = int(device.organization_id)
+        if not is_chain_of_custody(oid):
+            raise CashShiftHttpError('cash_operation_mode_mismatch', http_status=409)
+
+        row = CashShiftHttpService._require_shift_for_device(device, shift_id)
+        hid = CashShiftHttpService._parse_handover_id(handover_id)
+        hov = CoreCashCustodyHandover.query.filter_by(
+            organization_id=oid, shift_id=int(shift_id), id=hid
+        ).first()
+        if hov is None:
+            raise CashShiftHttpError('handover_not_found', http_status=404)
+        if str(hov.status) != 'pending':
+            raise CashShiftHttpError('handover_pending', http_status=409)
+
+        try:
+            actor = CashierService.require_cashier(
+                oid, body.get('cashier_contact_id'), active=True
+            )
+        except CashierValidationError as exc:
+            raise _map_cashier_error(exc) from exc
+
+        if hov.to_cashier_contact_id is None or int(actor.id) != int(hov.to_cashier_contact_id):
+            raise CashShiftHttpError('not_handover_target', http_status=403)
+
+        notes = str(body.get('notes') or '').strip()
+        if notes:
+            hov.notes = ((hov.notes or '') + ' | reject: ' + notes).strip(' |')
+        hov.status = 'rejected'
+        hov.resolved_at = datetime.utcnow()
+        db.session.commit()
+        return shift_to_http_dict(row, include_expected=True)

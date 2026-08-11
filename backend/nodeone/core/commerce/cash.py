@@ -107,6 +107,10 @@ class CashRegisterService:
             opening_balance=float(opening_balance or 0),
             opened_at=opened_at or datetime.utcnow(),
             client_shift_id=client_key,
+            custodian_cashier_contact_id=(
+                int(cashier_contact_id) if cashier_contact_id is not None else None
+            ),
+            custodian_cashier_name=name,
         )
         db.session.add(row)
         db.session.commit()
@@ -145,6 +149,11 @@ class CashRegisterService:
             raise OrderValidationError('cash_shift_not_found')
         if str(row.status or '') not in (CASH_SHIFT_OPEN, CASH_SHIFT_RECONCILING):
             raise OrderValidationError('cash_shift_not_active')
+        from nodeone.modules.eposone.cash_operation_mode import is_chain_of_custody
+
+        if is_chain_of_custody(int(organization_id)):
+            # Modo B: cambio de cajero = handover Device API, no edición silenciosa BO.
+            raise OrderValidationError('custody_handover_required')
         name = (cashier_name or '').strip()
         if not name:
             raise OrderValidationError('cashier_required')
@@ -155,6 +164,9 @@ class CashRegisterService:
         row.cashier_name = name
         row.cashier_changed_at = datetime.utcnow()
         row.cashier_changed_by_user_id = int(changed_by_user_id)
+        # Mantener custodio alineado en SIMPLE (cajero = custodio)
+        row.custodian_cashier_contact_id = int(cashier_contact_id)
+        row.custodian_cashier_name = name
         db.session.commit()
         CashRegisterService.publish_cashier_changed(
             int(organization_id),

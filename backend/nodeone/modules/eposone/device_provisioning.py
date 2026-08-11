@@ -24,7 +24,6 @@ from nodeone.core.master.constants import (
     ORG_UNIT_TYPE_BRANCH,
     ORG_UNIT_TYPE_REGISTER,
 )
-
 EVENT_REGISTERED = 'eposone.device.registered'
 EVENT_REPROVISIONED = 'eposone.device.reprovisioned'
 EVENT_AUTH_FAILED = 'eposone.device.auth_failed'
@@ -37,6 +36,12 @@ STATUS_ACTIVE = 'active'
 STATUS_REVOKED = 'revoked'
 STATUS_USED = 'used'
 STATUS_EXPIRED = 'expired'
+
+
+def _resolve_cash_mode(organization_id: int) -> str:
+    from nodeone.modules.eposone.cash_operation_mode import resolve_cash_operation_mode
+
+    return resolve_cash_operation_mode(int(organization_id))
 
 
 def _audit_publish(organization_id: int, event_type: str, payload: dict[str, Any] | None = None) -> None:
@@ -979,6 +984,7 @@ class DeviceProvisioningService:
             'register': {
                 'ref': row.register_ref,
                 'name': _unit_name(row.register_ref),
+                'cash_operation_mode': _resolve_cash_mode(oid),
             },
             'device': {
                 'uuid': str(row.terminal_ref),

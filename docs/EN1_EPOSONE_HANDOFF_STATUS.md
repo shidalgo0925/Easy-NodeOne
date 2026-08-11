@@ -15,6 +15,7 @@
 | **License Engine V1** | **En develop** — contrato bootstrap [`EN1_EPOSONE_LICENSE_ENGINE_V1_CONTRACT.md`](EN1_EPOSONE_LICENSE_ENGINE_V1_CONTRACT.md) · Trial 15d · features/limits · suspend/reactivate |
 | **ADR-014 Subscription Registry** | **V1 en Dev** — tenant↔producto · [`ADR-014-SUBSCRIPTION-REGISTRY.md`](ADR-014-SUBSCRIPTION-REGISTRY.md) |
 | **Cash Shift HTTP** | **v1.0 CONGELADO** — Device Bearer `/api/v1/cash/shifts*` · [`EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md`](EN1_EPOSONE_CASH_SHIFT_HTTP_CONTRACT.md) · spec [`EN1_EPOSONE_CASH_SHIFT_SPEC_V1.md`](EN1_EPOSONE_CASH_SHIFT_SPEC_V1.md) · tag `eposone-cash-shift-http-v1.0` (tras commit) |
+| **ADR-036 modos caja** | **MVP Dev** — `SIMPLE` (default) \| `CHAIN_OF_CUSTODY` · [`ADR-036`](ADR-036-CASH-OPERATION-MODES-CHAIN-OF-CUSTODY.md) · delta [`MODE_B_DELTA`](EN1_EPOSONE_CASH_SHIFT_MODE_B_DELTA.md) · bootstrap + handover APIs + close custody gate · EP1 puede desbloquear modo B |
 | **EN1-POS V7** | [`EN1_POS_V7_ROADMAP.md`](EN1_POS_V7_ROADMAP.md) — R0 P1 OK · R1 · **gates E2E/2.6** |
 | **ADR-009 Caja EN1** | **Aprobado** — Caja = cobro admin · turno = unidad · `allow_en1_collect_foreign_channel` · reporte cierre · [`ADR-009-EN1-CAJA-CENTRO-COBRO.md`](ADR-009-EN1-CAJA-CENTRO-COBRO.md) · backlog **B-R1-05a/b/c** |
 | **E2E oficial** | [`EN1_EPOSONE_E2E_CHECKLIST_V1.md`](EN1_EPOSONE_E2E_CHECKLIST_V1.md) — cierra Hito 2.5 |

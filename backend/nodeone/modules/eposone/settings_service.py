@@ -23,6 +23,7 @@ class EposoneSettingsDTO:
     trial_start_policy: str = 'on_first_provision'
     provisioning_code_ttl_minutes: int = 30
     offline_grace_days: int = 7
+    cash_operation_mode: str = 'SIMPLE'
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -36,10 +37,13 @@ class EposoneSettingsDTO:
             'trial_start_policy': self.trial_start_policy,
             'provisioning_code_ttl_minutes': self.provisioning_code_ttl_minutes,
             'offline_grace_days': self.offline_grace_days,
+            'cash_operation_mode': self.cash_operation_mode,
         }
 
 
 def _to_dto(row: EposoneSettings) -> EposoneSettingsDTO:
+    from nodeone.modules.eposone.cash_operation_mode import normalize_cash_operation_mode
+
     return EposoneSettingsDTO(
         organization_id=int(row.organization_id),
         default_currency=str(row.default_currency or 'USD').upper(),
@@ -53,6 +57,9 @@ def _to_dto(row: EposoneSettings) -> EposoneSettingsDTO:
         ),
         provisioning_code_ttl_minutes=int(getattr(row, 'provisioning_code_ttl_minutes', 30) or 30),
         offline_grace_days=int(getattr(row, 'offline_grace_days', 7) or 7),
+        cash_operation_mode=normalize_cash_operation_mode(
+            getattr(row, 'cash_operation_mode', None)
+        ),
     )
 
 
@@ -77,6 +84,7 @@ class EposoneSettingsService:
                 trial_start_policy='on_first_provision',
                 provisioning_code_ttl_minutes=30,
                 offline_grace_days=7,
+                cash_operation_mode='SIMPLE',
             )
         return _to_dto(row)
 
@@ -106,8 +114,10 @@ class EposoneSettingsService:
         delivery_auto_create: bool | None = None,
         fiscal_on_payment: bool | None = None,
         supervisor_approval_required: bool | None = None,
+        cash_operation_mode: str | None = None,
     ) -> EposoneSettingsDTO:
         from app import db
+        from nodeone.modules.eposone.cash_operation_mode import normalize_cash_operation_mode
 
         oid = int(organization_id)
         row = EposoneSettings.query.filter_by(organization_id=oid).first()
@@ -127,5 +137,7 @@ class EposoneSettingsService:
             row.fiscal_on_payment = bool(fiscal_on_payment)
         if supervisor_approval_required is not None:
             row.supervisor_approval_required = bool(supervisor_approval_required)
+        if cash_operation_mode is not None:
+            row.cash_operation_mode = normalize_cash_operation_mode(cash_operation_mode)
         db.session.commit()
         return _to_dto(row)

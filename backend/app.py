@@ -3724,14 +3724,22 @@ def bootstrap_nodeone_schema():
             print(f'⚠️ ensure_eposone_cashier_schema: {e}')
         try:
             from nodeone.services.eposone_cash_shift_schema import (
+                ensure_cash_operation_mode_settings_schema,
                 ensure_cash_shift_client_id_schema,
                 ensure_cash_shift_correction_schema,
+                ensure_cash_shift_custody_schema,
             )
 
             ensure_cash_shift_client_id_schema(
                 db, db.engine, printfn=lambda m: print(f'📋 {m}')
             )
             ensure_cash_shift_correction_schema(
+                db, db.engine, printfn=lambda m: print(f'📋 {m}')
+            )
+            ensure_cash_shift_custody_schema(
+                db, db.engine, printfn=lambda m: print(f'📋 {m}')
+            )
+            ensure_cash_operation_mode_settings_schema(
                 db, db.engine, printfn=lambda m: print(f'📋 {m}')
             )
         except Exception as e:

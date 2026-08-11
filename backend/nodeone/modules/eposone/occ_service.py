@@ -220,6 +220,8 @@ def shift_control_row(
     occ_status = _classify_shift(shift, expected=expected, counted=counted, variance=variance)
     sales = _sales_for_shift(shift)
     activity = shift_activity_stats(shift)
+    custodian_id = getattr(shift, 'custodian_cashier_contact_id', None)
+    custodian_name = getattr(shift, 'custodian_cashier_name', None)
     return {
         'shift_id': int(shift.id),
         'register_ref': str(shift.register_ref),
@@ -227,6 +229,13 @@ def shift_control_row(
         'branch_name': meta.get('branch_name') or '—',
         'branch_ref': meta.get('branch_ref') or '',
         'cashier_name': str(shift.cashier_name or 'Sin asignar'),
+        'cashier_contact_id': (
+            int(shift.cashier_contact_id) if shift.cashier_contact_id is not None else None
+        ),
+        'custodian_cashier_contact_id': (
+            int(custodian_id) if custodian_id is not None else None
+        ),
+        'custodian_cashier_name': custodian_name,
         'shift_status': str(shift.status or ''),
         'sales': sales,
         'expected': expected,

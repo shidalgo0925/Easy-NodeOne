@@ -27,4 +27,6 @@ class EposoneSettings(db.Model):
     trial_start_policy = db.Column(db.String(40), nullable=False, default='on_first_provision')
     provisioning_code_ttl_minutes = db.Column(db.Integer, nullable=False, default=30)
     offline_grace_days = db.Column(db.Integer, nullable=False, default=7)
+    # ADR-036 — SIMPLE | CHAIN_OF_CUSTODY (default SIMPLE)
+    cash_operation_mode = db.Column(db.String(32), nullable=False, default='SIMPLE')
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

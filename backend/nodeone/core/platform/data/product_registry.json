@@ -164,6 +164,87 @@
         "background": "#F5F3FF"
       }
     },
+    "easyia": {
+      "code": "easyia",
+      "name": "EasyIA",
+      "description": "Inteligencia que trabaja contigo. Pregunta, analiza, decide y actúa.",
+      "primary_domain": "",
+      "icon": "images/auth/card-easyia.png",
+      "status": "planned",
+      "version": "0.1",
+      "surface": "product",
+      "brand_preset": "en1",
+      "tagline": "Inteligencia que trabaja contigo",
+      "home_hint": "dashboard",
+      "app_ids": [],
+      "list_in_portal": true,
+      "logo_url": "images/auth/card-easyia.png",
+      "favicon_url": "",
+      "licensing": {
+        "model": "subscription",
+        "saas_code": ""
+      },
+      "theme": {
+        "primary": "#0F766E",
+        "primary_dark": "#134E4A",
+        "accent": "#14B8A6",
+        "background": "#F0FDFA"
+      }
+    },
+    "em": {
+      "code": "em",
+      "name": "EM+acción",
+      "description": "Marketing con resultados. Automatiza campañas y mide el impacto.",
+      "primary_domain": "",
+      "icon": "images/auth/card-em.png",
+      "status": "planned",
+      "version": "0.1",
+      "surface": "product",
+      "brand_preset": "en1",
+      "tagline": "Marketing con resultados",
+      "home_hint": "dashboard",
+      "app_ids": [],
+      "list_in_portal": true,
+      "logo_url": "images/auth/card-em.png",
+      "favicon_url": "",
+      "licensing": {
+        "model": "subscription",
+        "saas_code": ""
+      },
+      "theme": {
+        "primary": "#EA580C",
+        "primary_dark": "#9A3412",
+        "accent": "#FB923C",
+        "background": "#FFF7ED"
+      }
+    },
+    "esecurebroker": {
+      "code": "esecurebroker",
+      "name": "ESecureBroker",
+      "description": "Tu correduría, bajo control. Pólizas, cobranza, cotizaciones, CRM y vista Hoy.",
+      "primary_domain": "esecurebroker.etsrv.site",
+      "icon": "",
+      "status": "planned",
+      "version": "0.1",
+      "surface": "product",
+      "brand_preset": "en1",
+      "tagline": "Tu correduría, bajo control",
+      "home_hint": "dashboard",
+      "app_ids": [],
+      "list_in_portal": true,
+      "logo_url": "",
+      "favicon_url": "",
+      "licensing": {
+        "model": "subscription",
+        "saas_code": ""
+      },
+      "theme": {
+        "primary": "#1E3A5F",
+        "primary_dark": "#0F172A",
+        "accent": "#3B82F6",
+        "background": "#F8FAFC"
+      }
+    },
     "iius": {
       "code": "iius",
       "name": "IIUS",

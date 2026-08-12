@@ -116,9 +116,15 @@ Evolución de `integration_api_key`:
 | `key_prefix` | Visible (ej. `enk_TFWN…`) |
 | `key_hash` | Único; raw nunca persistido |
 | `environment` | Debe coincidir con Integration |
-| `status` | `active` \| `rotating` \| `revoked` \| `disabled` |
+| `status` | `active` \| `rotating` \| `retiring` \| `revoked` \| `disabled` |
 | `created_at` / `rotated_at` / `revoked_at` / `last_used_at` | Ciclo de vida |
 | `created_by_user_id` | Auditoría |
+
+Notas de estado:
+
+- **`rotating` / dual-key:** A y B pueden estar `active` en overlap (§8).
+- **`retiring`:** A marcada para baja tras confirmar tráfico en B; ESB ya apunta `credential_ref` a B.
+- **`revoked`:** rechazo inmediato en bridge (401); ESB → DISCONNECTED.
 
 ### 3.3 Credential reference (consumidor — ESB)
 
@@ -131,6 +137,8 @@ EN1_COMMERCIAL_BASE_URL=https://appdev.easynodeone.com
 ```
 
 El runtime resuelve el secreto vía **Secret Backend** del entorno (§7), no vía string literal en `.env` versionado ni path mágico en código fuente.
+
+**View-once (norma):** el raw se muestra **como máximo una vez** en Integration Center (crear/rotar). EN1 **no** lo re-display. ESB **no** almacena raw en UI, settings screen, logs ni Mobile API — solo `credential_ref` + secreto en Secret Backend.
 
 ---
 
@@ -183,13 +191,14 @@ Reglas:
 - Registra `last_check_at`, resultado, latencia.
 - En PROD el probe no crea customers/subscriptions reales (idempotent read-only o fixture interno).
 
-### 5.3 Si EN1 está caído (política ESB)
+### 5.3 Si EN1 está caído / degradado (política ESB)
 
 | Situación | Comportamiento ESB |
 |-----------|-------------------|
-| EN1 unreachable / 5xx | Fail-closed en **onboarding comercial nuevo**; UX: «servicio comercial no disponible» |
+| EN1 unreachable / 5xx | Fail-closed en **onboarding comercial nuevo** (`/registro`, checkout); UX: «servicio comercial no disponible»; **no** inventar `ACTIVE` |
 | EN1 OK, entitlement previo cacheado | `/hoy` puede usar **cache con TTL corto** + marcar DEGRADED; no inventar ACTIVE |
-| Key revocada (401) | DISCONNECTED; alertar ops; no reintentar con secretos viejos en loop infinito |
+| Key revocada (401) / DISCONNECTED | `/hoy` y sync hacia Mobile API: estado no-entitled / degradado según contrato ESB; **fail-closed** comercial |
+| Durante `retiring` (rotación) | ESB ya usa ref B; si B falla → DEGRADED/DISCONNECTED; no volver silenciosamente a A si A está `retiring`/`revoked` |
 | Mobile / ESB GO | **No** consulta EN1; depende de ESB Mobile API. Si ESB no pudo sincronizar entitlement, GO ve estado degradado según contrato ESB (fuera de alcance de emisión EN1) |
 
 ---
@@ -203,14 +212,27 @@ SPAGHETTI define UI/ops en corredores:
 | Ver integración EN1 Commercial | `credential_ref`, environment, health (si EN1 lo expone), last_sync |
 | Configurar base URL por entorno | appdev / staging / prod |
 | Estado secreto | `configured` / `missing` / `stale` — **sin mostrar raw** |
-| Probar | Llama bootstrap/entitlement smoke controlado o health EN1 |
-| Rotación recibida | Ops marca «secreto actualizado» tras pull desde Secret Backend |
+| Probar | Llama health/probe C1 o entitlement smoke controlado (DEV) |
+| Rotación recibida | Ops actualiza Secret Backend + `credential_ref`; marca «secreto actualizado» |
+
+### 6.1 Información segura visible en UI (permitido)
+
+| Campo | Visible |
+|-------|---------|
+| Nombre integración / `code` | Sí |
+| `credential_ref` | Sí |
+| `key_prefix` | Sí |
+| `environment` | Sí |
+| `status` / `health_state` | Sí |
+| `last_used_at` / `last_check_at` | Sí |
+| `last_error_code` + mensaje **seguro** (sin token) | Sí |
+| Raw secret / hash completo | **Nunca** |
 
 ESB **nunca**:
 
 - Emite keys EN1.
-- Guarda raw en Git, Flutter, Mobile API, browser, logs.
-- Usa la misma key DEV en PROD.
+- Guarda raw en Git, Flutter, Mobile API, browser, logs, pantallas de settings.
+- Usa la misma key DEV en PROD (fail-closed si detecta cruce de entorno).
 
 ---
 
@@ -248,18 +270,19 @@ Hasta implementar ADR-037:
 
 ---
 
-## 8. Rotación sin downtime
+## 8. Rotación sin downtime (dual-key)
 
 ```text
-1. EN1: emitir credencial B (status=active) manteniendo A active
-2. Entregar raw B al Secret Backend del consumidor (1 vez)
-3. Consumidor: hot-reload / restart silo lee B
+1. EN1: emitir credencial B (status=active) manteniendo A active  → overlap
+2. Entregar raw B al Secret Backend del consumidor (view-once)
+3. ESB: actualizar credential_ref → B; hot-reload / restart silo
 4. EN1 «Probar» con B; access log confirma tráfico B
-5. EN1: revocar A
-6. Auditoría: rotate completed
+5. EN1: marcar A = retiring → luego revoke A
+6. Auditoría: rotate completed (bind/test/status sin secretos)
 ```
 
-Ventana dual-key máxima recomendada: configurable (ej. 24–72 h); alerta si A sigue en uso tras grace.
+Ventana dual-key máxima recomendada: configurable (ej. 24–72 h); alerta si A sigue en uso tras grace.  
+**Revoke** de A es inmediato en el bridge; reintentos con A → 401.
 
 ---
 
@@ -271,7 +294,8 @@ Ventana dual-key máxima recomendada: configurable (ej. 24–72 h); alerta si A 
 | Key STG | Solo staging |
 | Key PROD | Solo prod; emisión requiere rol elevado + justificación auditada |
 | Promo `ESB-DEV-100` | Solo BD `easynodeone_dev` (ya enforced) |
-| Bridge comercial | Feature/scopes por environment; PROD no acepta keys DEV aunque el hash coincida (binding environment) |
+| Bridge comercial | Feature/scopes por environment; PROD **no** acepta keys DEV aunque el hash coincida (binding environment) |
+| Consumidor ESB | Fail-closed si `credential_ref.environment` ≠ entorno del silo (mismo espíritu que pareo ADR-006 / env pairing) |
 
 ---
 
@@ -320,48 +344,80 @@ ESB organization = dominio operativo en corredores
 
 ---
 
-## 13. Plan de adopción (post-aceptación)
+## 13. Plan de adopción (post-aceptación) — fases F1–F3 + STG/PROD
 
 | Fase | Entrega | Gate |
 |------|---------|------|
-| **A** | Aceptar ADR-037 (CODITO + SPAGHETTI) | Documento |
-| **B** | Modelo Integration + ligar keys existentes; health + Probar (DEV) | GO impl DEV |
-| **C** | Secret Backend + credential_ref en ESB DEV | GO ESB |
-| **D** | Rotación dual-key + auditoría UI | GO |
-| **E** | STG | GO |
-| **F** | PROD | **Obligatorio antes de M2M comercial PROD** |
+| **Aceptación** | CODITO + SPAGHETTI ACCEPT ADR-037 | Documento |
+| **F1** | Integration Center EN1: entidad Integration + ligar keys; health CONNECTED/DEGRADED/DISCONNECTED + Probar (DEV) | GO impl DEV |
+| **F2** | ESB Integraciones + Secret Backend + **credential_ref** (sin raw en settings); view-once end-to-end DEV | GO ESB |
+| **F3** | Dual-key rotation + revoke + auditoría UI (bind/test/status sin secretos) | GO |
+| **STG** | Mismos controles en staging | GO |
+| **PROD** | M2M comercial PROD | **Bloqueado hasta F1–F3 + E2E certificado con `credential_ref`** (sin raw en settings; sin scp/path tribal) |
 
-**Prioridad relativa acordada (chat E2E):**
+**Gate PROD (norma):**
+
+```text
+M2M comercial PROD = OFF
+hasta:
+  F1 + F2 + F3 DONE
+  + E2E certificado:
+      registro → bootstrap → checkout → entitlement → /hoy
+      usando credential_ref (no EN1_M2M_TOKEN path artesanal)
+```
+
+**DEV transitorio:** `EN1_M2M_TOKEN` / archivo de silo puede seguir mientras se desarrollan F1–F3 y ESB GO (ADR-008 F2 en paralelo OK).
+
+**Prioridad relativa:**
 
 - ADR-037 **antes de PROD** M2M.
-- **No** bloquea continuar ESB GO en DEV (F4/F5 pueden avanzar).
-- Decisión de «¿037 antes o después de ADR-008 F2?» = producto; default sugerido: **no frenar GO**, sí frenar PROD secrets.
+- **No** bloquea continuar ESB GO en DEV (F4/F5 producto).
+- ADR-008 F2 AccessContext puede avanzar en paralelo.
 
 ---
 
-## 14. Criterios de aceptación del ADR (diseño)
+## 14. Criterios de aceptación del ADR (diseño) — checklist ESB
 
-- [x] Define Integration Center EN1 y Integraciones ESB.
-- [x] Crear / rotar / revocar; raw una sola vez.
-- [x] DEV/STG/PROD separados.
-- [x] CONNECTED / DEGRADED / DISCONNECTED + probe.
-- [x] last_used_at / last_check_at / errores.
-- [x] Auditoría y RBAC.
-- [x] Rotación sin downtime (dual-key).
-- [x] Despliegue de secretos sin scp artesanal (PROD).
-- [x] credential_ref en config de app.
-- [x] Comportamiento si EN1 caído.
-- [x] Eliminación de dependencia del conocimiento del programador como procedimiento.
-- [x] Incorpora el caso real ESB M2M DEV como anti-patrón PROD.
-- [ ] Aceptación formal SPAGHETTI + CODITO (pendiente).
+| # | Tema consumidor ESB | Cubierto |
+|---|---------------------|----------|
+| 1 | Integration Center EN1 ↔ Integraciones ESB (emisor vs consumidor; bind por ref) | Sí §2–§6 |
+| 2 | `credential_ref` (config = ref, no raw) | Sí §3.3 |
+| 3 | View-once (nunca re-display; ESB no raw en UI) | Sí §3.3 · §6.1 |
+| 4 | DEV/STG/PROD + fail-closed cruce entorno | Sí §9 |
+| 5–6 | Health CONNECTED/DEGRADED/DISCONNECTED + Probar | Sí §5 |
+| 7 | Auditoría bind/test/status sin secretos | Sí §10 · §8 |
+| 8–9 | Dual-key + revoke (+ `retiring`) | Sí §3.2 · §8 |
+| 10 | Secret store; sin scp/path como runbook PROD | Sí §7 · §1.1 |
+| 11 | Fail-closed comercial (`/registro`/checkout; no inventar ACTIVE) | Sí §5.3 |
+| 12–13 | RBAC + UI segura (name, prefix, status, last_*, errores) | Sí §4 · §6.1 |
+| 14–15 | Rotación / EN1 down / DISCONNECTED en `/hoy`+mobile | Sí §5.3 · §8 |
+| 16 | Anti-patrón 2026-08-12 (scp + paths + conocimiento tribal) | Sí §1.1 · §7.3 |
+| Gate | PROD bloqueado hasta F1–F3 + E2E con `credential_ref` | Sí §13 |
+
+- [ ] Aceptación formal SPAGHETTI + CODITO (pendiente review ESB con artefacto local).
 
 ---
 
 ## 15. Consecuencias
 
 **Positivo:** M2M operable por roles, auditable, separable por entorno; E2E DEV deja de ser plantilla PROD.  
-**Negativo:** hay que evolucionar API Center y secret backends; costo de implementación B–F.  
+**Negativo:** hay que evolucionar API Center y secret backends; costo de implementación F1–F3.  
 **Riesgo si no se acepta:** el éxito del E2E se copia a PROD con SSH/scp y conocimiento tácito.
+
+---
+
+## 16. Cómo obtener este ADR (canal documental — no secrets)
+
+| Canal | Ubicación |
+|-------|-----------|
+| **Canónico EN1** | Repo `Easy-NodeOne` · rama `develop` · `docs/ADR-037-INTEGRATIONS-M2M-CREDENTIALS-OPERATIONS.md` |
+| **GitHub** | `https://github.com/shidalgo0925/Easy-NodeOne/blob/develop/docs/ADR-037-INTEGRATIONS-M2M-CREDENTIALS-OPERATIONS.md` |
+| **Mirror EasyWiki** | Repo `EasyWiki` · `main` · `00_Gobierno/ADR/ADR-037-INTEGRATIONS-M2M-CREDENTIALS-OPERATIONS.md` |
+| **GitHub wiki** | `https://github.com/shidalgo0925/EasyWiki/blob/main/00_Gobierno/ADR/ADR-037-INTEGRATIONS-M2M-CREDENTIALS-OPERATIONS.md` |
+
+Nota: el vault en host SPAGHETTI puede vivir en `/opt/easynodeone/Easy-Wiki` (guion); en CODITO el clone operativo es `/opt/easynodeone/dev/EasyWiki`. Son el **mismo repo remoto** `EasyWiki` — hacer `git pull origin main`.
+
+Borrador ESB misnumerado (`adr/ADR-009_m2m_credentials_operations.md`): tras ACCEPT, convertir en **pointer a ADR-037** (ADR-009 = solo Caja EN1).
 
 ---
 
@@ -370,3 +426,4 @@ ESB organization = dominio operativo en corredores
 | Fecha | Nota |
 |-------|------|
 | 2026-08-12 | Propuesto tras E2E ESB↔EN1 DEV (C1 + handoff M2M). ID **037** (ADR-009 ya = Caja). |
+| 2026-08-12 | Enmienda review ESB: view-once, UI segura, `retiring`, fail-closed `/hoy`+mobile, gate PROD F1–F3 + checklist 1–16, URLs de obtención. |

@@ -7,12 +7,21 @@ No escribe org_memberships / carriers / dominio operativo ESB.
 from __future__ import annotations
 
 import json
+import os
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
+from nodeone.core.platform.esecurebroker_commercial_plans import (
+    PLAN_INDIVIDUAL,
+    get_esb_list_price,
+    get_esb_plan,
+    normalize_esb_plan_code,
+)
+from nodeone.core.platform.entitlement_plans import get_plan_template
+
 PRODUCT_ESB = 'esecurebroker'
-DEFAULT_PLAN = 'starter'
+DEFAULT_PLAN = PLAN_INDIVIDUAL
 ALLOWED_PRODUCTS = frozenset({PRODUCT_ESB})
 
 
@@ -33,6 +42,20 @@ def _split_name(full_name: str) -> tuple[str, str]:
     return parts[0][:50], ' '.join(parts[1:])[:50]
 
 
+def _is_dev_database() -> bool:
+    from nodeone.core.db import db
+
+    uri = ''
+    try:
+        uri = str(db.engine.url)
+    except Exception:
+        uri = os.environ.get('DATABASE_URL') or ''
+    uri_l = uri.lower()
+    if 'easynodeone_prod' in uri_l or 'easynodeone_staging' in uri_l:
+        return False
+    return 'easynodeone_dev' in uri_l and 'postgresql' in uri_l
+
+
 def _require_product(product_code: str) -> str:
     from nodeone.core.platform.product_context import SURFACE_PRODUCT
     from nodeone.core.platform.product_registry import ProductRegistry
@@ -46,8 +69,26 @@ def _require_product(product_code: str) -> str:
     return code
 
 
-def _validate_promo(*, code: str, user_id: int | None) -> dict[str, Any]:
-    """Valida DiscountCode; para E2E DEV exige 100% (monto final 0)."""
+def _require_esb_plan(plan_code: str | None, *, for_checkout: bool) -> dict[str, Any]:
+    raw = (plan_code or '').strip().lower() or DEFAULT_PLAN
+    plan = get_esb_plan(raw)
+    if plan is None:
+        raise CommercialBridgeError(
+            'invalid_plan',
+            f'Plan ESecureBroker no válido: {raw}',
+            http_status=400,
+        )
+    if for_checkout and plan.get('checkout_mode') != 'self_serve':
+        raise CommercialBridgeError(
+            'plan_requires_quote',
+            f'Plan {plan["code"]} requiere cotización; no admite checkout self-serve',
+            http_status=400,
+        )
+    return plan
+
+
+def _validate_promo(*, code: str, user_id: int | None, list_amount: float) -> dict[str, Any]:
+    """Valida DiscountCode; E2E DEV exige 100% → total $0 sobre list_amount del plan."""
     from models.events import DiscountCode
 
     raw = (code or '').strip().upper()
@@ -61,15 +102,16 @@ def _validate_promo(*, code: str, user_id: int | None) -> dict[str, Any]:
     ok, reason = row.can_use(user_id=user_id)
     if not ok:
         raise CommercialBridgeError('promo_invalid', reason, http_status=400)
-    # MVP E2E: solo aceptar 100% (o fixed que anule un list price 50)
+
+    list_amt = float(list_amount)
     dtype = (row.discount_type or 'percentage').strip().lower()
     value = float(row.value or 0)
     if dtype == 'percentage' and value >= 100:
+        discount_amount = list_amt
         final_amount = 0.0
-        discount_amount = 50.0
-    elif dtype == 'fixed' and value >= 50:
+    elif dtype == 'fixed' and value >= list_amt:
+        discount_amount = list_amt
         final_amount = 0.0
-        discount_amount = 50.0
     else:
         raise CommercialBridgeError(
             'promo_not_complimentary',
@@ -79,7 +121,7 @@ def _validate_promo(*, code: str, user_id: int | None) -> dict[str, Any]:
     return {
         'promo_code': row.code,
         'discount_code_id': int(row.id),
-        'list_amount': 50.0,
+        'list_amount': list_amt,
         'discount_amount': discount_amount,
         'final_amount': final_amount,
         'currency': 'USD',
@@ -134,12 +176,12 @@ def bootstrap(body: dict[str, Any]) -> dict[str, Any]:
     )
     from nodeone.core.platform.ets_provider import ets_provider_organization_id
     from nodeone.core.platform.subscription_registry import SubscriptionRegistry
-    from datetime import timedelta
 
     product_code = _require_product(str(body.get('product_code') or PRODUCT_ESB))
     identity_in = body.get('identity') or {}
     customer_in = body.get('customer') or {}
-    plan_code = (body.get('plan_code') or DEFAULT_PLAN).strip().lower() or DEFAULT_PLAN
+    plan = _require_esb_plan(body.get('plan_code'), for_checkout=False)
+    plan_code = plan['code']
 
     email = identity_in.get('email') or customer_in.get('email')
     full_name = identity_in.get('full_name') or customer_in.get('legal_name') or email
@@ -168,7 +210,6 @@ def bootstrap(body: dict[str, Any]) -> dict[str, Any]:
         },
     )
 
-    # Suscripción pending/trial preparada (no ACTIVE hasta checkout)
     try:
         SubscriptionRegistry.create_trial(
             int(provider_id),
@@ -183,7 +224,6 @@ def bootstrap(body: dict[str, Any]) -> dict[str, Any]:
             },
         )
     except Exception:
-        # Ya existe vigente — OK
         pass
 
     link_subscription_to_contract(
@@ -220,7 +260,16 @@ def checkout(body: dict[str, Any]) -> dict[str, Any]:
     from nodeone.core.platform.ets_provider import ets_provider_organization_id
 
     product_code = _require_product(str(body.get('product_code') or PRODUCT_ESB))
-    plan_code = (body.get('plan_code') or DEFAULT_PLAN).strip().lower() or DEFAULT_PLAN
+    plan = _require_esb_plan(body.get('plan_code'), for_checkout=True)
+    plan_code = plan['code']
+    list_amount = get_esb_list_price(plan_code)
+    if list_amount is None:
+        raise CommercialBridgeError(
+            'plan_requires_quote',
+            f'Plan {plan_code} sin list price self-serve',
+            http_status=400,
+        )
+
     try:
         customer_id = int(body.get('customer_id'))
     except (TypeError, ValueError) as exc:
@@ -233,7 +282,11 @@ def checkout(body: dict[str, Any]) -> dict[str, Any]:
     if customer is None:
         raise CommercialBridgeError('customer_not_found', 'Cliente ETS no encontrado', http_status=404)
 
-    promo = _validate_promo(code=str(body.get('promo_code') or ''), user_id=customer.primary_user_id)
+    promo = _validate_promo(
+        code=str(body.get('promo_code') or ''),
+        user_id=customer.primary_user_id,
+        list_amount=float(list_amount),
+    )
     payment_in = body.get('payment') or {}
     method = str(payment_in.get('method') or 'promo_comp').strip()[:40]
 
@@ -279,7 +332,6 @@ def checkout(body: dict[str, Any]) -> dict[str, Any]:
     row.metadata_json = json.dumps(meta, ensure_ascii=False)
     db.session.flush()
 
-    # Contrato activo del producto
     from models.ets_commercial_contract import EtsCommercialContract
 
     contract = (
@@ -294,7 +346,6 @@ def checkout(body: dict[str, Any]) -> dict[str, Any]:
         contract.plan_code = plan_code
         contract.updated_at = now
 
-    # Consumir promo
     dc = DiscountCode.query.get(int(promo['discount_code_id']))
     if dc is not None and customer.primary_user_id:
         dc.current_uses = int(dc.current_uses or 0) + 1
@@ -312,7 +363,6 @@ def checkout(body: dict[str, Any]) -> dict[str, Any]:
 
     db.session.commit()
 
-    # Entitlement a nivel proveedor (producto habilitado); gate ESB = subscription del customer
     try:
         EntitlementService.ensure_for_subscription(
             int(provider_id), product_code, plan_code=plan_code
@@ -340,6 +390,17 @@ def checkout(body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _plan_code_from_subscription(row) -> str:
+    plan = DEFAULT_PLAN
+    if row and row.metadata_json:
+        try:
+            plan = json.loads(row.metadata_json).get('plan_code') or plan
+        except Exception:
+            pass
+    normalized = normalize_esb_plan_code(plan)
+    return normalized or plan
+
+
 def get_entitlement(*, product_code: str, customer_id: int) -> dict[str, Any]:
     from models.ets_commercial_customer import EtsCommercialCustomer
     from models.ets_product_subscription import EtsProductSubscription
@@ -361,12 +422,11 @@ def get_entitlement(*, product_code: str, customer_id: int) -> dict[str, Any]:
     row = EtsProductSubscription.query.filter_by(customer_id=cid, product_code=code).first()
     status = str(row.status) if row is not None else None
     entitled = status in ('active', 'trial', 'past_due')
-    plan = DEFAULT_PLAN
-    if row and row.metadata_json:
-        try:
-            plan = json.loads(row.metadata_json).get('plan_code') or plan
-        except Exception:
-            pass
+    plan = _plan_code_from_subscription(row)
+    template = get_plan_template(code, plan)
+    limits = dict(template.get('resource_limits') or {})
+    features = dict(template.get('features') or {})
+
     return {
         'product_code': code,
         'customer_id': cid,
@@ -374,30 +434,18 @@ def get_entitlement(*, product_code: str, customer_id: int) -> dict[str, Any]:
         'state': status if entitled else (status or 'none'),
         'plan_code': plan,
         'subscription_id': int(row.id) if row is not None else None,
+        'limits': limits,
+        'features': features,
     }
 
 
 def ensure_dev_promo_code() -> str | None:
     """Idempotente: crea ESB-DEV-100 solo en BD Dev (nunca prod/staging)."""
-    import os
-
-    from nodeone.core.db import db
-
-    uri = ''
-    try:
-        uri = str(db.engine.url)
-    except Exception:
-        uri = os.environ.get('DATABASE_URL') or ''
-    uri_l = uri.lower()
-    if 'easynodeone_prod' in uri_l or 'easynodeone_staging' in uri_l:
-        return None
-    if 'easynodeone_dev' not in uri_l:
-        # Solo silo Dev EN1
-        return None
-    if 'sqlite' in uri_l or 'postgresql' not in uri_l:
+    if not _is_dev_database():
         return None
 
     from models.events import DiscountCode
+    from nodeone.core.db import db
 
     code = 'ESB-DEV-100'
     row = DiscountCode.query.filter(DiscountCode.code.ilike(code)).first()
@@ -425,3 +473,59 @@ def ensure_dev_promo_code() -> str | None:
         row.updated_at = datetime.utcnow()
         db.session.commit()
     return code
+
+
+def migrate_dev_esb_starter_to_individual() -> dict[str, Any]:
+    """Migración DEV documentada: plan_code starter → individual (esecurebroker).
+
+    Preferencia C1: migración explícita (no alias permanente).
+    Solo corre contra ``easynodeone_dev``.
+    """
+    if not _is_dev_database():
+        return {'migrated': False, 'reason': 'not_dev'}
+
+    from models.ets_commercial_contract import EtsCommercialContract
+    from models.ets_product_subscription import EtsProductSubscription
+    from nodeone.core.db import db
+
+    updated_subs = 0
+    updated_contracts = 0
+    details: list[dict[str, Any]] = []
+
+    for row in EtsProductSubscription.query.filter_by(product_code=PRODUCT_ESB).all():
+        meta: dict[str, Any] = {}
+        if row.metadata_json:
+            try:
+                meta = json.loads(row.metadata_json) or {}
+            except Exception:
+                meta = {}
+        if str(meta.get('plan_code') or '').strip().lower() != 'starter':
+            continue
+        meta['plan_code'] = PLAN_INDIVIDUAL
+        meta['migrated_from_plan'] = 'starter'
+        meta['migrated_at'] = datetime.utcnow().isoformat() + 'Z'
+        row.metadata_json = json.dumps(meta, ensure_ascii=False)
+        row.updated_at = datetime.utcnow()
+        updated_subs += 1
+        details.append({'subscription_id': int(row.id), 'customer_id': row.customer_id})
+
+    for contract in EtsCommercialContract.query.filter_by(product_code=PRODUCT_ESB).all():
+        if str(contract.plan_code or '').strip().lower() != 'starter':
+            continue
+        contract.plan_code = PLAN_INDIVIDUAL
+        contract.updated_at = datetime.utcnow()
+        updated_contracts += 1
+        details.append({'contract_id': int(contract.id), 'customer_id': contract.customer_id})
+
+    if updated_subs or updated_contracts:
+        db.session.commit()
+
+    return {
+        'migrated': True,
+        'decision': 'B',
+        'from': 'starter',
+        'to': PLAN_INDIVIDUAL,
+        'subscriptions_updated': updated_subs,
+        'contracts_updated': updated_contracts,
+        'details': details,
+    }

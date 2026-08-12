@@ -6,12 +6,22 @@ import time
 
 from flask import Blueprint, g, jsonify, request
 
+from nodeone.modules.commercial_bridge.idempotency import (
+    bootstrap_idempotency_payload,
+    checkout_idempotency_payload,
+    ensure_idempotency_table,
+    lookup_idempotent,
+    normalize_idempotency_key,
+    request_body_hash,
+    store_idempotent,
+)
 from nodeone.modules.commercial_bridge.service import (
     CommercialBridgeError,
     bootstrap,
     checkout,
     ensure_dev_promo_code,
     get_entitlement,
+    migrate_dev_esb_starter_to_individual,
 )
 
 commercial_bridge_bp = Blueprint('commercial_bridge', __name__)
@@ -40,6 +50,14 @@ def _auth_api_key():
     return api_key_row
 
 
+def _provider_org_id(api_key_row) -> int:
+    from nodeone.core.platform.ets_provider import ets_provider_organization_id
+
+    if api_key_row is not None and getattr(api_key_row, 'organization_id', None):
+        return int(api_key_row.organization_id)
+    return int(ets_provider_organization_id())
+
+
 def _log(endpoint: str, status: int, result: str, api_key_row, t0: float) -> None:
     try:
         keys_svc = _keys_svc()
@@ -66,6 +84,52 @@ def _log(endpoint: str, status: int, result: str, api_key_row, t0: float) -> Non
         pass
 
 
+def _with_idempotency(
+    *,
+    operation: str,
+    api_key_row,
+    body: dict,
+    payload_fn,
+    execute_fn,
+):
+    """Ejecuta escritura con Idempotency-Key opcional.
+
+    Misma key + mismo body → respuesta cacheada.
+    Misma key + body distinto → ``idempotency_conflict`` (409).
+    """
+    key = normalize_idempotency_key(request.headers.get('Idempotency-Key'))
+    org_id = _provider_org_id(api_key_row)
+    if not key:
+        return execute_fn(body), 200
+
+    req_hash = request_body_hash(payload_fn(body))
+    status_code, cached = lookup_idempotent(
+        organization_id=org_id,
+        operation=operation,
+        key=key,
+        request_hash=req_hash,
+    )
+    if status_code == 'conflict':
+        raise CommercialBridgeError(
+            'idempotency_conflict',
+            'Idempotency-Key reutilizado con body distinto',
+            http_status=409,
+        )
+    if status_code == 'hit' and cached is not None:
+        return cached[1], int(cached[0])
+
+    out = execute_fn(body)
+    store_idempotent(
+        organization_id=org_id,
+        operation=operation,
+        key=key,
+        request_hash=req_hash,
+        status=200,
+        body=out,
+    )
+    return out, 200
+
+
 @commercial_bridge_bp.route('/api/v1/commercial/bootstrap', methods=['POST'])
 def commercial_bootstrap():
     t0 = time.perf_counter()
@@ -76,8 +140,13 @@ def commercial_bootstrap():
     try:
         api_key_row = _auth_api_key()
         body = request.get_json(silent=True) or {}
-        out = bootstrap(body)
-        status = 200
+        out, status = _with_idempotency(
+            operation='bootstrap',
+            api_key_row=api_key_row,
+            body=body,
+            payload_fn=bootstrap_idempotency_payload,
+            execute_fn=bootstrap,
+        )
         result = 'ok'
         keys_svc = _keys_svc()
         keys_svc.touch_key_usage(api_key_row)
@@ -100,8 +169,13 @@ def commercial_checkout():
     try:
         api_key_row = _auth_api_key()
         body = request.get_json(silent=True) or {}
-        out = checkout(body)
-        status = 200
+        out, status = _with_idempotency(
+            operation='checkout',
+            api_key_row=api_key_row,
+            body=body,
+            payload_fn=checkout_idempotency_payload,
+            execute_fn=checkout,
+        )
         result = 'ok'
         _keys_svc().touch_key_usage(api_key_row)
         return jsonify(out), status
@@ -148,6 +222,14 @@ def register_commercial_bridge(app) -> None:
         app.register_blueprint(commercial_bridge_bp)
     try:
         with app.app_context():
+            ensure_idempotency_table()
             ensure_dev_promo_code()
+            mig = migrate_dev_esb_starter_to_individual()
+            if mig.get('subscriptions_updated') or mig.get('contracts_updated'):
+                print(
+                    '✅ commercial_bridge DEV migrate starter→individual: '
+                    f"subs={mig.get('subscriptions_updated')} "
+                    f"contracts={mig.get('contracts_updated')}"
+                )
     except Exception as exc:
-        print(f'⚠️ commercial_bridge promo seed: {exc}')
+        print(f'⚠️ commercial_bridge promo/migrate/idem seed: {exc}')

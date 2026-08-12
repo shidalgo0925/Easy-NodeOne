@@ -14,6 +14,11 @@ from nodeone.core.platform.commercial_plans import (
     list_commercial_plan_codes,
     normalize_commercial_plan_code,
 )
+from nodeone.core.platform.esecurebroker_commercial_plans import (
+    esb_entitlement_template,
+    list_esb_plan_codes,
+    normalize_esb_plan_code,
+)
 
 # Fallback genérico para otros productos ETS
 _DEFAULT_PLAN: dict[str, Any] = {
@@ -30,6 +35,8 @@ def list_plan_codes(product_code: str) -> list[str]:
     product = (product_code or '').strip().lower()
     if product == 'eposone':
         return list_commercial_plan_codes()
+    if product == 'esecurebroker':
+        return list_esb_plan_codes()
     return ['starter']
 
 
@@ -38,6 +45,11 @@ def get_plan_template(product_code: str, plan_code: str | None) -> dict[str, Any
     product = (product_code or '').strip().lower()
     if product == 'eposone':
         return entitlement_template_from_commercial(plan_code)
+    if product == 'esecurebroker':
+        # Si llega código legado/ inválido, template vacío (no inventar EPosOne).
+        if plan_code and normalize_esb_plan_code(plan_code) is None:
+            return deepcopy(_DEFAULT_PLAN)
+        return esb_entitlement_template(plan_code)
     return deepcopy(_DEFAULT_PLAN)
 
 

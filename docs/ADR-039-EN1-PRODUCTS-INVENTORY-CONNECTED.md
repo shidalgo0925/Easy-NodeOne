@@ -4,8 +4,8 @@
 |-------|--------|
 | ID | **ADR-039** |
 | Estado | **ACCEPTED** — 13 ago 2026 |
-| GO actual | **F0 + F1 — EN1 DEV** |
-| Baseline | `bc7a7d0` o superior |
+| GO actual | **F0 + F1 + F2 DONE (Dev)** · F3+ OFF hasta GO |
+| Baseline | `bc7a7d0` o superior · F2 tip `develop` |
 | Base | [ADR-038](ADR-038-EN1-MODULAR-DOMAIN-ARCHITECTURE.md) Module Registry F1 |
 | F0 inventario | [EN1_ADR039_F0_PRODUCTS_INVENTORY_DISCOVERY.md](EN1_ADR039_F0_PRODUCTS_INVENTORY_DISCOVERY.md) |
 | EP1 / STG / PRD | **NO TOCAR** (F0–F5) |
@@ -56,3 +56,4 @@ Regla crítica: **no crear un tercer catálogo**. F0 eligió **FORMALIZE `core_p
 |-------|------|
 | 2026-08-13 | ACCEPTED. GO F0+F1 Dev. Canonical product = `core_product`. |
 | 2026-08-13 | F1 DONE Dev: módulo `products`/`inventory` en registry; UI `/admin/products`; nav Productos; labels Stock POS / Conteo físico; tests. **STOP** — F2 requiere GO. |
+| 2026-08-13 | F2 DONE Dev: `inventory_service` sobre core_stock_* + warehouse default; kinds ADR-039; policy ALLOW/WARN/BLOCK; kardex; tests Coca-Cola + idempotency. **STOP** — F3 UI requiere GO. |

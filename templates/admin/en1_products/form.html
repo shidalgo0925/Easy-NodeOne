@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}{% if mode=='new' %}Nuevo producto{% else %}Editar {{ product.product_ref }}{% endif %} — Easy NodeOne{% endblock %}
+{% block page_content %}
+<div class="container-fluid px-2 px-sm-3 py-2 erp-compact-page" style="max-width:42rem">
+  <div class="erp-toolbar d-flex flex-wrap align-items-center gap-2 mb-3">
+    <h1 class="h5 mb-0">{% if mode=='new' %}Nuevo producto{% else %}Editar producto{% endif %}</h1>
+    <a class="btn btn-sm btn-outline-secondary ms-md-auto" href="{{ url_for('en1_products.products_index') }}">Volver</a>
+  </div>
+  <form method="post" class="vstack gap-2">
+    {% if mode=='new' %}
+    <div>
+      <label class="form-label small mb-0">SKU / product_ref *</label>
+      <input name="product_ref" class="form-control form-control-sm" required maxlength="64" value="{{ request.form.product_ref or '' }}">
+    </div>
+    {% else %}
+    <div>
+      <label class="form-label small mb-0">SKU</label>
+      <input class="form-control form-control-sm" value="{{ product.product_ref }}" disabled>
+    </div>
+    {% endif %}
+    <div>
+      <label class="form-label small mb-0">Nombre *</label>
+      <input name="name" class="form-control form-control-sm" required maxlength="300"
+             value="{{ request.form.name or (product.name if product else '') }}">
+    </div>
+    <div>
+      <label class="form-label small mb-0">Descripción</label>
+      <textarea name="description" class="form-control form-control-sm" rows="2">{{ request.form.description or (product.description if product and product.description else '') }}</textarea>
+    </div>
+    <div class="row g-2">
+      <div class="col-md-6">
+        <label class="form-label small mb-0">Tipo P0 *</label>
+        <select name="product_kind" class="form-select form-select-sm">
+          {% set pk = request.form.product_kind or product_kind %}
+          <option value="STOCKABLE" {% if pk=='STOCKABLE' %}selected{% endif %}>STOCKABLE (inventariable)</option>
+          <option value="NON_STOCKABLE" {% if pk=='NON_STOCKABLE' %}selected{% endif %}>NON_STOCKABLE</option>
+          <option value="SERVICE" {% if pk=='SERVICE' %}selected{% endif %}>SERVICE</option>
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small mb-0">Estado</label>
+        {% set st = request.form.status or (product.status if product else 'active') %}
+        <select name="status" class="form-select form-select-sm">
+          <option value="active" {% if st=='active' %}selected{% endif %}>Activo</option>
+          <option value="inactive" {% if st=='inactive' %}selected{% endif %}>Inactivo</option>
+        </select>
+      </div>
+    </div>
+    <div class="row g-2">
+      <div class="col-md-4">
+        <label class="form-label small mb-0">Categoría</label>
+        <input name="category" class="form-control form-control-sm" maxlength="120"
+               value="{{ request.form.category or (product.category if product and product.category else '') }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small mb-0">Unidad</label>
+        <input name="uom" class="form-control form-control-sm" maxlength="16"
+               value="{{ request.form.uom or (product.uom if product else 'und') }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small mb-0">Barcode</label>
+        <input name="barcode" class="form-control form-control-sm" maxlength="64"
+               value="{{ request.form.barcode or (product.barcode if product and product.barcode else '') }}">
+      </div>
+    </div>
+    <div class="row g-2">
+      <div class="col-md-4">
+        <label class="form-label small mb-0">Precio base</label>
+        <input name="unit_price" type="number" step="0.01" class="form-control form-control-sm"
+               value="{{ request.form.unit_price or (product.unit_price if product else 0) }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small mb-0">Costo ref.</label>
+        <input name="cost_price" type="number" step="0.01" class="form-control form-control-sm"
+               value="{{ request.form.cost_price or (product.cost_price if product and product.cost_price is not none else '') }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small mb-0">Fiscal (ITBMS)</label>
+        <input name="fiscal_category" class="form-control form-control-sm" maxlength="32"
+               placeholder="ITBMS_7 / EXENTO"
+               value="{{ request.form.fiscal_category or (product.fiscal_category if product and product.fiscal_category else '') }}">
+      </div>
+    </div>
+    <div class="d-flex gap-2 pt-2">
+      <button type="submit" class="btn btn-sm btn-primary">Guardar</button>
+      {% if mode=='edit' and product.status=='active' %}
+      <button type="submit" formaction="{{ url_for('en1_products.products_deactivate', product_ref=product.product_ref) }}"
+              class="btn btn-sm btn-outline-danger"
+              onclick="return confirm('¿Desactivar este producto?');">Desactivar</button>
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -217,6 +217,11 @@ def _v_contacts(ctx: NavContext) -> bool:
     return ctx.saas_module_enabled('contacts') and ctx.has_view_endpoint('contacts_admin.contacts_index')
 
 
+def _v_en1_products(ctx: NavContext) -> bool:
+    """ADR-039 F1 — área Productos (módulo products + endpoint)."""
+    return ctx.saas_module_enabled('products') and ctx.has_view_endpoint('en1_products.products_index')
+
+
 def _v_crm(ctx: NavContext) -> bool:
     return (ctx.saas_module_enabled('crm_contacts') or ctx.saas_module_enabled('crm')) and ctx.nav_can('users.view')
 
@@ -1052,6 +1057,7 @@ _SIDEBAR_TOP_LEVEL_AREA_IDS: tuple[str, ...] = (
 _SIDEBAR_V2_FLAT_AREA_IDS: tuple[str, ...] = (
     'tienda',
     'contactos',
+    'productos',
     'marketing_email',
     'crm',
     'ventas',
@@ -1267,7 +1273,8 @@ APP_AREAS: tuple[NavArea, ...] = (
                 active_path_prefixes=('/admin/eposone/section/orders', '/admin/eposone/orders'),
             ),
             _eposone_section_item('productos', 'Productos', 'fas fa-box-open', 'products'),
-            _eposone_section_item('inventario', 'Inventario', 'fas fa-warehouse', 'inventory'),
+            # ADR-039 F1: label clarificado — Inventario nativo EN1 llega en F3.
+            _eposone_section_item('inventario', 'Stock POS', 'fas fa-warehouse', 'inventory'),
             _eposone_section_item('clientes', 'Clientes', 'fas fa-address-book', 'contacts'),
             NavAreaItem(
                 'caja',
@@ -1377,7 +1384,7 @@ APP_AREAS: tuple[NavArea, ...] = (
     ),
     NavArea(
         id='contador',
-        label='Inventario',
+        label='Conteo físico',
         icon='fas fa-clipboard-list',
         visible=_v_contador,
         zone_blueprints=('contador', 'contador_api'),
@@ -1428,6 +1435,28 @@ APP_AREAS: tuple[NavArea, ...] = (
                     'contacts_admin.contacts_edit',
                 ),
                 active_blueprints=('contacts_admin',),
+            ),
+        ),
+    ),
+    NavArea(
+        id='productos',
+        label='Productos',
+        icon='fas fa-box-open',
+        visible=_v_en1_products,
+        zone_blueprints=('en1_products',),
+        zone_path_prefixes=('/admin/products',),
+        items=(
+            NavAreaItem(
+                'listado',
+                'Productos',
+                'fas fa-list',
+                'en1_products.products_index',
+                active_endpoints=(
+                    'en1_products.products_index',
+                    'en1_products.products_new',
+                    'en1_products.products_edit',
+                ),
+                active_path_prefixes=('/admin/products',),
             ),
         ),
     ),

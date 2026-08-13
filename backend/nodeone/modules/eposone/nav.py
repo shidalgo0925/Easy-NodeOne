@@ -136,7 +136,7 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
             ),
             AppNavItem(
                 'inventario',
-                'Inventario',
+                'Stock POS',
                 'fas fa-warehouse',
                 url=_section('inventory'),
                 visible=_v_eposone,

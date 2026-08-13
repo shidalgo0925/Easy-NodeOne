@@ -120,6 +120,18 @@ SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
         'Nómina nativa (plataforma). Planificada Etapa 9 — opt-in por tenant.',
         False,
     ),
+    (
+        'products',
+        'Productos',
+        'Catálogo maestro EN1 (core_product). ADR-039 — formalización nativa.',
+        False,
+    ),
+    (
+        'inventory',
+        'Inventario',
+        'Existencias y movimientos EN1 (core_stock_*). ADR-039 — F2+; depende de products.',
+        False,
+    ),
 )
 
 
@@ -232,6 +244,8 @@ TOGGLEABLE_BY_TENANT_CODES: tuple[str, ...] = (
     'security_matrix',
     'rbac_matrix',
     'memberships',
+    'products',
+    'inventory',
 )
 
 
@@ -264,8 +278,9 @@ def ensure_toggleable_tenant_module_links(printfn=None, organization_id: int | N
             link = SaasOrgModule.query.filter_by(organization_id=oid, module_id=mod.id).first()
             if link is not None:
                 continue
-            # Permisología EN1: opt-in (tenants operativos como Taller no la necesitan por defecto).
-            enabled = mod.code != 'rbac_matrix'
+# Permisología EN1: opt-in (tenants operativos como Taller no la necesitan por defecto).
+            # ADR-039: products/inventory opt-in (no encender todos los tenants de golpe).
+            enabled = mod.code not in ('rbac_matrix', 'products', 'inventory')
             db.session.add(SaasOrgModule(organization_id=oid, module_id=mod.id, enabled=enabled))
             created += 1
             _log(printfn, f'+ saas_org_module: org={oid} {mod.code}={"on" if enabled else "off"} (default toggleable)')
@@ -351,10 +366,29 @@ def ensure_academic_org_modules_on(printfn=None) -> None:
         _log(printfn, f'* saas_org_module: academic → on ({n} vínculo(s))')
 
 
+def ensure_inventory_module_dependency(printfn=None) -> None:
+    """ADR-039: inventory depende de products."""
+    from app import SaasModule, SaasModuleDependency, db
+
+    child = SaasModule.query.filter_by(code='inventory').first()
+    parent = SaasModule.query.filter_by(code='products').first()
+    if child is None or parent is None:
+        return
+    existing = SaasModuleDependency.query.filter_by(
+        module_id=child.id, depends_on_module_id=parent.id
+    ).first()
+    if existing is not None:
+        return
+    db.session.add(SaasModuleDependency(module_id=child.id, depends_on_module_id=parent.id))
+    _log(printfn, '+ saas_module_dependency: inventory → products')
+    db.session.commit()
+
+
 def ensure_saas_catalog_full(printfn=None) -> None:
     ensure_saas_module_catalog(printfn=printfn)
     ensure_office365_module_dependency(printfn=printfn)
     ensure_academic_module_dependency(printfn=printfn)
+    ensure_inventory_module_dependency(printfn=printfn)
     ensure_sales_org_module_links(printfn=printfn)
     ensure_toggleable_tenant_module_links(printfn=printfn)
     # No llamar ensure_workshop_org_modules_on / ensure_academic_org_modules_on aquí:

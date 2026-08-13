@@ -956,6 +956,20 @@ def register_contacts_blueprints(app):
         print(f'Warning: No se pudo registrar contacts: {e}')
 
 
+def register_en1_products_blueprints(app):
+    """ADR-039 F1 — Productos EN1 (/admin/products) sobre core_product."""
+    if os.environ.get('NODEONE_SKIP_EN1_PRODUCTS', '').strip().lower() in ('1', 'true', 'yes'):
+        return
+    if 'en1_products.products_index' in getattr(app, 'view_functions', {}):
+        return
+    try:
+        from nodeone.modules.en1_products.routes import register_en1_products_blueprints as _reg
+
+        _reg(app)
+    except ImportError as e:
+        print(f'Warning: No se pudo registrar en1_products: {e}')
+
+
 def register_efactura_blueprints(app):
     """Facturación electrónica Panamá (/admin/efactura, /api/admin/efactura)."""
     if os.environ.get('NODEONE_SKIP_EFACTURA_MODULE', '').strip().lower() in ('1', 'true', 'yes'):

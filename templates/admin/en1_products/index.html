@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Productos — Easy NodeOne{% endblock %}
+{% block page_content %}
+<div class="container-fluid px-2 px-sm-3 py-2 erp-compact-page">
+  <div class="erp-toolbar d-flex flex-wrap align-items-center gap-2 mb-2">
+    <h1 class="h5 mb-0"><i class="fas fa-box-open me-1 text-muted"></i>Productos</h1>
+    <span class="erp-footnote text-muted">Catálogo maestro EN1 (org {{ organization_id }})</span>
+    <a class="btn btn-sm btn-primary ms-md-auto" href="{{ url_for('en1_products.products_new') }}"><i class="fas fa-plus me-1"></i>Nuevo</a>
+  </div>
+  <form method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-auto">
+      <label class="form-label small mb-0">Buscar</label>
+      <input type="search" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="SKU o nombre">
+    </div>
+    <div class="col-auto">
+      <label class="form-label small mb-0">Estado</label>
+      <select name="status" class="form-select form-select-sm">
+        <option value="">Todos</option>
+        <option value="active" {% if status=='active' %}selected{% endif %}>Activo</option>
+        <option value="inactive" {% if status=='inactive' %}selected{% endif %}>Inactivo</option>
+      </select>
+    </div>
+    <div class="col-auto"><button class="btn btn-sm btn-outline-primary" type="submit">Filtrar</button></div>
+  </form>
+  <div class="table-responsive">
+    <table class="table table-sm table-bordered align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>SKU</th>
+          <th>Nombre</th>
+          <th>Tipo</th>
+          <th>Inventariable</th>
+          <th>Precio</th>
+          <th>Estado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in products %}
+        <tr>
+          <td><code>{{ p.product_ref }}</code></td>
+          <td>{{ p.name }}</td>
+          <td>{{ p.product_type }}</td>
+          <td>{% if p.tracks_inventory %}Sí{% else %}No{% endif %}</td>
+          <td>{{ '%.2f'|format(p.unit_price or 0) }} {{ p.currency }}</td>
+          <td>{{ p.status }}</td>
+          <td class="text-nowrap">
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('en1_products.products_edit', product_ref=p.product_ref) }}">Editar</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-muted">Sin productos. Creá el primero o habilitá el módulo Productos en Módulos SaaS.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

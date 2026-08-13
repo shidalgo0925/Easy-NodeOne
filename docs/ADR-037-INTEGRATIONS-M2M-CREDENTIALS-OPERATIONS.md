@@ -5,12 +5,12 @@
 | ID | **ADR-037** |
 | Título | Integraciones M2M, Credenciales y Operación |
 | Título EN | Integrations M2M, Credentials & Operations |
-| Estado | **Propuesto — PUBLISHED FOR ESB REVIEW** — 12 ago 2026 · pendiente aceptación conjunta CODITO + SPAGHETTI |
+| Estado | **ACCEPTED (CODITO)** — 13 ago 2026 · **pendiente ACCEPT formal SPAGHETTI** · PUBLISHED ON `develop` para pull ESB |
 | Ámbito | EN1 (SoR de credenciales M2M) · productos consumidores (ESecureBroker y futuros) · operación DEV/STG/PROD |
 | Autores | CODITO (EN1 / SoR) · SPAGHETTI (ESB / consumidor) |
 | Relacionados | [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-016](ADR-016-COMMERCIAL-LICENSING-V2-ENTITLEMENT.md) · [ADR-022](ADR-022-EN1-MULTIPRODUCT-COMMERCIAL-MODEL.md) · [ADR-026](ADR-026-EASY-INTEGRATION-SPECIFICATION-V1.md) · [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) · commercial bridge ESB (`/api/v1/commercial/*`) |
-| Numeración | **No** usar ADR-009: ya es [Caja EN1](ADR-009-EN1-CAJA-CENTRO-COBRO.md). En chats ESB se mencionó «ADR-009 Integration»; el ID canónico es **ADR-037**. |
-| Implementación | **Prohibida** hasta aceptación explícita + GO de implementación (este ADR es solo diseño). |
+| Numeración | **No** usar ADR-009: ya es [Caja EN1](ADR-009-EN1-CAJA-CENTRO-COBRO.md). En chats ESB se mencionó «ADR-009 Integration»; el ID canónico es **ADR-037**. En ESB, **ADR-009 = incentivos cia** (producto); M2M = **037**. |
+| Implementación | **Prohibida** hasta ACCEPT conjunto (CODITO + SPAGHETTI) **y** GO de implementación explícito. Leer/aceptar el ADR **no** autoriza F1–F3 ni PROD. |
 
 ---
 
@@ -394,7 +394,8 @@ hasta:
 | 16 | Anti-patrón 2026-08-12 (scp + paths + conocimiento tribal) | Sí §1.1 · §7.3 |
 | Gate | PROD bloqueado hasta F1–F3 + E2E con `credential_ref` | Sí §13 |
 
-- [ ] Aceptación formal SPAGHETTI + CODITO (pendiente review ESB con artefacto local).
+- [x] Aceptación formal **CODITO** (13 ago 2026).
+- [ ] Aceptación formal **SPAGHETTI** (pendiente tras pull de este documento).
 
 ---
 
@@ -411,13 +412,35 @@ hasta:
 | Canal | Ubicación |
 |-------|-----------|
 | **Canónico EN1** | Repo `Easy-NodeOne` · rama `develop` · `docs/ADR-037-INTEGRATIONS-M2M-CREDENTIALS-OPERATIONS.md` |
-| **GitHub** | `https://github.com/shidalgo0925/Easy-NodeOne/blob/develop/docs/ADR-037-INTEGRATIONS-M2M-CREDENTIALS-OPERATIONS.md` |
+| **GitHub (blob)** | `https://github.com/shidalgo0925/Easy-NodeOne/blob/develop/docs/ADR-037-INTEGRATIONS-M2M-CREDENTIALS-OPERATIONS.md` |
+| **GitHub (raw, sin clone)** | `https://raw.githubusercontent.com/shidalgo0925/Easy-NodeOne/develop/docs/ADR-037-INTEGRATIONS-M2M-CREDENTIALS-OPERATIONS.md` |
 | **Mirror EasyWiki** | Repo `EasyWiki` · `main` · `00_Gobierno/ADR/ADR-037-INTEGRATIONS-M2M-CREDENTIALS-OPERATIONS.md` |
 | **GitHub wiki** | `https://github.com/shidalgo0925/EasyWiki/blob/main/00_Gobierno/ADR/ADR-037-INTEGRATIONS-M2M-CREDENTIALS-OPERATIONS.md` |
 
-Nota: el vault en host SPAGHETTI puede vivir en `/opt/easynodeone/Easy-Wiki` (guion); en CODITO el clone operativo es `/opt/easynodeone/dev/EasyWiki`. Son el **mismo repo remoto** `EasyWiki` — hacer `git pull origin main`.
+### 16.1 Pull para ESecureBroker / SPAGHETTI (solo documento)
 
-Borrador ESB misnumerado (`adr/ADR-009_m2m_credentials_operations.md`): tras ACCEPT, convertir en **pointer a ADR-037** (ADR-009 = solo Caja EN1).
+Tras el push de CODITO a `origin/develop`:
+
+```bash
+# Opción A — clone/mirror de Easy-NodeOne (solo docs; no secrets)
+git fetch origin develop
+git checkout develop   # o: git pull --ff-only origin develop
+# archivo:
+#   docs/ADR-037-INTEGRATIONS-M2M-CREDENTIALS-OPERATIONS.md
+
+# Opción B — sin repo: curl/wget del raw GitHub (arriba)
+```
+
+**Qué NO implica este pull**
+
+- No es GO de implementación F1–F3.
+- No autoriza deploy PROD ni rotación de keys.
+- No cambia el bridge C1 en runtime (sigue el contrato ya en DEV).
+- No sustituye ACCEPT formal SPAGHETTI (marcar en chat / pointer local).
+
+Nota EasyWiki: host SPAGHETTI puede usar `/opt/easynodeone/Easy-Wiki`; CODITO `/opt/easynodeone/dev/EasyWiki` — mismo remoto `EasyWiki` · `git pull origin main` cuando el mirror esté sincronizado.
+
+Borrador ESB misnumerado (`adr/ADR-009_m2m_credentials_operations.md`): tras ACCEPT SPAGHETTI, convertir en **pointer a ADR-037** (ADR-009 EN1 = Caja; ADR-009 ESB producto = incentivos — no M2M).
 
 ---
 
@@ -427,3 +450,4 @@ Borrador ESB misnumerado (`adr/ADR-009_m2m_credentials_operations.md`): tras ACC
 |-------|------|
 | 2026-08-12 | Propuesto tras E2E ESB↔EN1 DEV (C1 + handoff M2M). ID **037** (ADR-009 ya = Caja). |
 | 2026-08-12 | Enmienda review ESB: view-once, UI segura, `retiring`, fail-closed `/hoy`+mobile, gate PROD F1–F3 + checklist 1–16, URLs de obtención. |
+| 2026-08-13 | CODITO ACCEPT (diseño). Instrucciones pull ESB §16.1. Implementación sigue OFF hasta ACCEPT SPAGHETTI + GO. Numeración ESB ADR-009 incentivos ≠ 037. |

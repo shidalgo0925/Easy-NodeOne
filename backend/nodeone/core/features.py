@@ -639,15 +639,33 @@ def register_admin_backup_blueprint(app):
 
 
 def register_admin_discount_codes_blueprint(app):
+    """Promos por producto ETS (+ redirect legacy /admin/discount-codes)."""
     if os.environ.get('NODEONE_SKIP_ADMIN_DISCOUNT_CODES_BLUEPRINT', '').strip().lower() in ('1', 'true', 'yes'):
         return
     try:
-        from nodeone.modules.admin_discount_codes.routes import admin_discount_codes_bp
+        from nodeone.modules.admin_discount_codes.routes import admin_product_discount_codes_bp
 
-        if 'admin_discount_codes' not in app.blueprints:
-            app.register_blueprint(admin_discount_codes_bp)
+        if 'admin_product_discount_codes' not in app.blueprints:
+            app.register_blueprint(admin_product_discount_codes_bp)
     except ImportError as e:
-        print(f'Warning: No se pudo registrar admin_discount_codes_bp: {e}')
+        print(f'Warning: No se pudo registrar admin_product_discount_codes_bp: {e}')
+
+
+def register_admin_product_discount_codes_blueprint(app):
+    """Alias — registro unificado en register_admin_discount_codes_blueprint."""
+    register_admin_discount_codes_blueprint(app)
+
+
+def register_admin_commercial_customers_blueprint(app):
+    try:
+        from nodeone.modules.admin_commercial_customers.routes import (
+            admin_commercial_customers_bp,
+        )
+
+        if 'admin_commercial_customers' not in app.blueprints:
+            app.register_blueprint(admin_commercial_customers_bp)
+    except ImportError as e:
+        print(f'Warning: No se pudo registrar admin_commercial_customers_bp: {e}')
 
 
 def register_admin_membership_discounts_blueprint(app):

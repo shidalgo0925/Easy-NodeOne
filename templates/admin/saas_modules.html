@@ -28,6 +28,9 @@
         <button type="button" class="btn btn-sm btn-outline-primary" id="btnReload">Recargar lista</button>
         <a href="{{ url_for('admin_organizations_list') }}" class="btn btn-sm btn-outline-secondary">Ir a empresas</a>
         <a href="{{ url_for('admin_saas_catalog_list') }}" class="btn btn-sm btn-outline-secondary">Catálogo</a>
+        {% if current_user.is_admin and has_view_endpoint('admin_product_discount_codes.index') %}
+        <a href="{{ url_for('admin_product_discount_codes.index') }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-ticket-alt"></i> Promos</a>
+        {% endif %}
     </div>
     </div>
     <div id="msg" class="alert d-none" role="alert"></div>

@@ -101,6 +101,7 @@ def register_platform_apps(app) -> None:
     f.register_policies_blueprint(app)
     f.register_academic_enrollment_admin_blueprint(app)
     f.register_admin_discount_codes_blueprint(app)
+    f.register_admin_commercial_customers_blueprint(app)
     f.register_admin_membership_discounts_blueprint(app)
     f.register_admin_services_catalog_blueprint(app)
     f.register_admin_course_cohort_routes(app)

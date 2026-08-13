@@ -291,8 +291,9 @@ class DiscountCode(db.Model):
     value = db.Column(db.Float, nullable=False)
     
     # Alcance del descuento
-    applies_to = db.Column(db.String(50), default='all')  # all, events, memberships, appointments
+    applies_to = db.Column(db.String(50), default='all')  # all, events, memberships, appointments, products
     event_ids = db.Column(db.Text)  # JSON array de event IDs (opcional)
+    product_codes = db.Column(db.Text)  # JSON array de product_code ETS (ADR-012); vacío = todos
     
     # Válido para solicitud de correo Office 365 (sin hardcodear nombre)
     valid_for_office365 = db.Column(db.Boolean, default=False)
@@ -318,6 +319,29 @@ class DiscountCode(db.Model):
     creator = db.relationship('User', foreign_keys=[created_by], backref='created_discount_codes')
     applications = db.relationship('DiscountApplication', backref='discount_code', lazy=True, cascade='all, delete-orphan')
     
+    def get_product_codes_list(self) -> list[str]:
+        raw = (self.product_codes or '').strip()
+        if not raw:
+            return []
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            return []
+        if not isinstance(parsed, list):
+            return []
+        return sorted({str(x).strip().lower() for x in parsed if str(x).strip()})
+
+    def set_product_codes_list(self, codes: list[str] | None) -> None:
+        normalized = sorted({str(c).strip().lower() for c in (codes or []) if str(c).strip()})
+        self.product_codes = json.dumps(normalized) if normalized else None
+
+    def applies_to_product(self, product_code: str | None) -> bool:
+        allowed = self.get_product_codes_list()
+        if not allowed:
+            return True
+        key = (product_code or '').strip().lower()
+        return bool(key) and key in allowed
+
     def can_use(self, user_id=None):
         """Verifica si el código puede ser usado por un usuario"""
         if not self.is_active:

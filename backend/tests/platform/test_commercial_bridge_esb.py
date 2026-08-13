@@ -127,6 +127,7 @@ class TestCommercialBridgeUnit(unittest.TestCase):
             value=100.0,
             id=9,
             can_use=lambda user_id=None: (True, 'ok'),
+            applies_to_product=lambda pc: True,
         )
         mock_q = MagicMock()
         mock_q.filter.return_value.first.return_value = row

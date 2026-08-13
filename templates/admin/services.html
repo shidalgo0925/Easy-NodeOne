@@ -11,6 +11,17 @@
 
 {% block page_content %}
 <div class="container-fluid px-2 px-sm-3 py-2 services-catalog-page erp-compact-page">
+    {% if current_user.is_admin and has_view_endpoint('admin_product_discount_codes.index') %}
+    <div class="alert alert-warning border-warning d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2 py-2">
+        <span class="small mb-0">
+            <i class="fas fa-ticket-alt me-1"></i>
+            <strong>Promociones ETS</strong> (ESecureBroker, EPosOne…) no son productos de esta lista — se administran aparte.
+        </span>
+        <a href="{{ url_for('admin_product_discount_codes.index') }}" class="btn btn-sm btn-warning text-dark text-nowrap">
+            <i class="fas fa-external-link-alt me-1"></i> Ver promos por producto
+        </a>
+    </div>
+    {% endif %}
     <div class="erp-toolbar d-flex flex-wrap align-items-center mb-2">
         <h1 class="h5 mb-0 text-nowrap me-1 services-page-title">
             <i class="fas fa-concierge-bell me-1 text-muted" aria-hidden="true"></i>Productos
@@ -30,6 +41,11 @@
                     {% endif %}
                     {% if current_user.is_admin %}
                     <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#importServicesModal" title="Importar desde CSV o XLSX"><i class="fas fa-file-upload"></i> Importar</button>
+                    {% if has_view_endpoint('admin_product_discount_codes.index') %}
+                    <a href="{{ url_for('admin_product_discount_codes.index') }}" class="btn btn-sm btn-warning text-dark" title="Códigos promocionales ETS (ESecureBroker, EPosOne…)">
+                        <i class="fas fa-ticket-alt"></i> Promos ETS
+                    </a>
+                    {% endif %}
                     {% endif %}
                     {% if current_user.has_permission('reports.export') %}
                     <a href="/api/admin/export/xls?entity=members&fields=id,email,first_name,last_name,country,created_at,is_active&status=all" id="exportXls" class="btn btn-success btn-sm" title="Exportar a Excel"><i class="fas fa-file-excel"></i> XLS</a>

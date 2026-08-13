@@ -7,6 +7,9 @@
     <div class="erp-toolbar d-flex flex-wrap align-items-center mb-2">
         <h1 class="h5 mb-0 text-nowrap me-1"><i class="fas fa-list me-1 text-muted" aria-hidden="true"></i>Catálogo SaaS</h1>
         <a href="{{ url_for('admin_saas_catalog_new') }}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Nuevo</a>
+        {% if current_user.is_admin and has_view_endpoint('admin_product_discount_codes.index') %}
+        <a href="{{ url_for('admin_product_discount_codes.index') }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-ticket-alt"></i> Promos por producto</a>
+        {% endif %}
         <span class="ms-md-auto erp-footnote text-muted d-none d-lg-inline"><code>has_saas_module_enabled</code></span>
     </div>
     {% with messages = get_flashed_messages(with_categories=true) %}

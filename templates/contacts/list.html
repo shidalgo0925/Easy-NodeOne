@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Contactos{% endblock %}
+{% block title %}Clientes{% endblock %}
 {% block head_extra %}
 <style>
 .contacts-list-page {
@@ -78,8 +78,8 @@ document.addEventListener('DOMContentLoaded', function () {
 {% block content %}
 <div class="container-fluid px-2 px-sm-3 py-2 contacts-list-page erp-compact-page">
   <form method="get" class="contacts-toolbar erp-toolbar d-flex flex-wrap align-items-center mb-2" role="search" aria-label="Filtros de contactos">
-    <h1 class="h5 mb-0 text-nowrap me-1" title="Maestro de clientes, proveedores y roles operativos (no es login de usuarios)">
-      <i class="fas fa-address-book me-1 text-muted" aria-hidden="true"></i>Contactos
+    <h1 class="h5 mb-0 text-nowrap me-1" title="Cliente canónico EN1: persona o empresa. Contacto, miembro, comprador y suscriptor son roles de esta ficha.">
+      <i class="fas fa-address-book me-1 text-muted" aria-hidden="true"></i>Clientes
     </h1>
     <a class="btn btn-primary btn-sm" href="{{ url_for('contacts_admin.contacts_new') }}">Nuevo</a>
     <span class="d-none d-md-inline vr align-self-stretch mx-1" aria-hidden="true"></span>
@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', function () {
     <button type="submit" class="btn btn-sm btn-secondary">Filtrar</button>
     <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('contacts_admin.contacts_index') }}">Limpiar</a>
     {% if total is defined %}
-    <span class="ms-md-auto contacts-footnote text-muted text-nowrap">{{ total }} contacto{% if total != 1 %}s{% endif %}</span>
+    <span class="ms-md-auto contacts-footnote text-muted text-nowrap">{{ total }} cliente{% if total != 1 %}s{% endif %}</span>
     {% endif %}
   </form>
 
@@ -122,12 +122,15 @@ document.addEventListener('DOMContentLoaded', function () {
           <th class="text-nowrap">Teléfono</th>
           <th class="text-nowrap">Identificación</th>
           <th>Roles</th>
+          {% if include_ets_buyers %}
+          <th class="text-nowrap">Productos</th>
+          {% endif %}
           <th class="text-center text-nowrap" style="width:4rem">Activo</th>
         </tr>
       </thead>
       <tbody>
         {% for c in contacts %}
-        <tr class="contacts-row-click" role="button" tabindex="0" data-href="{{ url_for('contacts_admin.contacts_edit', contact_id=c.id) }}" style="cursor:pointer">
+        <tr class="contacts-row-click" role="button" tabindex="0" data-href="{{ url_for('contacts_admin.contacts_detail', contact_id=c.id) }}" style="cursor:pointer">
           <td class="text-muted">{{ c.id }}</td>
           <td class="fw-medium">
             <div class="d-flex align-items-center gap-2">
@@ -136,7 +139,7 @@ document.addEventListener('DOMContentLoaded', function () {
               {% else %}
               <span class="contact-list-thumb contact-list-thumb--placeholder" aria-hidden="true"><i class="fas {% if c.contact_type == 'company' %}fa-building{% else %}fa-user{% endif %}"></i></span>
               {% endif %}
-              <a href="{{ url_for('contacts_admin.contacts_edit', contact_id=c.id) }}" class="text-decoration-none" title="Editar contacto">{{ c.display_name }}</a>
+              <a href="{{ url_for('contacts_admin.contacts_detail', contact_id=c.id) }}" class="text-decoration-none" title="Ver ficha">{{ c.display_name }}</a>
             </div>
           </td>
           <td>{{ c.contact_type }}</td>
@@ -146,10 +149,13 @@ document.addEventListener('DOMContentLoaded', function () {
             {% if c.tax_id %}{{ c.identification_type }}: {{ c.tax_id }}{% if c.dv %}-{{ c.dv }}{% endif %}{% else %}CF{% endif %}
           </td>
           <td class="text-truncate" style="max-width:9rem" title="{{ c.role_labels()|join(', ') }}">{{ c.role_labels()|join(', ') or '—' }}</td>
+          {% if include_ets_buyers %}
+          <td class="text-truncate" style="max-width:10rem" title="{{ ((ets_products or {}).get(c.id) or [])|join(', ') }}">{{ ((ets_products or {}).get(c.id) or [])|join(', ') or '—' }}</td>
+          {% endif %}
           <td class="text-center">{% if c.active %}<span class="badge text-bg-success">Sí</span>{% else %}<span class="badge text-bg-secondary">No</span>{% endif %}</td>
         </tr>
         {% else %}
-        <tr><td colspan="8" class="text-muted py-3">Sin contactos con estos filtros.</td></tr>
+        <tr><td colspan="{% if include_ets_buyers %}9{% else %}8{% endif %}" class="text-muted py-3">Sin clientes con estos filtros.</td></tr>
         {% endfor %}
       </tbody>
     </table>

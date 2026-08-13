@@ -5,12 +5,12 @@
 {% block head_extra %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/sales-quotation-odoo.css') }}?v=4">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/crm-new-lead-modal.css') }}?v=1">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm-toolbar.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm-toolbar.css') }}?v=2">
 {% endblock %}
 
 {% block page_content %}
-<div class="container-fluid py-3">
-  <div class="d-flex flex-column flex-md-row flex-wrap justify-content-between align-items-stretch align-items-md-center gap-2 mb-3">
+<div class="container-fluid py-2">
+  <div class="d-flex flex-column flex-md-row flex-wrap justify-content-between align-items-stretch align-items-md-center gap-2 mb-2">
     <div class="min-w-0">
       <h3 class="mb-1"><i class="fas fa-funnel-dollar me-2"></i>CRM</h3>
       <p class="text-muted mb-0 small">Leads, oportunidades, actividades y reportes.</p>
@@ -21,7 +21,7 @@
     </div>
   </div>
 
-  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
     <div class="crm-view-toolbar d-inline-flex align-items-center flex-wrap">
       <a class="crm-view-btn {% if crm_view == 'kanban' %}is-active{% endif %}" href="{{ url_for('admin_crm_kanban') }}" title="Kanban" aria-label="Kanban"><i class="fas fa-columns"></i></a>
       <a class="crm-view-btn {% if crm_view == 'list' %}is-active{% endif %}" href="{{ url_for('admin_crm_leads') }}" title="Lista" aria-label="Lista"><i class="fas fa-list"></i></a>
@@ -34,13 +34,13 @@
     <a class="small text-decoration-none {% if crm_view == 'dashboard' %}fw-semibold text-primary{% else %}text-muted{% endif %}" href="{{ url_for('admin_crm_dashboard') }}"><i class="fas fa-tachometer-alt me-1"></i>Resumen</a>
   </div>
 
-  <div class="row g-3 mb-3 {% if crm_view in ['settings'] %}d-none{% endif %}">
-    <div class="col-12 col-sm-6 col-lg-3"><div class="card"><div class="card-body"><small class="text-muted">Leads totales</small><h4 id="kpiTotal" class="mb-0">0</h4></div></div></div>
-    <div class="col-12 col-sm-6 col-lg-3"><div class="card"><div class="card-body"><small class="text-muted">Ganados</small><h4 id="kpiWon" class="mb-0">0</h4></div></div></div>
-    <div class="col-12 col-sm-6 col-lg-3"><div class="card"><div class="card-body"><small class="text-muted">Conversión</small><h4 id="kpiConv" class="mb-0">0%</h4></div></div></div>
-    <div class="col-12 col-sm-6 col-lg-3"><div class="card"><div class="card-body"><small class="text-muted">Forecast</small><h4 id="kpiForecast" class="mb-0">$0</h4></div></div></div>
+  <div class="row g-2 mb-2 crm-kpi-strip {% if crm_view in ['settings'] %}d-none{% endif %}">
+    <div class="col-6 col-lg-3"><div class="card"><div class="card-body py-2"><small class="text-muted">Leads totales</small><div id="kpiTotal" class="fs-5 fw-semibold mb-0">0</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card"><div class="card-body py-2"><small class="text-muted">Ganados</small><div id="kpiWon" class="fs-5 fw-semibold mb-0">0</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card"><div class="card-body py-2"><small class="text-muted">Conversión</small><div id="kpiConv" class="fs-5 fw-semibold mb-0">0%</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card"><div class="card-body py-2"><small class="text-muted">Forecast</small><div id="kpiForecast" class="fs-5 fw-semibold mb-0">$0</div></div></div></div>
   </div>
-  <div id="crmAlertsBox" class="mb-3 {% if crm_view == 'settings' %}d-none{% endif %}"></div>
+  <div id="crmAlertsBox" class="{% if crm_view == 'settings' %}d-none{% endif %}"></div>
 
   {% if crm_view == 'settings' %}
   <div class="row g-3">
@@ -442,14 +442,26 @@
     const dueToday = Number(t.due_today || 0);
     const dueSoon = Number(t.due_soon || 0);
     if (!overdue && !dueToday && !dueSoon) {
-      alertsBox.innerHTML = '<div class="alert alert-success py-2 mb-0"><i class="fas fa-check-circle me-1"></i> Sin alertas de actividades.</div>';
+      alertsBox.innerHTML = '';
+      alertsBox.classList.remove('mb-2');
       return;
     }
     const chunks = [];
     if (overdue) chunks.push(`<span class="badge bg-danger me-2">${overdue} vencida(s)</span>`);
     if (dueToday) chunks.push(`<span class="badge bg-warning text-dark me-2">${dueToday} vence(n) hoy</span>`);
     if (dueSoon) chunks.push(`<span class="badge bg-info text-dark">${dueSoon} en próximas 24h</span>`);
-    alertsBox.innerHTML = `<div class="alert alert-warning py-2 mb-0"><i class="fas fa-bell me-2"></i>${chunks.join('')}</div>`;
+    alertsBox.classList.add('mb-2');
+    alertsBox.innerHTML = `<div class="alert alert-warning py-1 mb-0 small"><i class="fas fa-bell me-2"></i>${chunks.join('')}</div>`;
+  }
+
+  function emptyStateHtml() {
+    return `
+      <div class="crm-empty-state">
+        <p class="mb-2 text-muted">Aún no hay leads.</p>
+        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newLeadModal">
+          <i class="fas fa-plus me-1"></i>Crear el primero
+        </button>
+      </div>`;
   }
 
   async function loadAlerts() {
@@ -457,7 +469,10 @@
       const data = await j('/crm/activities/alerts');
       renderAlerts(data);
     } catch (e) {
-      if (alertsBox) alertsBox.innerHTML = '';
+      if (alertsBox) {
+        alertsBox.innerHTML = '';
+        alertsBox.classList.remove('mb-2');
+      }
     }
   }
 
@@ -469,6 +484,15 @@
     if (!leadsTbody) return;
     leadsTbody.innerHTML = '';
     if (leadsMobileCards) leadsMobileCards.innerHTML = '';
+    if (!(items || []).length) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="8" class="p-0 border-0">${emptyStateHtml()}</td>`;
+      leadsTbody.appendChild(tr);
+      if (leadsMobileCards) {
+        leadsMobileCards.innerHTML = emptyStateHtml();
+      }
+      return;
+    }
     for (const x of items) {
       const act = x.activities_count || 0;
       const overdue = x.activities_overdue || 0;
@@ -532,6 +556,12 @@
   function renderTable(items) {
     if (!crmTableTbody) return;
     crmTableTbody.innerHTML = '';
+    if (!(items || []).length) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="12" class="p-0 border-0">${emptyStateHtml()}</td>`;
+      crmTableTbody.appendChild(tr);
+      return;
+    }
     for (const x of items) {
       const act = x.activities_count || 0;
       const overdue = x.activities_overdue || 0;

@@ -16,12 +16,15 @@ from nodeone.modules.commercial_bridge.idempotency import (
     store_idempotent,
 )
 from nodeone.modules.commercial_bridge.service import (
+    PRODUCT_ESB,
     CommercialBridgeError,
     bootstrap,
     checkout,
     ensure_dev_promo_code,
     get_entitlement,
+    list_commercial_payment_methods,
     migrate_dev_esb_starter_to_individual,
+    quote,
 )
 
 commercial_bridge_bp = Blueprint('commercial_bridge', __name__)
@@ -187,6 +190,66 @@ def commercial_checkout():
         _log(endpoint, status, result, api_key_row, t0)
 
 
+@commercial_bridge_bp.route('/api/v1/commercial/quote', methods=['POST', 'GET'])
+def commercial_quote():
+    """Cotización: sin promo_code → precio de lista (no autoaplica descuento)."""
+    t0 = time.perf_counter()
+    endpoint = '/api/v1/commercial/quote'
+    api_key_row = None
+    status = 500
+    result = 'error'
+    try:
+        api_key_row = _auth_api_key()
+        if request.method == 'GET':
+            body = {
+                'product_code': request.args.get('product_code') or PRODUCT_ESB,
+                'plan_code': request.args.get('plan_code'),
+                'promo_code': request.args.get('promo_code') or '',
+                'customer_id': request.args.get('customer_id'),
+            }
+        else:
+            body = request.get_json(silent=True) or {}
+        out = quote(body)
+        status = 200
+        result = 'ok'
+        _keys_svc().touch_key_usage(api_key_row)
+        return jsonify(out), status
+    except CommercialBridgeError as exc:
+        status = int(exc.http_status)
+        result = exc.code
+        return jsonify({'error': exc.code, 'message': exc.message}), status
+    finally:
+        _log(endpoint, status, result, api_key_row, t0)
+
+
+@commercial_bridge_bp.route('/api/v1/commercial/payment-methods', methods=['GET'])
+def commercial_payment_methods():
+    t0 = time.perf_counter()
+    endpoint = '/api/v1/commercial/payment-methods'
+    api_key_row = None
+    status = 500
+    result = 'error'
+    try:
+        api_key_row = _auth_api_key()
+        oid = _provider_org_id(api_key_row)
+        methods = list_commercial_payment_methods(organization_id=oid)
+        status = 200
+        result = 'ok'
+        _keys_svc().touch_key_usage(api_key_row)
+        return jsonify(
+            {
+                'organization_id': int(oid),
+                'payment_methods': methods,
+            }
+        ), status
+    except CommercialBridgeError as exc:
+        status = int(exc.http_status)
+        result = exc.code
+        return jsonify({'error': exc.code, 'message': exc.message}), status
+    finally:
+        _log(endpoint, status, result, api_key_row, t0)
+
+
 @commercial_bridge_bp.route('/api/v1/commercial/entitlement', methods=['GET'])
 def commercial_entitlement():
     t0 = time.perf_counter()
@@ -224,6 +287,16 @@ def register_commercial_bridge(app) -> None:
         with app.app_context():
             ensure_idempotency_table()
             ensure_dev_promo_code()
+            try:
+                from nodeone.services.commercial_customer_visibility import (
+                    backfill_missing_buyer_contacts,
+                )
+
+                n = backfill_missing_buyer_contacts()
+                if n:
+                    print(f'✅ commercial_bridge DEV backfill en1_contact compradores ETS: {n}')
+            except Exception as bf_exc:
+                print(f'⚠️ commercial_bridge contact backfill: {bf_exc}')
             mig = migrate_dev_esb_starter_to_individual()
             if mig.get('subscriptions_updated') or mig.get('contracts_updated'):
                 print(

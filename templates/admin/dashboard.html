@@ -30,6 +30,12 @@
         <a href="{{ url_for('admin_organizations_list') }}" class="btn btn-outline-dark"><i class="fas fa-building me-1"></i> Empresas</a>
         <a href="{{ url_for('admin_saas_catalog_list') }}" class="btn btn-outline-dark"><i class="fas fa-list me-1"></i> Catálogo módulos</a>
         <a href="{{ url_for('admin_saas_modules_page') }}" class="btn btn-primary"><i class="fas fa-puzzle-piece me-1"></i> Módulos SaaS</a>
+        {% if has_view_endpoint('admin_product_discount_codes.index') %}
+        <a href="{{ url_for('admin_product_discount_codes.index') }}" class="btn btn-outline-dark"><i class="fas fa-ticket-alt me-1"></i> Promos por producto</a>
+        {% endif %}
+        {% if has_view_endpoint('contacts_admin.contacts_index') %}
+        <a href="{{ url_for('contacts_admin.contacts_index') }}" class="btn btn-outline-dark"><i class="fas fa-address-book me-1"></i> Clientes</a>
+        {% endif %}
         {% endif %}
         {% if show_tenant_admin_menu %}
         <a href="{{ url_for('admin_configuration_taxes') }}" class="btn btn-outline-dark"><i class="fas fa-percent me-1"></i> Impuestos</a>

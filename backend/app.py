@@ -632,6 +632,7 @@ def initialize_email_config():
             ensure_organization_settings()
             ensure_office365_discount_code_id()
             ensure_discount_code_valid_for_office365()
+            ensure_discount_code_product_codes()
             _email_config_initialized = True
         apply_email_config_from_db()
     except Exception as e:
@@ -2893,55 +2894,6 @@ def process_cart_after_payment(cart, payment):
 
 
 # Funciones helper para el carrito
-def generate_discount_code(prefix="DSC", length=8, custom_part=None):
-    """
-    Genera un código de descuento único automáticamente
-    
-    Args:
-        prefix: Prefijo del código (ej: "DSC", "EVT", "PROMO")
-        length: Longitud de la parte aleatoria
-        custom_part: Parte personalizada opcional (se inserta entre prefijo y aleatorio)
-    
-    Returns:
-        str: Código único generado
-    """
-    import random
-    import string
-    
-    max_attempts = 100
-    attempt = 0
-    
-    while attempt < max_attempts:
-        # Generar parte aleatoria
-        random_part = ''.join(random.choices(
-            string.ascii_uppercase + string.digits, 
-            k=length
-        ))
-        
-        # Construir código
-        if custom_part:
-            code = f"{prefix}-{custom_part}-{random_part}"
-        else:
-            code = f"{prefix}-{random_part}"
-        
-        # Verificar que no exista (insensible a mayúsculas)
-        if not DiscountCode.query.filter(func.lower(DiscountCode.code) == code.lower()).first():
-            return code
-        
-        attempt += 1
-    
-    # Si no se pudo generar en 100 intentos, usar timestamp
-    import time
-    timestamp = str(int(time.time()))[-6:]
-    code = f"{prefix}-{timestamp}"
-    
-    # Verificar unicidad final
-    if DiscountCode.query.filter(func.lower(DiscountCode.code) == code.lower()).first():
-        code = f"{prefix}-{timestamp}-{random.randint(1000, 9999)}"
-    
-    return code
-
-
 def get_or_create_cart(user_id):
     """Wrapper: delegar al módulo payments (compatibilidad para event_routes, appointment_routes, services, etc.)."""
     from _app.modules.payments.service import get_or_create_cart as _get
@@ -3317,6 +3269,23 @@ def ensure_discount_code_valid_for_office365():
         pass
 
 
+def ensure_discount_code_product_codes():
+    """Añadir columna product_codes (JSON) a discount_code si no existe."""
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(db.engine)
+        if 'discount_code' not in inspector.get_table_names():
+            return
+        columns = [col['name'] for col in inspector.get_columns('discount_code')]
+        if 'product_codes' in columns:
+            return
+        db.session.execute(text('ALTER TABLE discount_code ADD COLUMN product_codes TEXT'))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        pass
+
+
 def ensure_organization_settings():
     """Asegurar que exista la tabla organization_settings y al menos una fila con valores por defecto."""
     try:
@@ -3627,6 +3596,7 @@ def bootstrap_nodeone_schema():
             print(f'⚠️ ensure_certificate_events: {e}')
         ensure_office365_discount_code_id()
         ensure_discount_code_valid_for_office365()
+        ensure_discount_code_product_codes()
         create_sample_data()
         try:
             from nodeone.services.saas_catalog_defaults import apply_platform_org_allowlist, ensure_saas_catalog_full

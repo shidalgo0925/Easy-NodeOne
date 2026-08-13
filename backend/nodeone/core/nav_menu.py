@@ -1036,7 +1036,7 @@ _CERTIFICADOS_ZONE_ENDPOINTS: tuple[str, ...] = (
 # Top-level en sidebar ERP (modo classic).
 # TEMPORAL — atajo classic hasta cutover launcher (UX-T2 / Sprint UX transición apps).
 # «eposone» NO es un módulo ERP permanente: es acceso temporal a la app-producto EPosOne.
-# Entrada oficial: Login → Plataforma → Mis aplicaciones → EPosOne.
+# Entrada oficial: Login → Mis aplicaciones → (apps) · Plataforma al final (solo SA).
 # No ampliar este atajo a otras apps; no tratarlo como diseño definitivo.
 #
 # ADR-015: taxonomía v2 aplana dominios (sin Comercial/Operaciones/Finanzas).
@@ -1723,6 +1723,18 @@ APP_AREAS: tuple[NavArea, ...] = (
             '/admin/commercial/product-discount-codes',
         ),
         items=(
+            # Apps antes que admin Plataforma (barra horizontal del área).
+            NavAreaItem(
+                'mis_aplicaciones',
+                'Mis aplicaciones',
+                'fas fa-th-large',
+                'platform_launcher.apps_home',
+                visible=lambda c: c.has_view_endpoint('platform_launcher.apps_home'),
+                active_endpoints=(
+                    'platform_launcher.apps_home',
+                    'platform_launcher.apps_switch',
+                ),
+            ),
             # ADR-019: SaaS = catálogo/orgs (ETS); Sistema = ops plataforma (no admin de empresa).
             _nav_menu_dropdown('saas', 'SaaS', 'fas fa-cloud', _PLATAFORMA_SAAS_ITEMS),
             NavAreaItem(

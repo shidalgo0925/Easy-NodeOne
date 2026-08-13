@@ -25,8 +25,8 @@ class TestEsbCommercialPlans(unittest.TestCase):
             ['individual', 'office', 'broker', 'enterprise'],
         )
         self.assertEqual(get_esb_list_price('individual'), 55.0)
-        self.assertEqual(get_esb_list_price('office'), 129.0)
-        self.assertEqual(get_esb_list_price('broker'), 229.0)
+        self.assertEqual(get_esb_list_price('office'), 99.0)
+        self.assertEqual(get_esb_list_price('broker'), 159.0)
         self.assertIsNone(get_esb_list_price('enterprise'))
         self.assertIsNone(get_esb_list_price('starter'))
 
@@ -141,15 +141,15 @@ class TestCommercialBridgeUnit(unittest.TestCase):
 
         with patch('models.events.DiscountCode') as MockDC:
             MockDC.query = mock_q
-            out129 = _validate_promo(code='ESB-DEV-100', user_id=1, list_amount=129.0)
-            self.assertEqual(out129['list_amount'], 129.0)
-            self.assertEqual(out129['discount_amount'], 129.0)
+            out99 = _validate_promo(code='ESB-DEV-100', user_id=1, list_amount=99.0)
+            self.assertEqual(out99['list_amount'], 99.0)
+            self.assertEqual(out99['discount_amount'], 99.0)
 
         with patch('models.events.DiscountCode') as MockDC:
             MockDC.query = mock_q
-            out229 = _validate_promo(code='ESB-DEV-100', user_id=1, list_amount=229.0)
-            self.assertEqual(out229['list_amount'], 229.0)
-            self.assertEqual(out229['discount_amount'], 229.0)
+            out159 = _validate_promo(code='ESB-DEV-100', user_id=1, list_amount=159.0)
+            self.assertEqual(out159['list_amount'], 159.0)
+            self.assertEqual(out159['discount_amount'], 159.0)
 
     def test_get_entitlement_includes_limits_features(self):
         from nodeone.modules.commercial_bridge.service import get_entitlement

@@ -9,6 +9,15 @@
         <a href="{{ url_for('admin_organization_new') }}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Nueva</a>
         <span class="ms-md-auto erp-footnote text-muted d-none d-md-inline">Admin plataforma · subdominio</span>
     </div>
+    {% if current_user.is_admin and has_view_endpoint('contacts_admin.contacts_index') %}
+    <div class="alert alert-info border-0 d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2 py-2">
+        <span class="small mb-0">
+            Un alta de <strong>ESecureBroker /registro</strong> no crea una organización aquí.
+            El comprador aparece en <strong>Clientes</strong>.
+        </span>
+        <a href="{{ url_for('contacts_admin.contacts_index') }}" class="btn btn-sm btn-outline-primary text-nowrap">Ver Clientes</a>
+    </div>
+    {% endif %}
     <div class="mb-3">
         <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2 w-100 w-md-auto" type="button"
                 data-bs-toggle="collapse" data-bs-target="#orgsListExplain" aria-expanded="false" aria-controls="orgsListExplain">

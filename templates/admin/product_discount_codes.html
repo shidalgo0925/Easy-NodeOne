@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% from 'macros/admin_filters.html' import admin_filter_collapse %}
+
+{% block title %}Promos por producto — Easy NodeOne{% endblock %}
+
+{% block page_content %}
+<div class="container py-4">
+    <div class="row mb-3">
+        <div class="col-12">
+            <h1 class="h5 mb-1"><i class="fas fa-ticket-alt"></i> Códigos de descuento por producto</h1>
+            <p class="text-muted small mb-0">Promociones para checkout comercial (ESecureBroker, EPosOne, etc.). Distinto de descuentos de eventos.</p>
+        </div>
+    </div>
+
+    <div id="alert-container"></div>
+
+    <div class="mb-3">
+        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#promoModal" onclick="openCreateModal()">
+            <i class="fas fa-plus"></i> Crear código
+        </button>
+    </div>
+
+    {% set filters_open = (search or product_filter or status_filter != 'all') %}
+    <div class="mb-3">
+        {% call admin_filter_collapse('filtersProductPromos', 'Filtros', expanded=filters_open, margin_class='mb-0') %}
+        <form method="GET" class="row g-2">
+            <div class="col-md-3">
+                <input type="text" class="form-control form-control-sm" name="search" value="{{ search }}" placeholder="Código o nombre">
+            </div>
+            <div class="col-md-3">
+                <select class="form-select form-select-sm" name="product">
+                    <option value="">Todos los productos</option>
+                    {% for p in products %}
+                    <option value="{{ p.code }}" {% if product_filter == p.code %}selected{% endif %}>{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select class="form-select form-select-sm" name="status">
+                    <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Todos</option>
+                    <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Activos</option>
+                    <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactivos</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-sm btn-primary" type="submit">Filtrar</button>
+            </div>
+        </form>
+        {% endcall %}
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            {% if codes %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th>Productos</th>
+                            <th>Valor</th>
+                            <th>Usos</th>
+                            <th>Estado</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in codes %}
+                        <tr>
+                            <td><code>{{ row.code }}</code></td>
+                            <td>{{ row.name }}</td>
+                            <td>
+                                {% for pc in row.get_product_codes_list() %}
+                                <span class="badge bg-secondary">{{ pc }}</span>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% if row.discount_type == 'percentage' %}{{ row.value|int }}%{% else %}${{ '%.2f'|format(row.value) }}{% endif %}
+                            </td>
+                            <td>{{ row.current_uses or 0 }}{% if row.max_uses_total %} / {{ row.max_uses_total }}{% endif %}</td>
+                            <td>
+                                {% if row.is_active %}<span class="badge bg-success">Activo</span>{% else %}<span class="badge bg-secondary">Inactivo</span>{% endif %}
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="editPromo({{ row.id }})">Editar</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted p-3 mb-0">No hay códigos para productos. Cree uno o ajuste los filtros.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="promoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="promoModalTitle">Crear código</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="promoId" value="">
+                <div class="mb-3">
+                    <label class="form-label">Nombre</label>
+                    <input type="text" class="form-control" id="promoName" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Código</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control text-uppercase" id="promoCode">
+                        <button type="button" class="btn btn-outline-secondary" onclick="generateCode()">Generar</button>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Productos</label>
+                    <div class="border rounded p-2" style="max-height: 160px; overflow-y: auto;">
+                        {% for p in products %}
+                        <div class="form-check">
+                            <input class="form-check-input promo-product" type="checkbox" value="{{ p.code }}" id="prod_{{ p.code }}">
+                            <label class="form-check-label" for="prod_{{ p.code }}">{{ p.name }} <span class="text-muted">({{ p.code }})</span></label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label">Tipo</label>
+                        <select class="form-select" id="promoType">
+                            <option value="percentage">Porcentaje</option>
+                            <option value="fixed">Monto fijo</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Valor</label>
+                        <input type="number" class="form-control" id="promoValue" min="0" step="0.01" value="100">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Máx. usos total</label>
+                        <input type="number" class="form-control" id="promoMaxTotal" min="0" placeholder="Ilimitado">
+                    </div>
+                </div>
+                <div class="form-check mt-3" id="activeRow" style="display:none;">
+                    <input class="form-check-input" type="checkbox" id="promoActive" checked>
+                    <label class="form-check-label" for="promoActive">Activo</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="savePromo()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showAlert(msg, type) {
+    const el = document.getElementById('alert-container');
+    el.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show">${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+}
+function selectedProducts() {
+    return Array.from(document.querySelectorAll('.promo-product:checked')).map(el => el.value);
+}
+function openCreateModal() {
+    document.getElementById('promoModalTitle').textContent = 'Crear código';
+    document.getElementById('promoId').value = '';
+    document.getElementById('promoName').value = '';
+    document.getElementById('promoCode').value = '';
+    document.getElementById('promoValue').value = '100';
+    document.getElementById('promoMaxTotal').value = '';
+    document.getElementById('activeRow').style.display = 'none';
+    document.querySelectorAll('.promo-product').forEach(el => { el.checked = false; });
+}
+function generateCode() {
+    fetch('/api/admin/commercial/product-discount-codes/generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({prefix: 'PROD'})
+    }).then(r => r.json()).then(d => {
+        if (d.success) document.getElementById('promoCode').value = d.code;
+    });
+}
+function editPromo(id) {
+    fetch(`/admin/commercial/product-discount-codes/${id}`)
+        .then(r => r.json())
+        .then(d => {
+            if (!d.success) return showAlert(d.error || 'Error', 'danger');
+            const c = d.code;
+            document.getElementById('promoModalTitle').textContent = 'Editar código';
+            document.getElementById('promoId').value = c.id;
+            document.getElementById('promoName').value = c.name || '';
+            document.getElementById('promoCode').value = c.code || '';
+            document.getElementById('promoType').value = c.discount_type || 'percentage';
+            document.getElementById('promoValue').value = c.value;
+            document.getElementById('promoMaxTotal').value = c.max_uses_total || '';
+            document.getElementById('promoActive').checked = !!c.is_active;
+            document.getElementById('activeRow').style.display = '';
+            document.querySelectorAll('.promo-product').forEach(el => {
+                el.checked = (c.product_codes || []).includes(el.value);
+            });
+            new bootstrap.Modal(document.getElementById('promoModal')).show();
+        });
+}
+function savePromo() {
+    const id = document.getElementById('promoId').value;
+    const products = selectedProducts();
+    if (!products.length) return showAlert('Seleccione al menos un producto', 'warning');
+    const body = new URLSearchParams();
+    body.set('name', document.getElementById('promoName').value.trim());
+    body.set('discount_type', document.getElementById('promoType').value);
+    body.set('value', document.getElementById('promoValue').value);
+    products.forEach(p => body.append('product_codes', p));
+    const maxT = document.getElementById('promoMaxTotal').value;
+    if (maxT) body.set('max_uses_total', maxT);
+    let url, method = 'POST';
+    if (id) {
+        url = `/admin/commercial/product-discount-codes/${id}/update`;
+        body.set('is_active', document.getElementById('promoActive').checked ? 'true' : 'false');
+    } else {
+        url = '/admin/commercial/product-discount-codes/create';
+        body.set('code', document.getElementById('promoCode').value.trim().toUpperCase());
+        if (!body.get('code')) {
+            body.set('generate_auto', 'true');
+        }
+    }
+    fetch(url, {method: 'POST', body})
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) window.location.reload();
+            else showAlert(d.error || 'Error al guardar', 'danger');
+        });
+}
+</script>
+{% endblock %}

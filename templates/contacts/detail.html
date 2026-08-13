@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ contact.display_name }} | Contactos{% endblock %}
+{% block title %}{{ contact.display_name }} | Clientes{% endblock %}
 {% block head_extra %}
 <style>
 .contact-ficha-page { --contact-ficha-gap: 0.75rem; }
@@ -8,14 +8,29 @@
     border-radius: 0.5rem;
     background: #fff;
 }
-.contact-ficha-avatar {
-    width: 7.5rem;
-    height: 7.5rem;
-    border-radius: 0.5rem;
+.contact-ficha-hero {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+}
+.contact-ficha-hero-avatar {
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 0.4rem;
     object-fit: cover;
     background: #f1f5f9;
+    flex-shrink: 0;
 }
-.contact-ficha-avatar--company { border-radius: 0.65rem; }
+.contact-ficha-hero-avatar--company { border-radius: 0.5rem; }
+.contact-ficha-hero-avatar--ph {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    font-size: 1rem;
+    font-weight: 600;
+}
 .contact-ficha-fields dt {
     font-size: 0.7rem;
     text-transform: uppercase;
@@ -28,161 +43,251 @@
     margin-bottom: 0.65rem;
 }
 .contact-ficha-role-badge { font-size: 0.7rem; }
+.contact-ficha-products th {
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
 </style>
 {% endblock %}
 {% block content %}
 {% set is_company = contact.contact_type == 'company' %}
 {% set initials = (contact.display_name or '?')[:2]|upper %}
+{% set legal_name = ([contact.first_name, contact.last_name]|reject('none')|reject('equalto', '')|list)|join(' ')|trim %}
+{% set loc_parts = [contact.province, contact.district, contact.township, contact.country]
+  |reject('none')|reject('equalto', '')|reject('equalto', 'None')|list %}
+{% set status_labels = {
+  'registered': 'Registrado',
+  'active': 'Activo',
+  'suspended': 'Suspendido',
+  'cancelled': 'Cancelado',
+  'trial': 'Prueba',
+  'past_due': 'Pago vencido',
+  'grace': 'Gracia',
+  'expired': 'Vencido'
+} %}
+{% set id_type_labels = {
+  'ruc': 'RUC',
+  'cedula': 'Cédula',
+  'passport': 'Pasaporte',
+  'consumer_final': 'Consumidor final'
+} %}
 <div class="container-fluid px-2 px-sm-3 py-2 contact-ficha-page">
-  <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('contacts_admin.contacts_index') }}">&larr; Contactos</a>
-    <h1 class="h5 mb-0 flex-grow-1">{{ contact.display_name }}</h1>
-    <a class="btn btn-sm btn-primary" href="{{ url_for('contacts_admin.contacts_edit', contact_id=contact.id) }}">Editar</a>
-    {% if contact.active %}
-    <form method="post" action="{{ url_for('contacts_admin.contacts_deactivate', contact_id=contact.id) }}" class="d-inline" onsubmit="return confirm('¿Desactivar este contacto?');">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
-      <button type="submit" class="btn btn-sm btn-outline-danger">Desactivar</button>
-    </form>
-    {% else %}
-    <span class="badge text-bg-secondary">Inactivo</span>
-    {% endif %}
+  <div class="contact-ficha-card p-3 mb-2">
+    <div class="contact-ficha-hero">
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('contacts_admin.contacts_index') }}">&larr; Clientes</a>
+      {% if contact.image_url %}
+      <img class="contact-ficha-hero-avatar{% if is_company %} contact-ficha-hero-avatar--company{% endif %}"
+           src="{{ contact.image_url }}" alt="" loading="lazy" decoding="async" />
+      {% else %}
+      <span class="contact-ficha-hero-avatar contact-ficha-hero-avatar--ph{% if is_company %} contact-ficha-hero-avatar--company{% endif %}" aria-hidden="true">
+        {% if is_company %}<i class="fas fa-building"></i>
+        {% elif contact.contact_type == 'person' %}{{ initials }}
+        {% else %}<i class="fas fa-user"></i>{% endif %}
+      </span>
+      {% endif %}
+      <div class="flex-grow-1 min-w-0">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <h1 class="h5 mb-0 text-truncate">{{ contact.display_name }}</h1>
+          <span class="small text-muted text-nowrap">
+            {% if contact.contact_type == 'company' %}Empresa
+            {% elif contact.contact_type == 'person' %}Persona
+            {% else %}Consumidor final{% endif %}
+            · #{{ contact.id }}
+          </span>
+          {% for label in contact.role_labels() %}
+          <span class="badge text-bg-light text-dark border contact-ficha-role-badge">{{ label }}</span>
+          {% endfor %}
+          {% if not contact.active %}
+          <span class="badge text-bg-secondary">Inactivo</span>
+          {% endif %}
+        </div>
+        {% if not contact.image_url %}
+        <div class="small text-muted"><a href="{{ url_for('contacts_admin.contacts_edit', contact_id=contact.id) }}">Subir foto o logo</a></div>
+        {% endif %}
+      </div>
+      <div class="d-flex flex-wrap gap-2 ms-md-auto">
+        <a class="btn btn-sm btn-primary" href="{{ url_for('contacts_admin.contacts_edit', contact_id=contact.id) }}">Editar</a>
+        {% if contact.active %}
+        <form method="post" action="{{ url_for('contacts_admin.contacts_deactivate', contact_id=contact.id) }}" class="d-inline" onsubmit="return confirm('¿Desactivar este cliente?');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+          <button type="submit" class="btn btn-sm btn-outline-danger">Desactivar</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
   </div>
 
-  <div class="row g-2">
-    <div class="col-lg-4 col-xl-3">
-      <div class="contact-ficha-card p-3 text-center h-100">
-        {% if contact.image_url %}
-        <img class="contact-ficha-avatar{% if is_company %} contact-ficha-avatar--company{% endif %} mx-auto d-block mb-2"
-             src="{{ contact.image_url }}" alt="{{ contact.display_name }}" loading="lazy" decoding="async" />
-        {% else %}
-        <div class="contact-ficha-avatar{% if is_company %} contact-ficha-avatar--company{% endif %} mx-auto d-flex align-items-center justify-content-center mb-2 text-secondary fs-2 fw-semibold"
-             aria-hidden="true">
+  <div class="contact-ficha-card p-3 contact-ficha-fields mb-2">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <h2 class="h6 text-muted mb-2">Identidad</h2>
+        <dl class="mb-0">
           {% if is_company %}
-          <i class="fas fa-building" title="Empresa"></i>
-          {% elif contact.contact_type == 'person' %}
-          <span>{{ initials }}</span>
+            {% if contact.company_name %}
+            <dt>Razón social</dt>
+            <dd>{{ contact.company_name }}</dd>
+            {% endif %}
+            {% if contact.commercial_name and contact.commercial_name != contact.company_name and contact.commercial_name != contact.display_name %}
+            <dt>Nombre comercial</dt>
+            <dd>{{ contact.commercial_name }}</dd>
+            {% endif %}
           {% else %}
-          <i class="fas fa-user" title="Contacto"></i>
+            {% if legal_name and legal_name != contact.display_name %}
+            <dt>Nombre legal</dt>
+            <dd>{{ legal_name }}</dd>
+            {% endif %}
+            {% if contact.commercial_name and contact.commercial_name != contact.display_name and contact.commercial_name != legal_name %}
+            <dt>Nombre comercial</dt>
+            <dd>{{ contact.commercial_name }}</dd>
+            {% endif %}
           {% endif %}
-        </div>
-        {% endif %}
-        <div class="fw-semibold">{{ contact.display_name }}</div>
-        <div class="small text-muted mb-2">
-          {% if contact.contact_type == 'company' %}Empresa
-          {% elif contact.contact_type == 'person' %}Persona
-          {% else %}Consumidor final{% endif %}
-          · #{{ contact.id }}
-        </div>
-        {% for label in contact.role_labels() %}
-        <span class="badge text-bg-light text-dark border contact-ficha-role-badge me-1">{{ label }}</span>
-        {% else %}
-        <span class="text-muted small">Sin roles asignados</span>
-        {% endfor %}
-        {% if not contact.image_url %}
-        <p class="small text-muted mt-3 mb-0"><a href="{{ url_for('contacts_admin.contacts_edit', contact_id=contact.id) }}">Subir foto o logo</a></p>
-        {% endif %}
+          <dt>Identificación fiscal</dt>
+          <dd>
+            {% if contact.tax_id %}
+            {{ id_type_labels.get(contact.identification_type, contact.identification_type) }} — {{ contact.tax_id }}{% if contact.dv %} DV {{ contact.dv }}{% endif %}
+            {% else %}Consumidor final{% endif %}
+          </dd>
+          <dt>Exento de impuesto</dt>
+          <dd class="mb-0">{% if contact.is_tax_exempt %}Sí{% else %}No{% endif %}</dd>
+        </dl>
+      </div>
+      <div class="col-md-4">
+        <h2 class="h6 text-muted mb-2">Comunicación</h2>
+        <dl class="mb-0">
+          <dt>Email</dt>
+          <dd>{% if contact.email %}<a href="mailto:{{ contact.email }}">{{ contact.email }}</a>{% else %}—{% endif %}</dd>
+          <dt>Teléfono</dt>
+          <dd>{% if contact.phone %}{{ contact.phone }}{% else %}—{% endif %}</dd>
+          {% if contact.mobile and contact.mobile != contact.phone %}
+          <dt>Móvil</dt>
+          <dd class="mb-0">{{ contact.mobile }}</dd>
+          {% endif %}
+        </dl>
+      </div>
+      <div class="col-md-4">
+        <h2 class="h6 text-muted mb-2">Ubicación</h2>
+        <dl class="mb-0">
+          <dt>Dirección fiscal</dt>
+          <dd>{{ contact.fiscal_address or '—' }}</dd>
+          <dt>Ubicación</dt>
+          <dd class="mb-0">{{ loc_parts|join(', ') if loc_parts else '—' }}</dd>
+        </dl>
       </div>
     </div>
+  </div>
 
-    <div class="col-lg-8 col-xl-9">
-      <div class="contact-ficha-card p-3 contact-ficha-fields">
-        <div class="row">
-          <div class="col-md-6">
-            <h2 class="h6 text-muted mb-2">Identidad</h2>
-            <dl class="mb-0">
-              {% if contact.first_name or contact.last_name %}
-              <dt>Nombre legal</dt>
-              <dd>{{ [contact.first_name, contact.last_name]|select|join(' ') or '—' }}</dd>
-              {% endif %}
-              {% if contact.company_name %}
-              <dt>Razón social</dt>
-              <dd>{{ contact.company_name }}</dd>
-              {% endif %}
-              {% if contact.commercial_name %}
-              <dt>Nombre comercial</dt>
-              <dd>{{ contact.commercial_name }}</dd>
-              {% endif %}
-              <dt>Identificación fiscal</dt>
-              <dd>
-                {% if contact.tax_id %}
-                {{ contact.identification_type }} — {{ contact.tax_id }}{% if contact.dv %} DV {{ contact.dv }}{% endif %}
-                {% else %}Consumidor final{% endif %}
-              </dd>
-              <dt>Exento de impuesto</dt>
-              <dd>{% if contact.is_tax_exempt %}Sí{% else %}No{% endif %}</dd>
-            </dl>
-          </div>
-          <div class="col-md-6">
-            <h2 class="h6 text-muted mb-2">Comunicación</h2>
-            <dl class="mb-0">
-              <dt>Email</dt>
-              <dd>{% if contact.email %}<a href="mailto:{{ contact.email }}">{{ contact.email }}</a>{% else %}—{% endif %}</dd>
-              <dt>Teléfono</dt>
-              <dd>{{ contact.phone or '—' }}</dd>
-              <dt>Móvil</dt>
-              <dd>{{ contact.mobile or '—' }}</dd>
-            </dl>
-          </div>
-          <div class="col-12 mt-2">
-            <h2 class="h6 text-muted mb-2">Ubicación</h2>
-            <dl class="mb-0">
-              <dt>Dirección fiscal</dt>
-              <dd>{{ contact.fiscal_address or '—' }}</dd>
-              <dt>Ubicación</dt>
-              <dd>{{ [contact.province, contact.district, contact.township, contact.country]|select|join(', ') or '—' }}</dd>
-            </dl>
-          </div>
-          {% set c = contact.commercial_profile() %}
-          {% if contact.notes or contact.contract_file_url or c %}
-          <div class="col-12 mt-2 pt-2 border-top">
-            <h2 class="h6 text-muted mb-2">Expediente comercial</h2>
-            <dl class="mb-0">
-              {% if contact.notes %}
-              <dt>Observaciones</dt>
-              <dd>{{ contact.notes }}</dd>
-              {% endif %}
-              {% if c.plan_code %}
-              <dt>Plan</dt>
-              <dd>{{ c.plan_code }}{% if c.billing_period %} · {{ c.billing_period }}{% endif %}</dd>
-              {% endif %}
-              {% if c.pos_count or c.branch_count %}
-              <dt>Capacidad</dt>
-              <dd>{{ c.pos_count or '—' }} POS · {{ c.branch_count or '—' }} sucursales</dd>
-              {% endif %}
-              {% if c.agreed_price or c.total_agreed %}
-              <dt>Precios</dt>
-              <dd>
-                Acordado {{ c.agreed_price or '—' }}
-                {% if c.discount_percent %} · Desc. {{ c.discount_percent }}%{% endif %}
-                {% if c.total_agreed %} · Total {{ c.total_agreed }}{% endif %}
-              </dd>
-              {% endif %}
-              {% if c.implementation_mode %}
-              <dt>Implementación</dt>
-              <dd>{{ c.implementation_mode }}</dd>
-              {% endif %}
-              {% if c.signer_name or c.signed_at %}
-              <dt>Firma</dt>
-              <dd>{{ c.signer_name or '—' }}{% if c.signer_id %} · {{ c.signer_id }}{% endif %}{% if c.signed_at %} · {{ c.signed_at }}{% endif %}</dd>
-              {% endif %}
-              {% if contact.contract_file_url %}
-              <dt>Contrato</dt>
-              <dd><a href="{{ contact.contract_file_url }}" target="_blank" rel="noopener">Ver archivo</a></dd>
-              {% endif %}
-            </dl>
-          </div>
-          {% endif %}
-          <div class="col-12 mt-2 pt-2 border-top">
-            <div class="small text-muted">
-              Creado {{ contact.created_at }} · Actualizado {{ contact.updated_at }}
-            </div>
-            <div class="small text-muted mt-1">
-              Registro comercial independiente del usuario de login del sistema.
-            </div>
-          </div>
-        </div>
-      </div>
+  {% if ets_dossier %}
+  <div class="contact-ficha-card p-3 mb-2">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+      <h2 class="h6 text-muted mb-0">Productos</h2>
+      <span class="badge text-bg-light text-dark border">{{ status_labels.get(ets_dossier.customer.status, ets_dossier.customer.status) }}</span>
+      {% if ets_dossier.customer.created_at %}
+      <span class="small text-muted">Alta {{ ets_dossier.customer.created_at.strftime('%Y-%m-%d') }}</span>
+      {% endif %}
+      {% if ets_dossier.user %}
+      <span class="small text-muted ms-md-auto">Usuario #{{ ets_dossier.user.id }} · {{ ets_dossier.user.email }}</span>
+      {% endif %}
     </div>
+    <p class="small text-muted mb-2">Contratos y suscripciones de este Cliente. No es un asegurado de ESecureBroker.</p>
+    {% if ets_dossier.products %}
+    <div class="table-responsive contact-ficha-products">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Producto</th>
+            <th>Plan</th>
+            <th>Contrato</th>
+            <th>Suscripción</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in ets_dossier.products %}
+          <tr>
+            <td>
+              <div class="fw-medium">{{ p.product_name }}</div>
+              <div class="small text-muted">{{ p.product_code }}</div>
+            </td>
+            <td><code>{{ p.plan_code or '—' }}</code></td>
+            <td>
+              {{ p.contract_number or '—' }}
+              <div class="small text-muted">{{ status_labels.get(p.contract_status, p.contract_status) }}</div>
+            </td>
+            <td>
+              {% if p.subscription_id %}
+              #{{ p.subscription_id }}
+              <div class="small text-muted">{{ status_labels.get(p.subscription_status, p.subscription_status) }}</div>
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ status_labels.get(p.entitlement_state, p.entitlement_state or '—') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="small text-muted mb-0">Sin productos contratados.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% set c = contact.commercial_profile() %}
+  {% if contact.notes or contact.contract_file_url or c %}
+  <div class="contact-ficha-card p-3 contact-ficha-fields mb-2">
+    <h2 class="h6 text-muted mb-2">Expediente comercial</h2>
+    <dl class="mb-0 row">
+      {% if contact.notes %}
+      <div class="col-md-6">
+        <dt>Observaciones</dt>
+        <dd>{{ contact.notes }}</dd>
+      </div>
+      {% endif %}
+      {% if c.plan_code %}
+      <div class="col-md-6">
+        <dt>Plan</dt>
+        <dd>{{ c.plan_code }}{% if c.billing_period %} · {{ c.billing_period }}{% endif %}</dd>
+      </div>
+      {% endif %}
+      {% if c.pos_count or c.branch_count %}
+      <div class="col-md-6">
+        <dt>Capacidad</dt>
+        <dd>{{ c.pos_count or '—' }} POS · {{ c.branch_count or '—' }} sucursales</dd>
+      </div>
+      {% endif %}
+      {% if c.agreed_price or c.total_agreed %}
+      <div class="col-md-6">
+        <dt>Precios</dt>
+        <dd>
+          Acordado {{ c.agreed_price or '—' }}
+          {% if c.discount_percent %} · Desc. {{ c.discount_percent }}%{% endif %}
+          {% if c.total_agreed %} · Total {{ c.total_agreed }}{% endif %}
+        </dd>
+      </div>
+      {% endif %}
+      {% if c.implementation_mode %}
+      <div class="col-md-6">
+        <dt>Implementación</dt>
+        <dd>{{ c.implementation_mode }}</dd>
+      </div>
+      {% endif %}
+      {% if c.signer_name or c.signed_at %}
+      <div class="col-md-6">
+        <dt>Firma</dt>
+        <dd>{{ c.signer_name or '—' }}{% if c.signer_id %} · {{ c.signer_id }}{% endif %}{% if c.signed_at %} · {{ c.signed_at }}{% endif %}</dd>
+      </div>
+      {% endif %}
+      {% if contact.contract_file_url %}
+      <div class="col-md-6">
+        <dt>Contrato</dt>
+        <dd><a href="{{ contact.contract_file_url }}" target="_blank" rel="noopener">Ver archivo</a></dd>
+      </div>
+      {% endif %}
+    </dl>
+  </div>
+  {% endif %}
+
+  <div class="small text-muted px-1">
+    Creado {{ contact.created_at }} · Actualizado {{ contact.updated_at }}
   </div>
 </div>
 {% endblock %}

@@ -224,7 +224,7 @@
       "description": "Tu correduría, bajo control. Pólizas, cobranza, cotizaciones, CRM y vista Hoy.",
       "primary_domain": "esecurebroker.etsrv.site",
       "icon": "",
-      "status": "planned",
+      "status": "active",
       "version": "0.1",
       "surface": "product",
       "brand_preset": "en1",

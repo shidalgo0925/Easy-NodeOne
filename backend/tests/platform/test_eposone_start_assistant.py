@@ -199,6 +199,7 @@ class TestCommercialRegistration(unittest.TestCase):
         self.uid = int(self.user.id)
 
     def tearDown(self):
+        from models.contact import Contact
         from models.ets_commercial_contract import EtsCommercialContract
         from models.ets_commercial_customer import EtsCommercialCustomer
         from models.ets_product_subscription import EtsProductSubscription
@@ -215,6 +216,7 @@ class TestCommercialRegistration(unittest.TestCase):
             EtsCommercialCustomer.query.filter_by(organization_id=self.oid).delete(
                 synchronize_session=False
             )
+            Contact.query.filter_by(organization_id=self.oid).delete(synchronize_session=False)
             User.query.filter_by(id=self.uid).delete(synchronize_session=False)
             SaasOrganization.query.filter_by(id=self.oid).delete(synchronize_session=False)
             self.db.session.commit()

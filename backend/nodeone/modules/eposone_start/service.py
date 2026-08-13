@@ -386,8 +386,28 @@ def complete_start(
     except Exception:
         ready_token = None
 
-    # Misma vía que registro web: apply SMTP + send_verification_email (app.py).
-    verification_sent, verification_err = _send_registration_verification_email(user)
+    verification_sent, verification_err = False, None
+    try:
+        from nodeone.services.customer_registration_email import (
+            send_customer_registration_info_email,
+        )
+
+        ok_mail = send_customer_registration_info_email(
+            to_email=user.email,
+            display_name=name,
+            organization_id=int(provider.id),
+            user=user,
+            product_code='eposone',
+            plan_code=plan_code,
+            related_id=customer_id,
+            include_verification=True,
+            include_payment_methods=True,
+        )
+        verification_sent = bool(ok_mail)
+        if not ok_mail:
+            verification_err = 'No se pudo enviar el correo de registro'
+    except Exception as exc:
+        verification_err = str(exc).strip()[:300] or 'Error al enviar el correo de registro'
 
     email_verified = bool(getattr(user, 'email_verified', False))
     checks = [

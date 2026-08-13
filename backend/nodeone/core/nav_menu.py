@@ -159,6 +159,7 @@ _PLATFORM_EPS = (
     'admin_messaging',
     'admin_messaging_detail',
     'admin_backup.admin_backup',
+    'admin_product_discount_codes.index',
 )
 
 _ACCOUNTING_EPS = (
@@ -1209,6 +1210,21 @@ APP_AREAS: tuple[NavArea, ...] = (
                 visible=_v_catalog_hub,
             ),
             NavAreaItem(
+                'promos_ets',
+                'Promos ETS',
+                'fas fa-ticket-alt',
+                'admin_product_discount_codes.index',
+                visible=lambda c: c.is_platform_admin,
+                active_endpoints=(
+                    'admin_product_discount_codes.index',
+                    'admin_product_discount_codes.create',
+                    'admin_product_discount_codes.get_one',
+                    'admin_product_discount_codes.update',
+                    'admin_product_discount_codes.delete',
+                ),
+                active_path_prefixes=('/admin/commercial/product-discount-codes',),
+            ),
+            NavAreaItem(
                 'reportes',
                 'Reportes',
                 'fas fa-chart-bar',
@@ -1394,7 +1410,7 @@ APP_AREAS: tuple[NavArea, ...] = (
     ),
     NavArea(
         id='contactos',
-        label='Contactos',
+        label='Clientes',
         icon='fas fa-address-book',
         visible=_v_contacts,
         zone_blueprints=('contacts_admin',),
@@ -1402,7 +1418,7 @@ APP_AREAS: tuple[NavArea, ...] = (
         items=(
             NavAreaItem(
                 'listado',
-                'Contactos',
+                'Clientes',
                 'fas fa-list',
                 'contacts_admin.contacts_index',
                 active_endpoints=(
@@ -1703,9 +1719,26 @@ APP_AREAS: tuple[NavArea, ...] = (
         icon='fas fa-cloud',
         visible=_v_plataforma,
         zone_endpoints=_PLATFORM_EPS,
+        zone_path_prefixes=(
+            '/admin/commercial/product-discount-codes',
+        ),
         items=(
             # ADR-019: SaaS = catálogo/orgs (ETS); Sistema = ops plataforma (no admin de empresa).
             _nav_menu_dropdown('saas', 'SaaS', 'fas fa-cloud', _PLATAFORMA_SAAS_ITEMS),
+            NavAreaItem(
+                'promos_producto',
+                'Promos por producto',
+                'fas fa-ticket-alt',
+                'admin_product_discount_codes.index',
+                visible=lambda c: c.is_platform_admin,
+                active_endpoints=(
+                    'admin_product_discount_codes.index',
+                    'admin_product_discount_codes.create',
+                    'admin_product_discount_codes.get_one',
+                    'admin_product_discount_codes.update',
+                    'admin_product_discount_codes.delete',
+                ),
+            ),
             _nav_menu_dropdown('sistema', 'Sistema', 'fas fa-server', _PLATAFORMA_SISTEMA_ITEMS),
             NavAreaItem(
                 'guia',

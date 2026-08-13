@@ -201,10 +201,20 @@ def search_contacts(
     role: str = '',
     active_only: bool | None = None,
     contact_type: str = '',
+    extra_contact_ids: list[int] | None = None,
     limit: int = 100,
     offset: int = 0,
 ) -> tuple[list[Contact], int]:
-    query = Contact.query.filter_by(organization_id=int(organization_id))
+    extra_ids = [int(i) for i in (extra_contact_ids or []) if i]
+    if extra_ids:
+        query = Contact.query.filter(
+            or_(
+                Contact.organization_id == int(organization_id),
+                Contact.id.in_(extra_ids),
+            )
+        )
+    else:
+        query = Contact.query.filter_by(organization_id=int(organization_id))
     if active_only is True:
         query = query.filter(Contact.active.is_(True))
     elif active_only is False:

@@ -50,6 +50,9 @@ def register_platform_core(app) -> None:
     from nodeone.modules.membership_verification.register import register_membership_verification_module
 
     register_membership_verification_module(app)
+    from nodeone.modules.commercial_bridge.register import register_commercial_bridge_module
+
+    register_commercial_bridge_module(app)
     from nodeone.modules.api_center.register import register_api_center_module
 
     register_api_center_module(app)
@@ -98,6 +101,7 @@ def register_platform_apps(app) -> None:
     f.register_policies_blueprint(app)
     f.register_academic_enrollment_admin_blueprint(app)
     f.register_admin_discount_codes_blueprint(app)
+    f.register_admin_commercial_customers_blueprint(app)
     f.register_admin_membership_discounts_blueprint(app)
     f.register_admin_services_catalog_blueprint(app)
     f.register_admin_course_cohort_routes(app)

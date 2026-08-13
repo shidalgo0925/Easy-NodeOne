@@ -141,6 +141,20 @@ def _apply_contract_file(organization_id: int, contact) -> None:
         return
     contact.contract_file_url = save_contact_contract_file(organization_id, file_storage)
 
+
+def _resolve_contact(contact_id: int):
+    """Contacto de la org del switcher, o comprador ETS (org proveedor) si es SA."""
+    oid = _org_id()
+    row = contact_svc.get_contact(oid, contact_id)
+    if row:
+        return row
+    if not _platform_admin():
+        return None
+    from nodeone.core.platform.ets_provider import ets_provider_organization_id
+
+    return contact_svc.get_contact(ets_provider_organization_id(), contact_id)
+
+
 @contacts_admin_bp.route('/')
 @login_required
 def contacts_index():
@@ -152,15 +166,26 @@ def contacts_index():
     active_only = True if active == '1' else False if active == '0' else None
     page = max(1, int(request.args.get('page', 1)))
     per_page = 50
+    extra_ids: list[int] = []
+    if _platform_admin():
+        from nodeone.services.commercial_customer_visibility import ets_buyer_contact_ids
+
+        extra_ids = ets_buyer_contact_ids()
     rows, total = contact_svc.search_contacts(
         oid,
         q=q,
         role=role,
         active_only=active_only,
         contact_type=ctype,
+        extra_contact_ids=extra_ids,
         limit=per_page,
         offset=(page - 1) * per_page,
     )
+    ets_products: dict[int, list[str]] = {}
+    if _platform_admin() and rows:
+        from nodeone.services.commercial_customer_visibility import product_labels_by_contact_id
+
+        ets_products = product_labels_by_contact_id([int(c.id) for c in rows])
     return render_template(
         'contacts/list.html',
         contacts=rows,
@@ -171,6 +196,8 @@ def contacts_index():
         role=role,
         contact_type=ctype,
         active=active,
+        ets_products=ets_products,
+        include_ets_buyers=_platform_admin(),
     )
 
 
@@ -190,6 +217,22 @@ def contacts_new():
             except ValueError as exc:
                 flash(str(exc), 'warning')
             db.session.commit()
+            if (row.email or '').strip():
+                try:
+                    from nodeone.services.customer_registration_email import (
+                        send_customer_registration_info_email,
+                    )
+
+                    send_customer_registration_info_email(
+                        to_email=row.email,
+                        display_name=row.display_name or row.email,
+                        organization_id=oid,
+                        related_id=int(row.id),
+                        include_verification=False,
+                        include_payment_methods=True,
+                    )
+                except Exception:
+                    pass
             flash('Contacto creado.', 'success')
             return redirect(url_for('contacts_admin.contacts_edit', contact_id=row.id))
         except contact_svc.ContactValidationError as exc:
@@ -209,22 +252,28 @@ def contacts_new():
 @contacts_admin_bp.route('/<int:contact_id>')
 @login_required
 def contacts_detail(contact_id: int):
-    oid = _org_id()
-    row = contact_svc.get_contact(oid, contact_id)
+    row = _resolve_contact(contact_id)
     if not row:
         flash('Contacto no encontrado.', 'error')
         return redirect(url_for('contacts_admin.contacts_index'))
-    return render_template('contacts/detail.html', contact=row)
+    ets_dossier = None
+    try:
+        from nodeone.services.commercial_customer_visibility import dossier_for_contact
+
+        ets_dossier = dossier_for_contact(int(contact_id))
+    except Exception:
+        ets_dossier = None
+    return render_template('contacts/detail.html', contact=row, ets_dossier=ets_dossier)
 
 
 @contacts_admin_bp.route('/<int:contact_id>/editar', methods=['GET', 'POST'])
 @login_required
 def contacts_edit(contact_id: int):
-    oid = _org_id()
-    row = contact_svc.get_contact(oid, contact_id)
+    row = _resolve_contact(contact_id)
     if not row:
         flash('Contacto no encontrado.', 'error')
         return redirect(url_for('contacts_admin.contacts_index'))
+    oid = int(row.organization_id)
     if request.method == 'POST':
         try:
             contact_svc.update_contact(oid, contact_id, _form_to_dict())
@@ -238,7 +287,7 @@ def contacts_edit(contact_id: int):
                 flash(str(exc), 'warning')
             db.session.commit()
             flash('Contacto actualizado.', 'success')
-            return redirect(url_for('contacts_admin.contacts_edit', contact_id=row.id))
+            return redirect(url_for('contacts_admin.contacts_detail', contact_id=row.id))
         except contact_svc.ContactValidationError as exc:
             db.session.rollback()
             flash(str(exc), 'error')
@@ -255,8 +304,7 @@ def contacts_edit(contact_id: int):
 @contacts_admin_bp.route('/<int:contact_id>/desactivar', methods=['POST'])
 @login_required
 def contacts_deactivate(contact_id: int):
-    oid = _org_id()
-    row = contact_svc.get_contact(oid, contact_id)
+    row = _resolve_contact(contact_id)
     if not row:
         flash('Contacto no encontrado.', 'error')
     else:

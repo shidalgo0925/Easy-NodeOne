@@ -43,7 +43,9 @@ def ensure_customer_and_contract(
     """
     from models.ets_commercial_contract import EtsCommercialContract
     from models.ets_commercial_customer import EtsCommercialCustomer
+    from models.users import User
     from nodeone.core.db import db
+    from nodeone.core.platform.standalone_expediente import ensure_standalone_contact
 
     oid = int(organization_id)
     mail = (email or '').strip().lower()[:200]
@@ -51,6 +53,21 @@ def ensure_customer_and_contract(
     meta_json = json.dumps(meta, ensure_ascii=False) if meta else None
     now = datetime.utcnow()
     modality = plan_modality(plan_code)
+
+    contact = ensure_standalone_contact(
+        provider_organization_id=oid,
+        full_name=display_name or mail,
+        email=mail,
+        phone=phone,
+        country=country,
+        fallback_last='ETS',
+    )
+    resolved_contact_id = int(contact_id) if contact_id else int(contact.id)
+
+    user_row = User.query.get(int(user_id))
+    if user_row is not None and hasattr(user_row, 'linked_contact_id'):
+        if not user_row.linked_contact_id:
+            user_row.linked_contact_id = resolved_contact_id
 
     customer = EtsCommercialCustomer.query.filter_by(organization_id=oid, email=mail).first()
     if customer is None:
@@ -62,7 +79,7 @@ def ensure_customer_and_contract(
             country=(country or '').strip()[:120] or None,
             status='registered',
             primary_user_id=int(user_id),
-            contact_id=int(contact_id) if contact_id else None,
+            contact_id=resolved_contact_id,
             metadata_json=meta_json,
             created_at=now,
             updated_at=now,
@@ -77,7 +94,9 @@ def ensure_customer_and_contract(
         if phone:
             customer.phone = phone.strip()[:64]
         customer.primary_user_id = int(user_id)
-        if contact_id:
+        if not customer.contact_id:
+            customer.contact_id = resolved_contact_id
+        elif contact_id:
             customer.contact_id = int(contact_id)
         customer.updated_at = now
         if meta_json:

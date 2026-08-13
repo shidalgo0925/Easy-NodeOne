@@ -1,3 +1,23 @@
+/* KPI strip compacta (CRM leads / dashboard) */
+.crm-kpi-strip .card-body {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.crm-kpi-strip .card-body .fs-5 {
+  line-height: 1.25;
+}
+
+/* Empty state lista / tabla */
+.crm-empty-state {
+  text-align: center;
+  padding: 2.25rem 1rem;
+}
+
+.crm-empty-state p {
+  font-size: 0.925rem;
+}
+
 /* Vista tipo Odoo: conmutador de vistas por iconos */
 .crm-view-toolbar {
   gap: 0.35rem;

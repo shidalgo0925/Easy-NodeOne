@@ -22,12 +22,13 @@ def _country_code(country: str | None) -> str:
     return raw[:8].upper() if len(raw) <= 8 else 'PA'
 
 
-def _split_display_name(full_name: str) -> tuple[str, str]:
+def _split_display_name(full_name: str, *, fallback_last: str = 'EPosOne') -> tuple[str, str]:
+    last = (fallback_last or 'ETS')[:50]
     parts = [p for p in (full_name or '').strip().split() if p]
     if not parts:
-        return 'Usuario', 'EPosOne'
+        return 'Usuario', last
     if len(parts) == 1:
-        return parts[0][:50], 'EPosOne'
+        return parts[0][:50], last
     return parts[0][:50], ' '.join(parts[1:])[:50]
 
 
@@ -39,13 +40,14 @@ def ensure_standalone_contact(
     phone: str | None = None,
     country: str | None = None,
     intended_business_name: str | None = None,
+    fallback_last: str = 'EPosOne',
 ) -> Any:
     """Crea o reutiliza en1_contact (cliente ETS) por email bajo el proveedor."""
     from models.contact import Contact
     from nodeone.core.db import db
 
     mail = (email or '').strip().lower()
-    first, last = _split_display_name(full_name)
+    first, last = _split_display_name(full_name, fallback_last=fallback_last)
     display = (full_name or '').strip() or mail
     phone_n = (phone or '').strip()[:50] or None
     biz = (intended_business_name or '').strip()[:300] or None

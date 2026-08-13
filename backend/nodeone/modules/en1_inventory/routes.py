@@ -189,11 +189,67 @@ def inventory_kardex():
     )
 
 
-@en1_inventory_bp.route('/warehouses', methods=['GET'])
+@en1_inventory_bp.route('/transfer', methods=['GET', 'POST'])
+@login_required
+def inventory_transfer():
+    oid = _org_id()
+    warehouses = inv.list_warehouses(oid)
+    if request.method == 'POST':
+        try:
+            inv.transfer(
+                oid,
+                product_ref=request.form.get('product_ref') or '',
+                quantity=float(request.form.get('quantity') or 0),
+                from_warehouse_org_unit_id=int(request.form.get('from_warehouse_id') or 0),
+                to_warehouse_org_unit_id=int(request.form.get('to_warehouse_id') or 0),
+                notes=request.form.get('notes'),
+                source_system='EN1',
+            )
+            flash('Transferencia registrada.', 'success')
+            return redirect(url_for('en1_inventory.inventory_balances'))
+        except (InventoryError, ValueError, TypeError) as e:
+            flash(str(e), 'error')
+    return render_template(
+        'admin/en1_inventory/transfer.html',
+        warehouses=warehouses,
+        organization_id=oid,
+    )
+
+
+@en1_inventory_bp.route('/alerts', methods=['GET'])
+@login_required
+def inventory_alerts():
+    oid = _org_id()
+    wh = request.args.get('warehouse_id', type=int)
+    warehouses = inv.list_warehouses(oid)
+    if wh is None and warehouses:
+        wh = int(warehouses[0]['id'])
+    alerts = inv.list_below_minimum(oid, warehouse_org_unit_id=wh)
+    return render_template(
+        'admin/en1_inventory/alerts.html',
+        alerts=alerts,
+        warehouses=warehouses,
+        warehouse_id=wh,
+        organization_id=oid,
+    )
+
+
+@en1_inventory_bp.route('/warehouses', methods=['GET', 'POST'])
 @login_required
 def inventory_warehouses():
     oid = _org_id()
     inv.ensure_default_warehouse(oid)
+    if request.method == 'POST':
+        try:
+            inv.create_warehouse(
+                oid,
+                unit_ref=request.form.get('unit_ref') or '',
+                name=request.form.get('name') or '',
+            )
+            flash('Almacén creado.', 'success')
+            return redirect(url_for('en1_inventory.inventory_warehouses'))
+        except (InventoryError, ValueError, TypeError) as e:
+            flash(str(e), 'error')
     return render_template(
         'admin/en1_inventory/warehouses.html',
         warehouses=inv.list_warehouses(oid),

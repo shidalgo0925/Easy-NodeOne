@@ -1508,11 +1508,25 @@ APP_AREAS: tuple[NavArea, ...] = (
                 active_endpoints=('en1_inventory.inventory_adjust',),
             ),
             NavAreaItem(
+                'transferencia',
+                'Transferencia',
+                'fas fa-truck',
+                'en1_inventory.inventory_transfer',
+                active_endpoints=('en1_inventory.inventory_transfer',),
+            ),
+            NavAreaItem(
                 'kardex',
                 'Kardex',
                 'fas fa-book',
                 'en1_inventory.inventory_kardex',
                 active_endpoints=('en1_inventory.inventory_kardex',),
+            ),
+            NavAreaItem(
+                'minimos',
+                'Mínimos',
+                'fas fa-exclamation-triangle',
+                'en1_inventory.inventory_alerts',
+                active_endpoints=('en1_inventory.inventory_alerts',),
             ),
             NavAreaItem(
                 'almacenes',

@@ -90,6 +90,7 @@ def _form_data(*, for_create: bool) -> dict:
         'fiscal_category': request.form.get('fiscal_category'),
         'status': request.form.get('status') or 'active',
         'source_app_id': 'en1_products',
+        'min_stock': request.form.get('min_stock'),
     }
     if for_create:
         data['product_ref'] = request.form.get('product_ref')

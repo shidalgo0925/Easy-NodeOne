@@ -81,6 +81,14 @@
                value="{{ request.form.fiscal_category or (product.fiscal_category if product and product.fiscal_category else '') }}">
       </div>
     </div>
+    <div class="row g-2">
+      <div class="col-md-4">
+        <label class="form-label small mb-0">Stock mínimo</label>
+        <input name="min_stock" type="number" step="0.0001" min="0" class="form-control form-control-sm"
+               placeholder="vacío = sin alerta"
+               value="{{ request.form.min_stock or (product.min_stock if product and product.min_stock is not none else '') }}">
+      </div>
+    </div>
     <div class="d-flex gap-2 pt-2">
       <button type="submit" class="btn btn-sm btn-primary">Guardar</button>
       {% if mode=='edit' and product.status=='active' %}

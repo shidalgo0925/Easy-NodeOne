@@ -1,7 +1,7 @@
-"""ADR-039 F2 — Inventory Core (EN1).
+"""ADR-039 F2–F4 — Inventory Core (EN1).
 
 Reutiliza ``core_org_unit`` (warehouse), ``core_stock_balance``, ``core_stock_movement``
-y ``StockService``. No crea un segundo ledger. UI = F3.
+y ``StockService``. No crea un segundo ledger. UI = F3; transfers/mínimos = F4.
 """
 
 from __future__ import annotations
@@ -326,3 +326,157 @@ def get_on_hand(
         wh = int(ensure_default_warehouse(oid)['id'])
     bals = StockService.list_balances(oid, warehouse_org_unit_id=int(wh), product_ref=product_ref, limit=1)
     return float(bals[0].quantity_on_hand) if bals else 0.0
+
+
+def create_warehouse(
+    organization_id: int,
+    *,
+    unit_ref: str,
+    name: str,
+) -> dict[str, Any]:
+    """Crea almacén adicional (F4 transfers)."""
+    _assert_inventory_module(organization_id)
+    oid = int(organization_id)
+    ref = (unit_ref or '').strip()
+    label = (name or '').strip()
+    if not ref or not label:
+        raise InventoryError('warehouse_ref_and_name_required')
+    try:
+        unit = OrgUnitService.create(
+            oid,
+            unit_ref=ref,
+            name=label,
+            unit_type=ORG_UNIT_TYPE_WAREHOUSE,
+            notes='ADR-039 F4 warehouse',
+        )
+    except MasterDataError as e:
+        raise InventoryError(str(e)) from e
+    return {'id': unit.id, 'unit_ref': unit.unit_ref, 'name': unit.name, 'status': unit.status}
+
+
+def transfer(
+    organization_id: int,
+    *,
+    product_ref: str,
+    quantity: float,
+    from_warehouse_org_unit_id: int,
+    to_warehouse_org_unit_id: int,
+    notes: str | None = None,
+    source_system: str = 'EN1',
+    source_event_id: str | None = None,
+) -> dict[str, Any]:
+    """TRANSFER_OUT + TRANSFER_IN con compensación si falla el ingreso."""
+    import uuid
+
+    _assert_inventory_module(organization_id)
+    oid = int(organization_id)
+    src = int(from_warehouse_org_unit_id)
+    dst = int(to_warehouse_org_unit_id)
+    if src == dst:
+        raise InventoryError('transfer_same_warehouse')
+    qty = abs(float(quantity or 0))
+    if qty <= 0:
+        raise InventoryError('quantity_required')
+
+    warehouses = {int(w['id']) for w in list_warehouses(oid)}
+    if src not in warehouses or dst not in warehouses:
+        raise InventoryError('invalid_warehouse')
+
+    transfer_id = (source_event_id or '').strip() or f'txfer-{uuid.uuid4().hex[:16]}'
+    out_event = f'{transfer_id}:out'
+    in_event = f'{transfer_id}:in'
+    src_sys = (source_system or 'EN1').strip()[:32] or 'EN1'
+    note = (notes or '').strip() or None
+
+    out_res = record_movement(
+        oid,
+        product_ref=product_ref,
+        kind='TRANSFER_OUT',
+        quantity=qty,
+        warehouse_org_unit_id=src,
+        notes=note,
+        source_system=src_sys,
+        source_event_id=out_event,
+    )
+    try:
+        in_res = record_movement(
+            oid,
+            product_ref=product_ref,
+            kind='TRANSFER_IN',
+            quantity=qty,
+            warehouse_org_unit_id=dst,
+            notes=note,
+            source_system=src_sys,
+            source_event_id=in_event,
+        )
+    except InventoryError:
+        if out_res.get('status') == 'applied':
+            record_movement(
+                oid,
+                product_ref=product_ref,
+                kind='REVERSAL',
+                quantity=qty,
+                warehouse_org_unit_id=src,
+                notes=f'transfer_compensate:{transfer_id}',
+                source_system=src_sys,
+                source_event_id=f'{transfer_id}:compensate',
+            )
+        raise
+
+    return {
+        'status': 'applied'
+        if out_res.get('status') == 'applied' or in_res.get('status') == 'applied'
+        else 'already_processed',
+        'transfer_id': transfer_id,
+        'product_ref': product_ref,
+        'quantity': qty,
+        'from_warehouse_org_unit_id': src,
+        'to_warehouse_org_unit_id': dst,
+        'out': out_res,
+        'in': in_res,
+        'on_hand_from': get_on_hand(oid, product_ref, warehouse_org_unit_id=src),
+        'on_hand_to': get_on_hand(oid, product_ref, warehouse_org_unit_id=dst),
+    }
+
+
+def list_below_minimum(
+    organization_id: int,
+    *,
+    warehouse_org_unit_id: int | None = None,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    """Productos STOCKABLE con min_stock definido y on_hand < mínimo (almacén)."""
+    from models.core_master import CoreProduct
+
+    _assert_inventory_module(organization_id)
+    oid = int(organization_id)
+    wh = warehouse_org_unit_id
+    if wh is None:
+        wh = int(ensure_default_warehouse(oid)['id'])
+
+    rows = (
+        CoreProduct.query.filter_by(organization_id=oid, status='active')
+        .filter(CoreProduct.tracks_inventory.is_(True))
+        .filter(CoreProduct.min_stock.isnot(None))
+        .order_by(CoreProduct.product_ref.asc())
+        .limit(max(1, min(int(limit), 500)))
+        .all()
+    )
+    out: list[dict[str, Any]] = []
+    for p in rows:
+        min_q = float(p.min_stock or 0)
+        if min_q < 0:
+            continue
+        on_hand = get_on_hand(oid, p.product_ref, warehouse_org_unit_id=int(wh))
+        if on_hand < min_q:
+            out.append(
+                {
+                    'product_ref': p.product_ref,
+                    'name': p.name,
+                    'min_stock': min_q,
+                    'quantity_on_hand': on_hand,
+                    'deficit': round(min_q - on_hand, 4),
+                    'warehouse_org_unit_id': int(wh),
+                }
+            )
+    return out

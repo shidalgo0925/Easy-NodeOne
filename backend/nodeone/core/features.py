@@ -970,6 +970,20 @@ def register_en1_products_blueprints(app):
         print(f'Warning: No se pudo registrar en1_products: {e}')
 
 
+def register_en1_inventory_blueprints(app):
+    """ADR-039 F3 — Inventario EN1 (/admin/inventory) sobre inventory_service."""
+    if os.environ.get('NODEONE_SKIP_EN1_INVENTORY', '').strip().lower() in ('1', 'true', 'yes'):
+        return
+    if 'en1_inventory.inventory_balances' in getattr(app, 'view_functions', {}):
+        return
+    try:
+        from nodeone.modules.en1_inventory.routes import register_en1_inventory_blueprints as _reg
+
+        _reg(app)
+    except ImportError as e:
+        print(f'Warning: No se pudo registrar en1_inventory: {e}')
+
+
 def register_efactura_blueprints(app):
     """Facturación electrónica Panamá (/admin/efactura, /api/admin/efactura)."""
     if os.environ.get('NODEONE_SKIP_EFACTURA_MODULE', '').strip().lower() in ('1', 'true', 'yes'):

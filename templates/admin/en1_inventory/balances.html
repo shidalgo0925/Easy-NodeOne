@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Existencias — Inventario{% endblock %}
+{% block page_content %}
+<div class="container-fluid px-2 px-sm-3 py-2 erp-compact-page">
+  <div class="erp-toolbar d-flex flex-wrap align-items-center gap-2 mb-2">
+    <h1 class="h5 mb-0"><i class="fas fa-warehouse me-1 text-muted"></i>Existencias</h1>
+    <span class="erp-footnote text-muted">org {{ organization_id }} · policy {{ stock_policy }}</span>
+    <a class="btn btn-sm btn-primary ms-md-auto" href="{{ url_for('en1_inventory.inventory_receipt') }}">Entrada</a>
+    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('en1_inventory.inventory_adjust') }}">Ajuste</a>
+  </div>
+  <form method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-auto">
+      <label class="form-label small mb-0">Almacén</label>
+      <select name="warehouse_id" class="form-select form-select-sm">
+        {% for w in warehouses %}
+        <option value="{{ w.id }}" {% if warehouse_id==w.id %}selected{% endif %}>{{ w.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto">
+      <label class="form-label small mb-0">SKU</label>
+      <input name="product_ref" value="{{ product_ref }}" class="form-control form-control-sm" placeholder="opcional">
+    </div>
+    <div class="col-auto"><button class="btn btn-sm btn-outline-primary" type="submit">Filtrar</button></div>
+  </form>
+  <div class="table-responsive">
+    <table class="table table-sm table-bordered align-middle">
+      <thead class="table-light"><tr><th>SKU</th><th>On hand</th><th>Reservado</th><th>Disponible</th><th></th></tr></thead>
+      <tbody>
+        {% for b in balances %}
+        <tr>
+          <td><code>{{ b.product_ref }}</code></td>
+          <td>{{ b.quantity_on_hand }}</td>
+          <td>{{ b.quantity_reserved }}</td>
+          <td>{{ b.quantity_available }}</td>
+          <td><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('en1_inventory.inventory_kardex', product_ref=b.product_ref, warehouse_id=b.warehouse_org_unit_id) }}">Kardex</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-muted">Sin saldos. Registrá una entrada.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

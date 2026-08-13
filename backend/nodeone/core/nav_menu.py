@@ -222,6 +222,15 @@ def _v_en1_products(ctx: NavContext) -> bool:
     return ctx.saas_module_enabled('products') and ctx.has_view_endpoint('en1_products.products_index')
 
 
+def _v_en1_inventory(ctx: NavContext) -> bool:
+    """ADR-039 F3 — área Inventario (modules inventory + products + endpoint)."""
+    return (
+        ctx.saas_module_enabled('inventory')
+        and ctx.saas_module_enabled('products')
+        and ctx.has_view_endpoint('en1_inventory.inventory_balances')
+    )
+
+
 def _v_crm(ctx: NavContext) -> bool:
     return (ctx.saas_module_enabled('crm_contacts') or ctx.saas_module_enabled('crm')) and ctx.nav_can('users.view')
 
@@ -1053,11 +1062,12 @@ _SIDEBAR_TOP_LEVEL_AREA_IDS: tuple[str, ...] = (
 )
 
 # Orden plano ADR-015 v2 (cosmético Dev): Mis apps + Dashboard viven en base.html;
-# debajo solo estos dominios, en este orden. Inventario/Taller/Eventos fuera del menú v2.
+# debajo solo estos dominios, en este orden. Taller/Eventos fuera del menú v2.
 _SIDEBAR_V2_FLAT_AREA_IDS: tuple[str, ...] = (
     'tienda',
     'contactos',
     'productos',
+    'inventario',
     'marketing_email',
     'crm',
     'ventas',
@@ -1273,7 +1283,7 @@ APP_AREAS: tuple[NavArea, ...] = (
                 active_path_prefixes=('/admin/eposone/section/orders', '/admin/eposone/orders'),
             ),
             _eposone_section_item('productos', 'Productos', 'fas fa-box-open', 'products'),
-            # ADR-039 F1: label clarificado — Inventario nativo EN1 llega en F3.
+            # ADR-039 F3: Inventario nativo = área sidebar «Inventario»; esto es stock operativo POS.
             _eposone_section_item('inventario', 'Stock POS', 'fas fa-warehouse', 'inventory'),
             _eposone_section_item('clientes', 'Clientes', 'fas fa-address-book', 'contacts'),
             NavAreaItem(
@@ -1457,6 +1467,59 @@ APP_AREAS: tuple[NavArea, ...] = (
                     'en1_products.products_edit',
                 ),
                 active_path_prefixes=('/admin/products',),
+            ),
+        ),
+    ),
+    NavArea(
+        id='inventario',
+        label='Inventario',
+        icon='fas fa-warehouse',
+        visible=_v_en1_inventory,
+        zone_blueprints=('en1_inventory',),
+        zone_path_prefixes=('/admin/inventory',),
+        items=(
+            NavAreaItem(
+                'existencias',
+                'Existencias',
+                'fas fa-boxes',
+                'en1_inventory.inventory_balances',
+                active_endpoints=('en1_inventory.inventory_balances', 'en1_inventory.inventory_home'),
+                active_path_prefixes=('/admin/inventory/balances', '/admin/inventory/'),
+            ),
+            NavAreaItem(
+                'movimientos',
+                'Movimientos',
+                'fas fa-exchange-alt',
+                'en1_inventory.inventory_movements',
+                active_endpoints=('en1_inventory.inventory_movements',),
+            ),
+            NavAreaItem(
+                'entrada',
+                'Entrada',
+                'fas fa-plus-circle',
+                'en1_inventory.inventory_receipt',
+                active_endpoints=('en1_inventory.inventory_receipt',),
+            ),
+            NavAreaItem(
+                'ajuste',
+                'Ajuste',
+                'fas fa-sliders-h',
+                'en1_inventory.inventory_adjust',
+                active_endpoints=('en1_inventory.inventory_adjust',),
+            ),
+            NavAreaItem(
+                'kardex',
+                'Kardex',
+                'fas fa-book',
+                'en1_inventory.inventory_kardex',
+                active_endpoints=('en1_inventory.inventory_kardex',),
+            ),
+            NavAreaItem(
+                'almacenes',
+                'Almacenes',
+                'fas fa-industry',
+                'en1_inventory.inventory_warehouses',
+                active_endpoints=('en1_inventory.inventory_warehouses',),
             ),
         ),
     ),

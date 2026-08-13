@@ -4,11 +4,11 @@
 |-------|--------|
 | ID | **ADR-038** |
 | Título | EN1 Modular Domain Architecture & Domain Boundaries |
-| Estado | **Propuesto** — 13 ago 2026 · listo para revisión / ACCEPT · **F0 autorizado** (inventario) · **F1–F8 OFF** hasta GO explícito |
+| Estado | **Propuesto** — 13 ago 2026 · F0 DONE · **F1 Module Registry DONE (Dev EN1)** · **F2–F8 OFF** hasta GO explícito |
 | Ámbito | Easy NodeOne — plataforma modular · fronteras de dominio · protección RELATIC / IIUS · control plane ESB / EP1 / Planilla |
 | Autores | CODITO (EN1) |
 | Relacionados | [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-016](ADR-016-COMMERCIAL-LICENSING-V2-ENTITLEMENT.md) · [ADR-018](ADR-018-RELEASE-MANAGEMENT.md) · [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) · [ADR-032](ADR-032-PRODUCT-IMPLEMENTATION-MODEL.md) · [ADR-037](ADR-037-INTEGRATIONS-M2M-CREDENTIALS-OPERATIONS.md) · [EN1_PLATFORM_MASTER_PLAN.md](EN1_PLATFORM_MASTER_PLAN.md) · [EN1_PLATFORM_CARRILES_Y_SOPORTE.md](EN1_PLATFORM_CARRILES_Y_SOPORTE.md) · F0: [EN1_ADR038_F0_MODULE_DOMAIN_INVENTORY.md](EN1_ADR038_F0_MODULE_DOMAIN_INVENTORY.md) |
-| Implementación | **F0 = inventario (sin refactor).** F1–F8 requieren GO por fase. PROD solo con GO específico. |
+| Implementación | **F0** inventario · **F1** Module Registry (Dev). F2–F8 requieren GO por fase. PROD solo con GO específico. |
 
 ---
 
@@ -225,8 +225,8 @@ Reglas: no big-bang; no romper rutas; no renombrar tablas sin necesidad; no borr
 
 | Fase | Contenido | Gate |
 |------|-----------|------|
-| **F0** | Discovery / House Audit — sin refactor | Autorizado con este ADR + GO F0 |
-| **F1** | Module Registry (Definition + OrgModule + deps + enable/disable + tests) | GO explícito |
+| **F0** | Discovery / House Audit — sin refactor | DONE |
+| **F1** | Module Registry (Definition + OrgModule + deps + enable/disable + tests) | DONE (Dev EN1) |
 | **F2** | Nav / auth consumen module + entitlement + RBAC | GO |
 | **F3** | Products formalization | GO |
 | **F4** | Inventory formalization | GO |
@@ -274,21 +274,13 @@ ESB / EPosOne / Planilla = aplicaciones con dominio propio; EN1 = control plane 
 
 ## 37. GO autorizado ahora
 
-**NO** autorizar F1–F8 todavía.
-
-**Sí** autorizar:
-
-### GO ADR-038 F0 — EN1 Module & Domain Inventory
-
-Reglas F0:
-
-- inspección + documentación (+ tests de caracterización si necesarios);
-- **cero** refactor funcional / eliminación / DDL destructivo / cambio de comportamiento;
-- PROD solo lectura/inspección segura si se permite explícitamente.
+| Fase | Estado |
+|------|--------|
+| F0 | DONE — inventario |
+| F1 | DONE (Dev EN1) — Module Registry aditivo + dual-write |
+| F2–F8 | **OFF** hasta `GO ADR-038 F\<n\>` |
 
 Entregable F0: [EN1_ADR038_F0_MODULE_DOMAIN_INVENTORY.md](EN1_ADR038_F0_MODULE_DOMAIN_INVENTORY.md).
-
-**STOP después de F0.** No refactor hasta revisión + GO F1.
 
 ---
 
@@ -297,3 +289,4 @@ Entregable F0: [EN1_ADR038_F0_MODULE_DOMAIN_INVENTORY.md](EN1_ADR038_F0_MODULE_D
 | Fecha | Nota |
 |-------|------|
 | 2026-08-13 | Propuesto. F0 inventory autorizado. Decisión Planilla = EXTERNAL_CONTROLLED (no módulo ops EN1). |
+| 2026-08-13 | F1 Module Registry implementado en Dev (tablas + servicio + dual-write admin SaaS + tests). |

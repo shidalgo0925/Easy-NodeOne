@@ -6,8 +6,9 @@
 | Fase | **F0** — Discovery / House Audit |
 | Fecha | 2026-08-13 |
 | Entorno inspeccionado | Dev EN1 `/opt/easynodeone/dev/app` · rama `develop` |
-| Refactor | **Ninguno** (solo documentación) |
-| Estado | **STOP** — pendiente revisión / GO F1 |
+| Refactor F0 | Ninguno (solo documentación) |
+| Estado | **F0 DONE** · **F1 DONE (Dev)** — F2–F8 OFF hasta GO |
+| Código F1 | `models/module_registry.py` · `nodeone/core/platform/module_registry.py` |
 
 ---
 
@@ -21,7 +22,7 @@ Hoy EN1 **no** tiene un Module Registry ADR-038. Opera con **tres catálogos par
 
 Más: **RBAC** (quién) y **nav_menu** (visibilidad = SaaS ∧ RBAC ∧ endpoint).
 
-No existen tablas `ModuleDefinition` / `OrganizationModule` con ese nombre. El equivalente operativo es `SaasModule` / `SaasOrgModule`.
+No existen tablas `ModuleDefinition` / `OrganizationModule` con ese nombre en el legado. El equivalente operativo histórico es `SaasModule` / `SaasOrgModule`. **F1** añade `module_definition` / `organization_module` (aditivo; dual-write).
 
 **Planilla/ePlanilla:** solo shell + licenciamiento/portal — **sin** dominio operativo de nómina en EN1 (alineado con ADR-038 §21).
 
@@ -235,22 +236,39 @@ F0 **no** añadió tests nuevos (solo inspección). F1 deberá ampliar tests de 
 
 ---
 
-## 13. Propuesta concreta F1 (NO ejecutar aún)
+## 13. Propuesta concreta F1 — **IMPLEMENTADO (Dev EN1)**
 
-**Objetivo F1:** introducir Module Registry **aditivo** sin mover dominios legacy.
+**Objetivo F1:** Module Registry **aditivo** sin mover dominios legacy.  
+**GO:** recibido en chat (2026-08-13).
 
-1. `ModuleDefinition` (key, name, description, version, status, dependencies JSON, configurable_per_org, nav metadata) — seed desde `SAAS_CATALOG_MODULES` + keys de app_registry.  
-2. `OrganizationModule` (organization_id, module_key, enabled, enabled_at, disabled_at, config JSON) — sync inicial desde `saas_org_module`.  
-3. API/servicio: `is_module_enabled(org, key)`, `enable_module` / `disable_module` con validación de dependencias.  
-4. Admin UI: reutilizar pantalla Módulos SaaS o capa encima — **sin** borrar `saas_org_module` en F1.  
-5. Tests: enable con dep faltante → error; disable no DELETE; roundtrip sync.  
-6. **No** cambiar nav todavía (eso es F2).  
-7. **No** tocar Relatic/IIUS silos.  
-8. Documentar matriz de mapeo `saas_code` ↔ `module_key`.
+### Entregables F1
 
-**Criterio de hecho F1:** registry operativo en Dev; saas legacy sigue mandando hasta F2; cero regresión nav/ERP.
+| # | Entregable | Estado |
+|---|------------|--------|
+| 1 | `ModuleDefinition` + `OrganizationModule` | Sí — `models/module_registry.py` + DDL |
+| 2 | Seed desde `SAAS_CATALOG_MODULES` | Sí — `ensure_module_registry` |
+| 3 | Sync desde `saas_org_module` | Sí — no borra SaaS |
+| 4 | `is_module_enabled` / `enable` / `disable` + deps | Sí — `nodeone/core/platform/module_registry.py` |
+| 5 | Dual-write a `saas_org_module` | Sí — admin API delega |
+| 6 | Admin UI | Capa encima `/api/admin/saas/modules` (`module_key`); sin rewrite nav (F2) |
+| 7 | Tests | `tests/platform/test_module_registry_f1.py` |
+| 8 | Matriz `saas_code` ↔ `module_key` | Sí — **identidad F1** (ver abajo) |
 
-**GO requerido:** mensaje explícito `GO ADR-038 F1`.
+### Matriz mapeo F1
+
+| saas_code | module_key | Notas |
+|-----------|------------|--------|
+| *(todos los de `SAAS_CATALOG_MODULES`)* | == saas_code | Identidad 1:1 en F1 |
+| App Registry `id` (emembership, eevents, …) | *no es module_key* | Ver `APP_ID_TO_SAAS_CODES` en module_registry; formalizar apps = **F8** |
+
+### Criterio de hecho F1
+
+- Registry operativo en Dev (bootstrap llama `ensure_module_registry`).
+- SaaS legacy sigue mandando guards/nav hasta **F2**.
+- Disable ≠ DELETE.
+- **No** Relatic/IIUS silo; **no** F2–F8 sin GO.
+
+**Siguiente gate:** `GO ADR-038 F2` (nav/auth consumen module + entitlement + RBAC).
 
 ---
 
@@ -274,7 +292,8 @@ F0 **no** añadió tests nuevos (solo inspección). F1 deberá ampliar tests de 
 
 ---
 
-## 15. STOP
+## 15. STOP (F0)
 
 **F0 cerrado en documentación.**  
-**No iniciar F1–F8** hasta ACCEPT ADR-038 (si aplica) + **GO ADR-038 F1**.
+**F1 Module Registry:** implementado en Dev tras GO (ver §13).  
+**No iniciar F2–F8** hasta **GO ADR-038 F\<n\>** explícito.

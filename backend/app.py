@@ -3606,6 +3606,12 @@ def bootstrap_nodeone_schema():
         except Exception as e:
             print(f'⚠️ ensure_saas_catalog_full / org allowlist: {e}')
         try:
+            from nodeone.core.platform.module_registry import ensure_module_registry
+
+            ensure_module_registry(printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_module_registry: {e}')
+        try:
             from nodeone.services.platform_sa_seed import ensure_platform_sa_user
 
             ensure_platform_sa_user()

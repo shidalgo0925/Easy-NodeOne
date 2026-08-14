@@ -680,7 +680,7 @@
             function toggleSidebar() {
                 document.body.classList.toggle('sidebar-collapsed');
                 var isCollapsed = document.body.classList.contains('sidebar-collapsed');
-                localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
+                localStorage.setItem('en1SidebarCollapsed', isCollapsed ? 'true' : 'false');
                 if (isCollapsed) {
                     collapseNavGroupsForIconMode();
                 } else {
@@ -737,8 +737,10 @@
             function applySidebarCollapsedFromStorage() {
                 var leftPanel = document.getElementById('left-panel');
                 if (!leftPanel) return;
-                var stored = localStorage.getItem('sidebarCollapsed');
-                var isCollapsed = stored !== 'false';
+                var stored = localStorage.getItem('en1SidebarCollapsed');
+                /* Por defecto expandido: solo colapsar si el usuario lo pidió explícitamente.
+                   Clave nueva (en1SidebarCollapsed): ignora el default viejo que dejaba el menú cerrado. */
+                var isCollapsed = stored === 'true';
                 if (isCollapsed) {
                     document.body.classList.add('sidebar-collapsed');
                     collapseNavGroupsForIconMode();
@@ -975,7 +977,14 @@
                         }
                         return;
                     }
-                    if (document.body.classList.contains('sidebar-collapsed')) return;
+                    if (document.body.classList.contains('sidebar-collapsed')) {
+                        /* En modo icono no se ven subopciones: expandir y abrir el grupo. */
+                        toggleSidebar();
+                        group.classList.add('show');
+                        tg.setAttribute('aria-expanded', 'true');
+                        saveNavGroupsState();
+                        return;
+                    }
                     var willOpen = !group.classList.contains('show');
                     if (isAppNavDomain && willOpen) {
                         /* Acordeón: un solo dominio de app abierto a la vez. */

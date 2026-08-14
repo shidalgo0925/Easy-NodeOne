@@ -8,7 +8,6 @@ from nodeone.core.commerce.events import (
     COMMERCE_INVENTORY_RESERVED,
     COMMERCE_INVENTORY_RETURNED,
 )
-from nodeone.core.commerce.stock import StockService
 from nodeone.core.platform.events import DomainEventMessage, subscribe
 
 _REGISTERED = False
@@ -28,7 +27,14 @@ def _on_inventory_movement(message: DomainEventMessage) -> None:
     if not order_ref or not movement:
         return
     try:
-        StockService.apply_order_movement(int(message.organization_id), order_ref, movement)
+        from nodeone.core.platform.connected_inventory import apply_connected_order_movement
+
+        apply_connected_order_movement(
+            int(message.organization_id),
+            order_ref,
+            movement,
+            source_system='EP1',
+        )
     except Exception:
         pass
 

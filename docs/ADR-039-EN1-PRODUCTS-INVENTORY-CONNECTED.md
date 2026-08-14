@@ -4,13 +4,14 @@
 |-------|--------|
 | ID | **ADR-039** |
 | Estado | **ACCEPTED** — 13 ago 2026 |
-| GO actual | **F0–F5 DONE (Dev docs F5)** · F6 OFF hasta GO |
-| Baseline | F5 tip `develop` |
+| GO actual | **F0–F6 DONE (Dev; F6 EN1 bridge)** · EP1 client OFF |
+| Baseline | F6 tip `develop` |
 | Base | [ADR-038](ADR-038-EN1-MODULAR-DOMAIN-ARCHITECTURE.md) Module Registry F1 |
 | F0 inventario | [EN1_ADR039_F0_PRODUCTS_INVENTORY_DISCOVERY.md](EN1_ADR039_F0_PRODUCTS_INVENTORY_DISCOVERY.md) |
 | F5 Connected | [EN1_ADR039_F5_CONNECTED_CATALOG_DISCOVERY.md](EN1_ADR039_F5_CONNECTED_CATALOG_DISCOVERY.md) |
-| EP1 / STG / PRD | **NO TOCAR** (F0–F5); F6 solo con GO |
-| Connected (F6) | OFF hasta GO específico |
+| F6 bridge | [EN1_ADR039_F6_CONNECTED_INVENTORY_BRIDGE.md](EN1_ADR039_F6_CONNECTED_INVENTORY_BRIDGE.md) |
+| EP1 / STG / PRD | **NO TOCAR** sin GO; F6 no tocó Flutter |
+| Connected (post-F6) | EP1/client + delta bootstrap OFF hasta GO |
 
 ---
 
@@ -35,8 +36,8 @@ Regla crítica: **no crear un tercer catálogo**. F0 eligió **FORMALIZE `core_p
 | **F2** | Inventory Core | DONE |
 | **F3** | Inventory UI + nav Inventario nativo (EPosOne = Stock POS) | DONE |
 | **F4** | Transfers / mínimos | DONE |
-| **F5** | Connected contract discovery (sin código EP1) | DONE → STOP |
-| **F6** | Connected implementation | GO/ADR aparte |
+| **F5** | Connected contract discovery (sin código EP1) | DONE |
+| **F6** | Connected EN1 bridge → `inventory_service` (sin Flutter) | DONE → STOP |
 
 ---
 
@@ -61,3 +62,4 @@ Regla crítica: **no crear un tercer catálogo**. F0 eligió **FORMALIZE `core_p
 | 2026-08-13 | F3 DONE Dev: UI `/admin/inventory` (Existencias, Movimientos, Entrada, Ajuste, Kardex, Almacenes); nav v2 área Inventario; EPosOne sigue como Stock POS; tests. **STOP** — F4 requiere GO. |
 | 2026-08-13 | F4 DONE Dev: `transfer()` + compensación; almacenes extra; alertas `min_stock`; UI Transferencia/Mínimos; campo mínimo en Productos; tests. **STOP** — F5 discovery requiere GO. |
 | 2026-08-13 | F5 DONE (docs): contrato Connected discovery — bootstrap SoR `core_*`, gaps sync up/idempotency, sin código EP1. Ver `EN1_ADR039_F5_CONNECTED_CATALOG_DISCOVERY.md`. **STOP** — F6 requiere GO. |
+| 2026-08-13 | F6 DONE Dev (EN1-only): `connected_inventory` bridge sync/API/BO + order deduct/return → inventory_service; tests; sin Flutter/STG/PRD. **STOP** — EP1 client / delta bootstrap requieren GO. |

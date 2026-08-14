@@ -105,6 +105,45 @@ class TestEn1ProductsF1(unittest.TestCase):
         deps = (inv.dependencies_json or '')
         self.assertIn('products', deps)
 
+    def test_search_filters_type_tracks_barcode(self):
+        from nodeone.core.master.product import CoreProductService
+
+        CoreProductService.create(
+            self.oid_a,
+            {
+                'product_ref': self.ref,
+                'name': 'Agua 500',
+                'product_type': 'good',
+                'tracks_inventory': True,
+                'barcode': f'BC-{self.ref}',
+                'unit_price': 0.5,
+            },
+        )
+        CoreProductService.create(
+            self.oid_a,
+            {
+                'product_ref': f'SVC-{self.ref}',
+                'name': 'Asesoría',
+                'product_type': 'service',
+                'tracks_inventory': False,
+                'unit_price': 10,
+            },
+        )
+        by_bc = CoreProductService.search(self.oid_a, query=f'BC-{self.ref}', limit=20)
+        self.assertEqual(len(by_bc), 1)
+        self.assertEqual(by_bc[0].product_ref, self.ref)
+        goods = CoreProductService.search(self.oid_a, product_type='good', limit=20)
+        self.assertTrue(all(p.product_type == 'good' for p in goods))
+        stocked = CoreProductService.search(self.oid_a, tracks_inventory=True, limit=20)
+        self.assertTrue(all(p.tracks_inventory for p in stocked))
+        self.assertTrue(any(p.product_ref == self.ref for p in stocked))
+
+    def test_upload_image_endpoint_registered(self):
+        rules = {r.endpoint: r.rule for r in self.app.url_map.iter_rules()}
+        self.assertIn('en1_products.products_upload_image', rules)
+        self.assertEqual(rules['en1_products.products_upload_image'], '/admin/products/upload-image')
+        self.assertIn('en1_products.products_index', rules)
+
 
 if __name__ == '__main__':
     unittest.main()

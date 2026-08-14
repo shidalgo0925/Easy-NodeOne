@@ -4,7 +4,7 @@ import io
 import re
 from datetime import datetime
 
-from flask import Blueprint, jsonify, render_template, request, send_file
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, send_file, url_for
 from sqlalchemy import or_
 
 import app as M
@@ -77,21 +77,24 @@ def admin_services_upload_image():
 @admin_services_catalog_bp.route('/admin/services')
 @M.require_permission('services.view')
 def admin_services():
-    """Panel de administración de productos del catálogo (tabla Service)."""
-    status = request.args.get('status', 'all')
-    search = request.args.get('search', '').strip()
-    q = M.Service.query.filter_by(organization_id=_admin_catalog_org_id())
-    if status == 'active':
-        q = q.filter_by(is_active=True)
-    elif status == 'inactive':
-        q = q.filter_by(is_active=False)
-    if search:
-        like = f'%{search}%'
-        q = q.filter(
-            or_(M.Service.name.ilike(like), M.Service.description.ilike(like))
-        )
-    services = q.order_by(M.Service.display_order, M.Service.name).all()
-    return render_template('admin/services.html', services=services, current_status=status, search=search)
+    """Panel legado de Service — redirige a Inventario → Productos (A+B+C)."""
+    if (request.args.get('legacy') or '').strip() == '1':
+        status = request.args.get('status', 'all')
+        search = request.args.get('search', '').strip()
+        q = M.Service.query.filter_by(organization_id=_admin_catalog_org_id())
+        if status == 'active':
+            q = q.filter_by(is_active=True)
+        elif status == 'inactive':
+            q = q.filter_by(is_active=False)
+        if search:
+            like = f'%{search}%'
+            q = q.filter(
+                or_(M.Service.name.ilike(like), M.Service.description.ilike(like))
+            )
+        services = q.order_by(M.Service.display_order, M.Service.name).all()
+        return render_template('admin/services.html', services=services, current_status=status, search=search)
+    flash('El catálogo comercial se gestiona en Inventario → Productos.', 'info')
+    return redirect(url_for('en1_products.products_index'))
 
 
 @admin_services_catalog_bp.route('/api/admin/services/create', methods=['POST'])
@@ -163,6 +166,12 @@ def admin_services_create():
 
         M.db.session.add(service)
         M.db.session.commit()
+        try:
+            from nodeone.core.master.product_bridge import ensure_from_service
+
+            ensure_from_service(oid, service)
+        except Exception:
+            pass
 
         return jsonify({'success': True, 'message': 'Servicio creado exitosamente', 'service': service.to_dict()})
     except Exception as e:
@@ -270,6 +279,12 @@ def admin_services_update(service_id):
                 rule.is_active = False
 
         M.db.session.commit()
+        try:
+            from nodeone.core.master.product_bridge import ensure_from_service
+
+            ensure_from_service(oid, service)
+        except Exception:
+            pass
 
         return jsonify({'success': True, 'message': 'Servicio actualizado exitosamente', 'service': service.to_dict()})
     except Exception as e:
@@ -343,11 +358,14 @@ def admin_services_delete(service_id):
 @admin_services_catalog_bp.route('/admin/service-categories')
 @M.admin_required
 def admin_service_categories():
-    """Panel de administración de categorías de servicios"""
-    categories = M.ServiceCategory.query.order_by(
-        M.ServiceCategory.display_order, M.ServiceCategory.name
-    ).all()
-    return render_template('admin/service_categories.html', categories=categories)
+    """Categorías legado — redirige a Inventario → Productos (campo categoría)."""
+    if (request.args.get('legacy') or '').strip() == '1':
+        categories = M.ServiceCategory.query.order_by(
+            M.ServiceCategory.display_order, M.ServiceCategory.name
+        ).all()
+        return render_template('admin/service_categories.html', categories=categories)
+    flash('Las categorías del catálogo se gestionan en Inventario → Productos (campo Categoría).', 'info')
+    return redirect(url_for('en1_products.products_index'))
 
 
 @admin_services_catalog_bp.route('/api/admin/service-categories/create', methods=['POST'])

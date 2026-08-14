@@ -127,6 +127,12 @@ def list_saas_modules():
         pass
 
     mods = SaasModule.query.order_by(SaasModule.id).all()
+    try:
+        from nodeone.services.saas_catalog_defaults import saas_catalog_sort_key
+
+        mods = sorted(mods, key=lambda m: saas_catalog_sort_key(getattr(m, 'code', None)))
+    except Exception:
+        pass
     out = []
     for m in mods:
         row = SaasOrgModule.query.filter_by(organization_id=org_id, module_id=m.id).first()

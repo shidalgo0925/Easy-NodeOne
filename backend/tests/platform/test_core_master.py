@@ -90,13 +90,21 @@ class TestOrgUnitService(unittest.TestCase):
 
 class TestCoreMasterModels(unittest.TestCase):
     def test_model_tables(self):
-        from models.core_master import CoreAddress, CoreAttachment, CoreContactLegacyLink, CoreOrgUnit, CoreProduct
+        from models.core_master import (
+            CoreAddress,
+            CoreAttachment,
+            CoreContactLegacyLink,
+            CoreOrgUnit,
+            CoreProduct,
+            CoreProductLegacyServiceLink,
+        )
 
         self.assertEqual(CoreOrgUnit.__tablename__, 'core_org_unit')
         self.assertEqual(CoreAddress.__tablename__, 'core_address')
         self.assertEqual(CoreAttachment.__tablename__, 'core_attachment')
         self.assertEqual(CoreProduct.__tablename__, 'core_product')
         self.assertEqual(CoreContactLegacyLink.__tablename__, 'core_contact_legacy_link')
+        self.assertEqual(CoreProductLegacyServiceLink.__tablename__, 'core_product_legacy_service_link')
 
 
 class TestCoreProductService(unittest.TestCase):

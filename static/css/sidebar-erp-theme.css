@@ -1001,3 +1001,72 @@ aside.left-panel.sidebar-erp .sidebar-app-temp-badge {
     color: var(--color-primary, #2563eb);
     border: 1px solid color-mix(in srgb, var(--color-primary, #2563eb) 35%, transparent);
 }
+
+/* Inventario / Productos — usar todo el ancho del panel de contenido */
+.en1-inv-fullwidth {
+    width: 100%;
+    max-width: none !important;
+}
+body:has(#erpAppSubnav) #right-panel .content:has(.en1-inv-fullwidth) {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+.en1-inv-products-table {
+    width: 100%;
+    table-layout: fixed;
+}
+.en1-inv-products-table .en1-inv-col-thumb { width: 3.25rem; }
+.en1-inv-products-table .en1-inv-col-name { width: 34%; }
+.en1-inv-products-table .en1-inv-col-sku { width: 16%; }
+.en1-inv-products-table .en1-inv-col-type { width: 12%; }
+.en1-inv-products-table .en1-inv-col-cat { width: 14%; }
+.en1-inv-products-table .en1-inv-col-price { width: 10%; }
+.en1-inv-products-table .en1-inv-col-status { width: 7rem; }
+.en1-inv-products-table .en1-inv-col-actions { width: 5.5rem; }
+.en1-inv-products-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.en1-inv-products-table td:nth-child(2) {
+    white-space: normal;
+}
+@media (max-width: 1199.98px) {
+    .en1-inv-products-table .en1-inv-col-name { width: 42%; }
+    .en1-inv-products-table .en1-inv-col-sku { width: 20%; }
+}
+
+/* Configuración (engranaje) — dropdown agrupado más ancho y con scroll */
+.settings-gear-menu {
+    min-width: 17.5rem;
+    max-height: min(70vh, 28rem);
+    overflow-y: auto;
+}
+.settings-gear-menu .dropdown-header {
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding-top: 0.5rem;
+    padding-bottom: 0.25rem;
+}
+.settings-gear-menu .dropdown-item {
+    font-size: 0.875rem;
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+}
+.settings-gear-menu .dropdown-item i {
+    width: 1.1rem;
+    text-align: center;
+    opacity: 0.85;
+}
+
+/* Configuración de empresa — usar todo el ancho del panel */
+.en1-company-setup-fullwidth {
+    width: 100%;
+    max-width: none;
+}
+#right-panel .content:has(.en1-company-setup-fullwidth) {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+

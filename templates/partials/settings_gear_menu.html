@@ -1,0 +1,94 @@
+{# Menú Configuración (engranaje header). Secciones = submenús visuales. #}
+<ul class="dropdown-menu dropdown-menu-end settings-gear-menu" aria-labelledby="settingsDropdown">
+    <li><h6 class="dropdown-header text-muted mb-0 small">Cuenta</h6></li>
+    <li><a class="dropdown-item" href="{{ url_for('member_pages.settings') }}"><i class="fas fa-sliders-h me-2"></i> Preferencias</a></li>
+    {% if saas_module_enabled('communications') %}
+    <li><a class="dropdown-item" href="{{ url_for('communications.communications_inbox') }}"><i class="fas fa-inbox me-2"></i> Bandeja</a></li>
+    <li><a class="dropdown-item" href="{{ url_for('member_pages.settings_communications') }}"><i class="fas fa-sliders-h me-2"></i> Comunicaciones (preferencias)</a></li>
+    {% endif %}
+
+    {% if show_tenant_admin_menu %}
+    {% if nav_can('system.settings.view') or has_view_endpoint('admin_ecalendar_settings_page') %}
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header text-muted mb-0 small">Organización</h6></li>
+    {% if nav_can('system.settings.view') %}
+    <li><a class="dropdown-item" href="{{ url_for('admin_identity') }}"><i class="fas fa-palette me-2"></i> Identidad empresarial</a></li>
+    <li><a class="dropdown-item" href="{{ url_for('admin_email') }}"><i class="fas fa-envelope me-2"></i> Email / SMTP</a></li>
+    <li><a class="dropdown-item" href="{{ url_for('media_admin.admin_media') }}"><i class="fas fa-photo-video me-2"></i> Multimedia</a></li>
+    {% endif %}
+    {% if has_view_endpoint('admin_ecalendar_settings_page') %}
+    <li><a class="dropdown-item" href="{{ url_for('admin_ecalendar_settings_page') }}"><i class="fas fa-calendar-check me-2"></i> Agenda ECalendar</a></li>
+    <li><a class="dropdown-item" href="{{ url_for('admin_ecalendar_appointments_page') }}"><i class="fas fa-list me-2"></i> Gestionar citas ECalendar</a></li>
+    {% endif %}
+    {% endif %}
+
+    {% set _gear_fiscal = (
+        (has_view_endpoint('admin_configuration_taxes') and (nav_can('system.settings.view') or current_user.is_admin))
+        or (saas_module_enabled('payments') and nav_can('payments.manage') and has_view_endpoint('payments_admin.admin_payments'))
+        or (saas_module_enabled('efactura') and has_view_endpoint('efactura_admin.efactura_config'))
+    ) %}
+    {% if _gear_fiscal %}
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header text-muted mb-0 small">Fiscal</h6></li>
+    {% if has_view_endpoint('admin_configuration_taxes') and ((nav_can('system.settings.view')) or current_user.is_admin) %}
+    <li><a class="dropdown-item" href="{{ url_for('admin_configuration_taxes') }}"><i class="fas fa-percent me-2"></i> Impuestos</a></li>
+    {% endif %}
+    {% if saas_module_enabled('payments') and nav_can('payments.manage') and has_view_endpoint('payments_admin.admin_payments') %}
+    <li><a class="dropdown-item" href="/admin/payments?context=config"><i class="fas fa-credit-card me-2"></i> Pagos (config)</a></li>
+    {% endif %}
+    {% if saas_module_enabled('efactura') and has_view_endpoint('efactura_admin.efactura_config') %}
+    <li><a class="dropdown-item" href="{{ url_for('efactura_admin.efactura_config') }}"><i class="fas fa-receipt me-2"></i> Proveedor FE</a></li>
+    {% endif %}
+    {% endif %}
+
+    {% set _gear_acceso = (
+        (saas_module_enabled('rbac_matrix') and nav_can('roles.view') and has_view_endpoint('admin_roles_matrix'))
+        or (saas_module_enabled('security_matrix') and has_view_endpoint('security_matrix.security_matrix_index') and nav_can('security_matrix.admin'))
+        or nav_can('users.view')
+    ) %}
+    {% if _gear_acceso %}
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header text-muted mb-0 small">Acceso</h6></li>
+    {% if nav_can('users.view') %}
+    <li><a class="dropdown-item" href="{{ url_for('admin_users') }}"><i class="fas fa-users me-2"></i> Usuarios</a></li>
+    {% endif %}
+    {% if saas_module_enabled('rbac_matrix') and nav_can('roles.view') and has_view_endpoint('admin_roles_matrix') %}
+    <li><a class="dropdown-item" href="{{ url_for('admin_roles_matrix') }}"><i class="fas fa-th me-2"></i> Permisos</a></li>
+    {% endif %}
+    {% if saas_module_enabled('security_matrix') and has_view_endpoint('security_matrix.security_matrix_index') and nav_can('security_matrix.admin') %}
+    <li><a class="dropdown-item" href="{{ url_for('security_matrix.security_matrix_index') }}"><i class="fas fa-shield-alt me-2"></i> Matriz Odoo</a></li>
+    {% endif %}
+    {% endif %}
+
+    {% set _gear_integ = (
+        (nav_can('integrations.manage') and has_view_endpoint('api_center.apis_available'))
+        or (nav_can('system.settings.view') and saas_module_enabled('chatbot'))
+        or (has_view_endpoint('admin_communications.admin_communications_settings') and nav_can('integrations.view'))
+        or ((saas_module_enabled('crm_contacts') or saas_module_enabled('crm')) and has_view_endpoint('admin_crm_settings'))
+        or (saas_module_enabled('appointments') and nav_can('services.view') and has_view_endpoint('admin_appointments.admin_appointments_dashboard'))
+        or (show_platform_admin_nav and current_user.is_admin and has_view_endpoint('admin_product_guide'))
+    ) %}
+    {% if _gear_integ %}
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header text-muted mb-0 small">Integraciones</h6></li>
+    {% if nav_can('integrations.manage') and has_view_endpoint('api_center.apis_available') %}
+    <li><a class="dropdown-item" href="{{ url_for('api_center.apis_available') }}"><i class="fas fa-plug me-2"></i> API Center</a></li>
+    {% endif %}
+    {% if nav_can('system.settings.view') and saas_module_enabled('chatbot') %}
+    <li><a class="dropdown-item" href="{{ url_for('admin_ai') }}"><i class="fas fa-robot me-2"></i> IA</a></li>
+    {% endif %}
+    {% if has_view_endpoint('admin_communications.admin_communications_settings') and nav_can('integrations.view') %}
+    <li><a class="dropdown-item" href="{{ url_for('admin_communications.admin_communications_settings') }}"><i class="fas fa-bell me-2"></i> Reglas de comunicación</a></li>
+    {% endif %}
+    {% if (saas_module_enabled('crm_contacts') or saas_module_enabled('crm')) and has_view_endpoint('admin_crm_settings') %}
+    <li><a class="dropdown-item" href="{{ url_for('admin_crm_settings') }}"><i class="fas fa-sliders-h me-2"></i> CRM Config</a></li>
+    {% endif %}
+    {% if saas_module_enabled('appointments') and nav_can('services.view') and has_view_endpoint('admin_appointments.admin_appointments_dashboard') %}
+    <li><a class="dropdown-item" href="{{ url_for('admin_appointments.admin_appointments_dashboard') }}"><i class="fas fa-list-alt me-2"></i> Tipos de cita</a></li>
+    {% endif %}
+    {% if show_platform_admin_nav and current_user.is_admin and has_view_endpoint('admin_product_guide') %}
+    <li><a class="dropdown-item" href="{{ url_for('admin_product_guide') }}"><i class="fas fa-book-open me-2"></i> Guía de productos</a></li>
+    {% endif %}
+    {% endif %}
+    {% endif %}
+</ul>

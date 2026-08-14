@@ -165,7 +165,7 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                     ),
                     AppNavItem(
                         'branding',
-                        'Branding',
+                        'Identidad empresarial',
                         'fas fa-palette',
                         url=safe_url_for('admin_company_setup', step='branding'),
                         visible=_v_tenant_business_admin,

@@ -111,10 +111,15 @@ class TestEn1InventoryF3(unittest.TestCase):
         from nodeone.core.nav_menu import _SIDEBAR_V2_FLAT_AREA_IDS
 
         self.assertIn('inventario', _SIDEBAR_V2_FLAT_AREA_IDS)
-        self.assertEqual(
-            _SIDEBAR_V2_FLAT_AREA_IDS.index('inventario'),
-            _SIDEBAR_V2_FLAT_AREA_IDS.index('productos') + 1,
-        )
+        self.assertNotIn('productos', _SIDEBAR_V2_FLAT_AREA_IDS)
+
+    def test_inventario_area_has_productos_chip(self):
+        from nodeone.core.nav_menu import APP_AREAS
+
+        inv = next(a for a in APP_AREAS if a.id == 'inventario')
+        ids = [i.id for i in inv.items]
+        self.assertEqual(ids[0], 'productos')
+        self.assertIn('existencias', ids)
 
 
 if __name__ == '__main__':

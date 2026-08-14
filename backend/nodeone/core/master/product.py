@@ -62,6 +62,7 @@ class CoreProductService:
         query: str | None = None,
         product_type: str | None = None,
         status: str | None = None,
+        tracks_inventory: bool | None = None,
         limit: int = 50,
     ) -> list[ProductDTO]:
         from sqlalchemy import or_
@@ -71,10 +72,18 @@ class CoreProductService:
             q = q.filter_by(product_type=(product_type or '').strip().lower())
         if status:
             q = q.filter_by(status=(status or '').strip().lower())
+        if tracks_inventory is not None:
+            q = q.filter_by(tracks_inventory=bool(tracks_inventory))
         needle = (query or '').strip()
         if needle:
             like = f'%{needle}%'
-            q = q.filter(or_(CoreProduct.name.ilike(like), CoreProduct.product_ref.ilike(like)))
+            q = q.filter(
+                or_(
+                    CoreProduct.name.ilike(like),
+                    CoreProduct.product_ref.ilike(like),
+                    CoreProduct.barcode.ilike(like),
+                )
+            )
         rows = q.order_by(CoreProduct.name.asc(), CoreProduct.id.asc()).limit(max(1, int(limit))).all()
         return [product_to_dto(row) for row in rows]
 

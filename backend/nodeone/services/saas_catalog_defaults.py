@@ -13,27 +13,25 @@ from sqlalchemy import inspect, text
 # Códigos usados en guards/plantillas.
 # is_core=True → sin fila en saas_org_module se considera ON; además no se puede desactivar desde /admin Módulos SaaS.
 # is_core=False → hace falta fila en saas_org_module; se puede activar/desactivar por tenant (con default ON vía ensure_toggleable_tenant_module_links).
+# Orden = presentación en /admin/saas-modules y catálogo (dominio lógico).
 SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
-    ('appointments', 'Citas', 'Agenda y citas', False),
+    # —— Comercial ——
     (
-        'operaciones',
-        'Operaciones',
-        'Grupo del menú lateral Operaciones (Agenda, Educación, Certificados, Contador).',
+        'contacts',
+        'Contactos (maestro EN1)',
+        'Maestro de terceros (clientes, proveedores, roles fiscales). Distinto de Contactos CRM.',
         False,
     ),
-    ('events', 'Eventos', 'Eventos e inscripciones', False),
-    ('chatbot', 'IA / Chatbots', 'Asistentes y configuración IA', False),
-    ('crm_contacts', 'Contactos CRM', 'Contactos del tenant', False),
-    ('crm', 'CRM', 'CRM (menú y funciones comerciales)', False),
-    ('marketing_email', 'Marketing email', 'Campañas y cola de correo', False),
-    ('certificates', 'Certificados', 'Certificados y plantillas', False),
-    ('payments', 'Pagos', 'Checkout y pagos', True),
-    ('policies', 'Normativas', 'Políticas y normativas públicas', False),
-    ('communications', 'Comunicaciones', 'Integraciones y mensajería', False),
     (
-        'office365',
-        'Office 365 (correo)',
-        'Solicitudes de correo institucional y flujo Office 365.',
+        'crm',
+        'CRM (pipeline)',
+        'CRM comercial: menú, leads y funciones de pipeline.',
+        False,
+    ),
+    (
+        'crm_contacts',
+        'Contactos CRM (legacy)',
+        'Contactos del tenant en el CRM legacy (no es el maestro EN1).',
         False,
     ),
     (
@@ -43,39 +41,47 @@ SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
         False,
     ),
     (
-        'analytics',
-        'Analítica',
-        'KPIs, tableros por área y APIs de resumen (permiso analytics.view).',
+        'marketing_email',
+        'Marketing email',
+        'Campañas y cola de correo',
         False,
     ),
     (
-        'accounting',
-        'Contabilidad',
-        'Reservado para contabilidad avanzada (sin guard SaaS en facturas).',
+        'memberships',
+        'Membresías',
+        'Planes, miembros, beneficios y portal Mi membresía / Planes.',
+        False,
+    ),
+    # —— Inventario / catálogo ——
+    (
+        'products',
+        'Productos (catálogo EN1)',
+        'Catálogo maestro EN1 (core_product). ADR-039.',
         False,
     ),
     (
-        'workshop',
-        'Taller + SLA',
-        'Recepción de vehículos, inspección (body map), monitor operativo y configuración de procesos SLA.',
-        False,
-    ),
-    (
-        'academic',
-        'Educación / LMS',
-        'Estudiantes, cursos académicos, matrículas e integración Moodle.',
+        'inventory',
+        'Inventario (stock EN1)',
+        'Existencias y movimientos EN1 (core_stock_*). Depende de products.',
         False,
     ),
     (
         'contador',
-        'Contador',
-        'Conteos físicos de inventario por variante, catálogo e importación masiva.',
+        'Conteo físico',
+        'Conteos físicos por variante, catálogo de conteo e importación masiva (no es Contabilidad).',
         False,
     ),
+    # —— Finanzas ——
     (
-        'contacts',
-        'Contactos',
-        'Maestro de contactos/terceros (clientes, proveedores, roles fiscales).',
+        'payments',
+        'Pagos',
+        'Checkout y pagos',
+        True,
+    ),
+    (
+        'accounting',
+        'Contabilidad (asientos)',
+        'Contabilidad avanzada / asientos (distinto de Conteo físico).',
         False,
     ),
     (
@@ -85,29 +91,61 @@ SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
         False,
     ),
     (
+        'analytics',
+        'Analítica',
+        'KPIs, tableros por área y APIs de resumen (permiso analytics.view).',
+        False,
+    ),
+    # —— Operaciones ——
+    (
+        'appointments',
+        'Citas',
+        'Agenda y citas',
+        False,
+    ),
+    (
+        'operaciones',
+        'Operaciones',
+        'Grupo del menú lateral Operaciones (Agenda, Educación, Certificados, Conteo físico).',
+        False,
+    ),
+    (
+        'events',
+        'Eventos',
+        'Eventos e inscripciones',
+        False,
+    ),
+    (
+        'certificates',
+        'Certificados',
+        'Certificados y plantillas',
+        False,
+    ),
+    (
+        'academic',
+        'Educación / LMS',
+        'Estudiantes, cursos académicos, matrículas e integración Moodle.',
+        False,
+    ),
+    (
+        'workshop',
+        'Taller + SLA',
+        'Recepción de vehículos, inspección (body map), monitor operativo y configuración de procesos SLA.',
+        False,
+    ),
+    (
+        'policies',
+        'Normativas',
+        'Políticas y normativas públicas',
+        False,
+    ),
+    (
         'qr_generator',
         'Generador QR',
         'Generación de códigos QR estáticos (PNG, SVG, PDF) e historial por organización.',
         False,
     ),
-    (
-        'security_matrix',
-        'Matriz de permisos Odoo',
-        'Importación y validación de permisos Odoo (catálogo, matriz visual, sin ejecutar en Odoo).',
-        False,
-    ),
-    (
-        'rbac_matrix',
-        'Permisología EN1',
-        'Matriz roles × permisos, listado de roles y permisos del tenant.',
-        False,
-    ),
-    (
-        'memberships',
-        'Membresías',
-        'Planes, miembros, beneficios y portal Mi membresía / Planes.',
-        False,
-    ),
+    # —— Apps producto ——
     (
         'eposone',
         'EPosOne',
@@ -120,20 +158,49 @@ SAAS_CATALOG_MODULES: tuple[tuple[str, str, str, bool], ...] = (
         'Nómina nativa (plataforma). Planificada Etapa 9 — opt-in por tenant.',
         False,
     ),
+    # —— Comunicaciones / IA ——
     (
-        'products',
-        'Productos',
-        'Catálogo maestro EN1 (core_product). ADR-039 — formalización nativa.',
+        'communications',
+        'Comunicaciones',
+        'Integraciones y mensajería',
         False,
     ),
     (
-        'inventory',
-        'Inventario',
-        'Existencias y movimientos EN1 (core_stock_*). ADR-039 — F2+; depende de products.',
+        'office365',
+        'Office 365 (correo)',
+        'Solicitudes de correo institucional y flujo Office 365.',
+        False,
+    ),
+    (
+        'chatbot',
+        'IA / Chatbots',
+        'Asistentes y configuración IA',
+        False,
+    ),
+    # —— Acceso / seguridad ——
+    (
+        'security_matrix',
+        'Matriz de permisos Odoo',
+        'Importación y validación de permisos Odoo (catálogo, matriz visual, sin ejecutar en Odoo).',
+        False,
+    ),
+    (
+        'rbac_matrix',
+        'Permisología EN1',
+        'Matriz roles × permisos, listado de roles y permisos del tenant.',
         False,
     ),
 )
 
+# Orden canónico por código (índice en SAAS_CATALOG_MODULES). Códigos fuera del tuple van al final.
+SAAS_CATALOG_ORDER: dict[str, int] = {
+    code: idx for idx, (code, *_rest) in enumerate(SAAS_CATALOG_MODULES)
+}
+
+
+def saas_catalog_sort_key(code: str | None) -> tuple[int, str]:
+    c = (code or '').strip().lower()
+    return (SAAS_CATALOG_ORDER.get(c, 10_000), c)
 
 def _log(printfn, msg: str) -> None:
     if printfn:

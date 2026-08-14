@@ -263,9 +263,11 @@
                                         <ul class="dropdown-menu dropdown-menu-end shadow">
                                             <li>
                                                 <button type="button" class="dropdown-item btn-edit-register"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#editRegisterModal"
                                                     data-id="{{ reg.id }}"
-                                                    data-name="{{ reg.name }}"
-                                                    data-notes="{{ reg.notes or '' }}">
+                                                    data-name="{{ reg.name|e }}"
+                                                    data-notes="{{ (reg.notes or '')|e }}">
                                                     Editar caja
                                                 </button>
                                             </li>
@@ -728,18 +730,19 @@
   })();
   {% endif %}
 
+  // Bootstrap se carga con defer: no instanciar Modal al parsear.
   var editRegModalEl = document.getElementById('editRegisterModal');
-  var editRegModal = editRegModalEl && window.bootstrap ? new bootstrap.Modal(editRegModalEl) : null;
-  document.querySelectorAll('.btn-edit-register').forEach(function (btn) {
-    btn.addEventListener('click', function () {
+  if (editRegModalEl) {
+    editRegModalEl.addEventListener('show.bs.modal', function (event) {
+      var btn = event.relatedTarget;
+      if (!btn || !btn.classList.contains('btn-edit-register')) return;
       document.getElementById('edit_register_id').value = btn.getAttribute('data-id') || '';
       document.getElementById('edit_register_name').value = btn.getAttribute('data-name') || '';
       document.getElementById('edit_register_notes').value = btn.getAttribute('data-notes') || '';
       var msg = document.getElementById('edit-register-msg');
       if (msg) msg.textContent = '';
-      if (editRegModal) editRegModal.show();
     });
-  });
+  }
   var saveRegBtn = document.getElementById('edit-register-save');
   if (saveRegBtn) {
     saveRegBtn.addEventListener('click', async function () {
@@ -755,6 +758,7 @@
         var res = await fetch('/api/eposone/registers/by-id/' + id, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+          credentials: 'same-origin',
           body: JSON.stringify({ name: name, notes: notes || null })
         });
         var data = await res.json();
@@ -772,7 +776,8 @@
       try {
         var res = await fetch('/api/eposone/registers/by-id/' + id + '/deactivate', {
           method: 'POST',
-          headers: { 'X-CSRFToken': csrf() }
+          headers: { 'X-CSRFToken': csrf() },
+          credentials: 'same-origin'
         });
         var data = await res.json();
         if (!res.ok) throw new Error(data.error || res.statusText);

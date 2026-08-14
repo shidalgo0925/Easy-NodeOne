@@ -104,9 +104,11 @@
                                     <ul class="dropdown-menu dropdown-menu-end">
                                         <li>
                                             <button type="button" class="dropdown-item btn-edit-branch"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#editBranchModal"
                                                     data-id="{{ b.id }}"
-                                                    data-name="{{ b.name }}"
-                                                    data-notes="{{ b.notes or '' }}">
+                                                    data-name="{{ b.name|e }}"
+                                                    data-notes="{{ (b.notes or '')|e }}">
                                                 <i class="fas fa-edit me-2"></i>Editar
                                             </button>
                                         </li>
@@ -280,18 +282,19 @@
     });
   }
 
+  // Bootstrap se carga con defer: no instanciar Modal al parsear (editModal quedaba null).
   var editModalEl = document.getElementById('editBranchModal');
-  var editModal = editModalEl && window.bootstrap ? new bootstrap.Modal(editModalEl) : null;
-  document.querySelectorAll('.btn-edit-branch').forEach(function (btn) {
-    btn.addEventListener('click', function () {
+  if (editModalEl) {
+    editModalEl.addEventListener('show.bs.modal', function (event) {
+      var btn = event.relatedTarget;
+      if (!btn || !btn.classList.contains('btn-edit-branch')) return;
       document.getElementById('edit_branch_id').value = btn.getAttribute('data-id') || '';
       document.getElementById('edit_branch_name').value = btn.getAttribute('data-name') || '';
       document.getElementById('edit_branch_notes').value = btn.getAttribute('data-notes') || '';
       var msg = document.getElementById('edit-branch-msg');
       if (msg) msg.textContent = '';
-      if (editModal) editModal.show();
     });
-  });
+  }
   var saveBtn = document.getElementById('edit-branch-save');
   if (saveBtn) {
     saveBtn.addEventListener('click', async function () {
@@ -307,6 +310,7 @@
         var res = await fetch('/api/eposone/branches/by-id/' + id, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+          credentials: 'same-origin',
           body: JSON.stringify({ name: name, notes: notes || null })
         });
         var data = await res.json();
@@ -324,7 +328,8 @@
       try {
         var res = await fetch('/api/eposone/branches/by-id/' + id + '/deactivate', {
           method: 'POST',
-          headers: { 'X-CSRFToken': csrf() }
+          headers: { 'X-CSRFToken': csrf() },
+          credentials: 'same-origin'
         });
         var data = await res.json();
         if (!res.ok) throw new Error(data.error || res.statusText);

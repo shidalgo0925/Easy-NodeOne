@@ -19,6 +19,8 @@ IDENTITY_PRESETS: dict[str, dict[str, str]] = {
     'slate': {'primary_color': '#475569', 'primary_color_dark': '#334155', 'accent_color': '#94A3B8'},
     'esmeralda': {'primary_color': '#10B981', 'primary_color_dark': '#059669', 'accent_color': '#34D399'},
     'coral': {'primary_color': '#E11D48', 'primary_color_dark': '#BE123C', 'accent_color': '#FB7185'},
+    # Menú parrilla/asador: rojo plato + carbón + ámbar (títulos/precios).
+    'asador': {'primary_color': '#9B1C1C', 'primary_color_dark': '#1A1412', 'accent_color': '#F0B429'},
 }
 
 WIZARD_STEP_SLUGS: dict[str, int] = {
@@ -43,6 +45,7 @@ IDENTITY_PRESET_LABELS: dict[str, str] = {
     'slate': 'Slate',
     'esmeralda': 'Esmeralda',
     'coral': 'Coral',
+    'asador': 'Asador / Parrilla',
     'custom': 'Personalizado',
 }
 
@@ -60,6 +63,7 @@ WIZARD_IDENTITY_PRESET_ORDER: tuple[str, ...] = (
     'slate',
     'esmeralda',
     'coral',
+    'asador',
     'custom',
 )
 

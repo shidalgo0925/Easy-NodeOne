@@ -22,12 +22,24 @@ class TestCompanyWizardService(unittest.TestCase):
         self.assertEqual(wizard_max_step(mode='platform'), 5)
 
     def test_identity_preset_choices(self):
-        from nodeone.services.company_wizard import identity_preset_choices_for_wizard
+        from nodeone.services.company_wizard import (
+            IDENTITY_PRESETS,
+            identity_preset_choices_for_wizard,
+        )
 
         keys = [k for k, _ in identity_preset_choices_for_wizard()]
         self.assertIn('en1', keys)
         self.assertIn('custom', keys)
         self.assertIn('esmeralda', keys)
+        self.assertIn('asador', keys)
+        self.assertEqual(
+            IDENTITY_PRESETS['asador'],
+            {
+                'primary_color': '#9B1C1C',
+                'primary_color_dark': '#1A1412',
+                'accent_color': '#F0B429',
+            },
+        )
 
     def test_validate_hex_color(self):
         from nodeone.services.company_wizard import validate_hex_color

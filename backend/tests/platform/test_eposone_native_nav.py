@@ -105,7 +105,7 @@ class TestEposoneNavTree(unittest.TestCase):
             admin_labels,
             {
                 'Empresa',
-                'Branding',
+                'Identidad empresarial',
                 'Sucursales',
                 'Puntos de venta',
                 'Cajas',

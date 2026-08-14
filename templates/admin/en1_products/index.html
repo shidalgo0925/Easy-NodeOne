@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% from 'macros/admin_filters.html' import admin_filter_collapse %}
+{% block title %}Productos — Easy NodeOne{% endblock %}
+{% block page_content %}
+<div class="container-fluid px-2 px-md-3 py-2 erp-compact-page en1-inv-fullwidth">
+  <div class="erp-toolbar d-flex flex-wrap align-items-center gap-2 mb-2">
+    <h1 class="h5 mb-0"><i class="fas fa-box-open me-1 text-muted"></i>Productos</h1>
+    <span class="erp-footnote text-muted">{{ products|length }} producto{{ 's' if products|length != 1 else '' }} · org {{ organization_id }}</span>
+    <a class="btn btn-sm btn-primary ms-md-auto" href="{{ url_for('en1_products.products_new') }}"><i class="fas fa-plus me-1"></i>Nuevo</a>
+  </div>
+
+  <form method="get" class="mb-2" role="search">
+    <div class="input-group input-group-sm shadow-sm">
+      <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+      <input type="search" name="q" value="{{ q }}" class="form-control border-start-0"
+             placeholder="Buscar por nombre, SKU o código de barras…" autofocus
+             aria-label="Buscar productos">
+      {% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+      {% if product_type %}<input type="hidden" name="product_type" value="{{ product_type }}">{% endif %}
+      {% if tracks_inventory != '' %}<input type="hidden" name="tracks_inventory" value="{{ tracks_inventory }}">{% endif %}
+      <button class="btn btn-primary" type="submit">Buscar</button>
+      {% if q or status or product_type or tracks_inventory != '' %}
+      <a class="btn btn-outline-secondary" href="{{ url_for('en1_products.products_index') }}">Limpiar</a>
+      {% endif %}
+    </div>
+  </form>
+
+  {% call admin_filter_collapse('en1ProductsFilters', 'Filtros', expanded=filters_open, margin_class='mb-2') %}
+  <form method="get" class="row g-2 align-items-end">
+    <input type="hidden" name="q" value="{{ q }}">
+    <div class="col-6 col-md-3 col-xl-2">
+      <label class="form-label small mb-0">Estado</label>
+      <select name="status" class="form-select form-select-sm">
+        <option value="">Todos</option>
+        <option value="active" {% if status=='active' %}selected{% endif %}>Activo</option>
+        <option value="inactive" {% if status=='inactive' %}selected{% endif %}>Inactivo</option>
+      </select>
+    </div>
+    <div class="col-6 col-md-3 col-xl-2">
+      <label class="form-label small mb-0">Tipo</label>
+      <select name="product_type" class="form-select form-select-sm">
+        <option value="">Todos</option>
+        <option value="good" {% if product_type=='good' %}selected{% endif %}>Bienes</option>
+        <option value="service" {% if product_type=='service' %}selected{% endif %}>Servicio</option>
+      </select>
+    </div>
+    <div class="col-6 col-md-3 col-xl-2">
+      <label class="form-label small mb-0">Inventariable</label>
+      <select name="tracks_inventory" class="form-select form-select-sm">
+        <option value="">Todos</option>
+        <option value="1" {% if tracks_inventory=='1' %}selected{% endif %}>Sí</option>
+        <option value="0" {% if tracks_inventory=='0' %}selected{% endif %}>No</option>
+      </select>
+    </div>
+    <div class="col-6 col-md-3 col-xl-2">
+      <button class="btn btn-sm btn-outline-secondary" type="submit"><i class="fas fa-filter me-1"></i>Aplicar</button>
+    </div>
+  </form>
+  {% endcall %}
+
+  <div class="table-responsive border rounded bg-white shadow-sm en1-inv-table-wrap">
+    <table class="table table-sm table-hover align-middle mb-0 en1-inv-products-table">
+      <thead class="table-light">
+        <tr>
+          <th class="en1-inv-col-thumb"></th>
+          <th class="en1-inv-col-name">Nombre</th>
+          <th class="en1-inv-col-sku">SKU / Ref.</th>
+          <th class="en1-inv-col-type d-none d-md-table-cell">Tipo</th>
+          <th class="en1-inv-col-cat d-none d-xl-table-cell">Categoría</th>
+          <th class="en1-inv-col-price text-end">Precio</th>
+          <th class="en1-inv-col-status">Estado</th>
+          <th class="en1-inv-col-actions"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in products %}
+        <tr>
+          <td class="text-center">
+            {% if p.image_url %}
+            <img src="{{ p.image_url }}" alt="" width="40" height="40" class="rounded object-fit-cover border"
+                 style="object-fit:cover;width:40px;height:40px;">
+            {% else %}
+            <span class="d-inline-flex align-items-center justify-content-center rounded border bg-light text-muted"
+                  style="width:40px;height:40px;font-size:0.75rem"><i class="fas fa-image"></i></span>
+            {% endif %}
+          </td>
+          <td>
+            <a class="text-decoration-none fw-semibold text-body" href="{{ url_for('en1_products.products_edit', product_ref=p.product_ref) }}">{{ p.name }}</a>
+            {% if p.barcode %}<div class="small text-muted d-xl-none">{{ p.barcode }}</div>{% endif %}
+          </td>
+          <td><code class="small">{{ p.product_ref }}</code>{% if p.barcode %}<div class="small text-muted d-none d-xl-block">{{ p.barcode }}</div>{% endif %}</td>
+          <td class="small d-none d-md-table-cell">{{ type_label(p.product_type, p.tracks_inventory) }}</td>
+          <td class="small text-muted d-none d-xl-table-cell">{{ p.category or '—' }}</td>
+          <td class="text-end text-nowrap">{{ '%.2f'|format(p.unit_price or 0) }} {{ p.currency }}</td>
+          <td>
+            {% if p.status == 'active' %}
+            <span class="badge text-bg-success-subtle text-success border border-success-subtle">Activo</span>
+            {% else %}
+            <span class="badge text-bg-secondary-subtle text-secondary border">Inactivo</span>
+            {% endif %}
+          </td>
+          <td class="text-nowrap text-end">
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('en1_products.products_edit', product_ref=p.product_ref) }}">Editar</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-muted text-center py-4">Sin productos. Creá el primero o ajustá los filtros.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

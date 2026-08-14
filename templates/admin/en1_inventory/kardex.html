@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Kardex — Inventario{% endblock %}
+{% block page_content %}
+<div class="container-fluid px-2 px-md-3 py-2 erp-compact-page en1-inv-fullwidth">
+  <div class="erp-toolbar d-flex flex-wrap align-items-center gap-2 mb-2">
+    <h1 class="h5 mb-0">Kardex</h1>
+    {% if on_hand is not none %}<span class="badge bg-secondary">On hand {{ on_hand }}</span>{% endif %}
+  </div>
+  <form method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-auto">
+      <label class="form-label small mb-0">Almacén</label>
+      <select name="warehouse_id" class="form-select form-select-sm">
+        {% for w in warehouses %}
+        <option value="{{ w.id }}" {% if warehouse_id==w.id %}selected{% endif %}>{{ w.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto">
+      <label class="form-label small mb-0">SKU *</label>
+      <input name="product_ref" value="{{ product_ref }}" class="form-control form-control-sm" required>
+    </div>
+    <div class="col-auto"><button class="btn btn-sm btn-outline-secondary" type="submit">Ver</button></div>
+  </form>
+  <div class="table-responsive">
+    <table class="table table-sm table-bordered align-middle">
+      <thead class="table-light"><tr><th>Fecha</th><th>Kind</th><th>Motor</th><th>Entrada</th><th>Salida</th><th>Saldo</th><th>Notas</th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="small">{{ r.created_at or '—' }}</td>
+          <td>{{ r.kind or '—' }}</td>
+          <td>{{ r.movement_type }}</td>
+          <td>{% if r.entrada %}{{ r.entrada }}{% endif %}</td>
+          <td>{% if r.salida %}{{ r.salida }}{% endif %}</td>
+          <td><strong>{{ r.saldo }}</strong></td>
+          <td class="small text-muted">{{ r.notes or '' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-muted">{% if product_ref %}Sin movimientos.{% else %}Indicá un SKU.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

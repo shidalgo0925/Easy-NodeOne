@@ -115,3 +115,24 @@ class CoreContactLegacyLink(db.Model):
         db.UniqueConstraint('organization_id', 'contact_id', name='uq_core_contact_legacy_canonical'),
         db.UniqueConstraint('organization_id', 'legacy_contact_id', name='uq_core_contact_legacy_legacy'),
     )
+
+
+class CoreProductLegacyServiceLink(db.Model):
+    """Puente dual Service (catálogo Ventas/Tienda) ↔ core_product (Inventario)."""
+
+    __tablename__ = 'core_product_legacy_service_link'
+
+    id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(
+        db.Integer, db.ForeignKey('saas_organization.id', ondelete='CASCADE'), nullable=False, index=True
+    )
+    product_ref = db.Column(db.String(64), nullable=False)
+    legacy_service_id = db.Column(db.Integer, nullable=False)
+    link_source = db.Column(db.String(32), nullable=False, default='bridge')
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('organization_id', 'product_ref', name='uq_core_product_legacy_ref'),
+        db.UniqueConstraint('organization_id', 'legacy_service_id', name='uq_core_product_legacy_service'),
+    )

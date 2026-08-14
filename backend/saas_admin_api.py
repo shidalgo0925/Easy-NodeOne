@@ -66,55 +66,26 @@ def _get_or_create_org_module(organization_id, module_id):
 
 def saas_set_module_enabled(organization_id, module_code, enabled):
     """
-    Activa/desactiva módulo. Valida dependencias y core.
+    Activa/desactiva módulo. ADR-038 F1: delega a Module Registry (dual-write saas).
     Retorna (ok: bool, error: str|None)
     """
-    from app import db, SaasModule, SaasOrgModule, SaasModuleDependency, SaasOrganization
+    from nodeone.core.platform.module_registry import (
+        disable_module,
+        enable_module,
+        ensure_module_registry,
+        saas_code_to_module_key,
+    )
 
-    if SaasOrganization.query.get(organization_id) is None:
-        return False, 'Organización no encontrada'
+    # Garantiza tablas/seed en entornos que aún no corrieron bootstrap F1.
+    try:
+        ensure_module_registry(printfn=None, sync_orgs=False)
+    except Exception:
+        pass
 
-    mod = SaasModule.query.filter_by(code=module_code).first()
-    if mod is None:
-        return False, 'Código de módulo desconocido'
-
+    key = saas_code_to_module_key(module_code.strip().lower())
     if enabled:
-        deps = SaasModuleDependency.query.filter_by(module_id=mod.id).all()
-        for d in deps:
-            parent = SaasModule.query.get(d.depends_on_module_id)
-            if not parent:
-                continue
-            row = SaasOrgModule.query.filter_by(
-                organization_id=organization_id, module_id=d.depends_on_module_id
-            ).first()
-            if parent.is_core:
-                continue
-            if row is None or not row.enabled:
-                return False, f'Active primero el módulo requerido: {parent.code}'
-        row = _get_or_create_org_module(organization_id, mod.id)
-        row.enabled = True
-        db.session.commit()
-        clear_saas_request_cache()
-        return True, None
-
-    # disable
-    if mod.is_core:
-        return False, 'Los módulos core no se pueden desactivar'
-
-    dependents = SaasModuleDependency.query.filter_by(depends_on_module_id=mod.id).all()
-    for d in dependents:
-        child = SaasModule.query.get(d.module_id)
-        if not child:
-            continue
-        row = SaasOrgModule.query.filter_by(organization_id=organization_id, module_id=d.module_id).first()
-        if row and row.enabled:
-            return False, f'Desactive primero el módulo dependiente: {child.code}'
-
-    row = _get_or_create_org_module(organization_id, mod.id)
-    row.enabled = False
-    db.session.commit()
-    clear_saas_request_cache()
-    return True, None
+        return enable_module(int(organization_id), key)
+    return disable_module(int(organization_id), key)
 
 
 @saas_admin_bp.route('/modules', methods=['GET'])
@@ -143,7 +114,25 @@ def list_saas_modules():
     except Exception:
         pass
 
+    # ADR-038 F1: capa registry encima (sin romper payload legacy).
+    try:
+        from nodeone.core.platform.module_registry import (
+            ensure_module_registry,
+            sync_organization_modules_from_saas,
+        )
+
+        ensure_module_registry(printfn=None, sync_orgs=False)
+        sync_organization_modules_from_saas(org_id)
+    except Exception:
+        pass
+
     mods = SaasModule.query.order_by(SaasModule.id).all()
+    try:
+        from nodeone.services.saas_catalog_defaults import saas_catalog_sort_key
+
+        mods = sorted(mods, key=lambda m: saas_catalog_sort_key(getattr(m, 'code', None)))
+    except Exception:
+        pass
     out = []
     for m in mods:
         row = SaasOrgModule.query.filter_by(organization_id=org_id, module_id=m.id).first()
@@ -158,6 +147,7 @@ def list_saas_modules():
         out.append(
             {
                 'code': m.code,
+                'module_key': m.code,  # F1: identidad saas_code ↔ module_key
                 'name': m.name,
                 'description': m.description or '',
                 'is_core': m.is_core,

@@ -7,6 +7,7 @@ from .events import *  # noqa: F403
 from .communications import *  # noqa: F403
 from .organization_invite import *  # noqa: F403
 from .saas import *  # noqa: F403
+from .module_registry import *  # noqa: F403 — ADR-038 F1 Module Registry
 from .email_notifications import *  # noqa: F403
 from .policies import *  # noqa: F403
 from .certificates import *  # noqa: F403

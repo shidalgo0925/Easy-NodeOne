@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import sys
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -246,6 +247,81 @@ class TestInstallationBlock(unittest.TestCase):
         self.assertIn('bootstrap', row.installation_checklist_json)
         audit.assert_called()
         self.assertEqual(audit.call_args[0][1], 'eposone.installation.ready')
+
+    def test_bootstrap_skips_products_when_catalog_version_matches(self):
+        from nodeone.modules.eposone.device_provisioning import DeviceProvisioningService
+
+        row = MagicMock()
+        row.organization_id = 9
+        row.branch_ref = 'br-1'
+        row.pos_ref = 'pos-1'
+        row.register_ref = 'reg-1'
+        row.installation_ready_at = None
+
+        product = MagicMock()
+        product.product_ref = 'SKU-1'
+        product.name = 'Test'
+        product.description = None
+        product.product_type = 'good'
+        product.status = 'active'
+        product.category = None
+        product.fiscal_category = None
+        product.barcode = None
+        product.unit_price = 1.0
+        product.currency = 'USD'
+        product.cost_price = None
+        product.tracks_inventory = True
+        product.uom = 'und'
+        product.purchase_uom = None
+        product.pack_factor = 1
+        product.min_stock = None
+        product.max_stock = None
+        product.image_url = None
+        product.updated_at = datetime(2026, 8, 13, 12, 0, 0)
+
+        with patch('app.db') as mock_db, patch(
+            'nodeone.modules.eposone.device_provisioning.DeviceProvisioningService.build_config'
+        ) as mock_build_config, patch(
+            'models.core_master.CoreProduct'
+        ) as mock_cp, patch(
+            'nodeone.core.commerce.stock.StockService'
+        ) as stock_svc, patch(
+            'nodeone.core.services.product.ProductService'
+        ) as prod_svc:
+            mock_build_config.return_value = {
+                'config_version': 1,
+                'organization': {'id': 9},
+                'branch': {'ref': 'br-1'},
+                'pos': {'ref': 'pos-1'},
+                'register': {'ref': 'reg-1'},
+                'currency': 'USD',
+                'timezone': 'UTC',
+                'business_name': 'T',
+                'commercial': {},
+            }
+            prod_svc.search.return_value = [product]
+            mock_cp.query.filter_by.return_value.order_by.return_value.first.return_value = product
+            stock_svc.resolve_warehouse_id.return_value = None
+            stock_svc.list_balances.return_value = []
+
+            known = int(product.updated_at.timestamp())
+            full = DeviceProvisioningService.build_bootstrap_for_terminal(
+                row, include=frozenset({'products'})
+            )
+            self.assertTrue(full['products_changed'])
+            self.assertIn('products', full)
+            self.assertEqual(full['catalog_version'], known)
+
+            skip = DeviceProvisioningService.build_bootstrap_for_terminal(
+                row,
+                include=frozenset({'products'}),
+                known_catalog_version=known,
+            )
+            self.assertFalse(skip['products_changed'])
+            self.assertNotIn('products', skip)
+            self.assertEqual(skip['products_count'], 0)
+            self.assertEqual(skip['catalog_version'], known)
+            mock_db.session.commit.assert_called()
 
     def test_ack_rejects_bad_checklist(self):
         from nodeone.modules.eposone.device_provisioning import (

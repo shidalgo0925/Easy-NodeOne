@@ -24,6 +24,7 @@ NAV_AREA_TO_PLATFORM_APP: dict[str, str] = {
     'taller': 'eworkshop',
     'contador': 'econtador',
     'contactos': 'contacts',
+    'productos': 'products',
     'tienda': 'tienda',
     'finanzas': 'finanzas',
     'facturacion': 'finanzas',

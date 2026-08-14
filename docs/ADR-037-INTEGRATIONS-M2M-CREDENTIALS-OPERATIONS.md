@@ -8,7 +8,7 @@
 | Estado | **ACCEPTED (CODITO)** — 13 ago 2026 · **pendiente ACCEPT formal SPAGHETTI** · PUBLISHED ON `develop` para pull ESB |
 | Ámbito | EN1 (SoR de credenciales M2M) · productos consumidores (ESecureBroker y futuros) · operación DEV/STG/PROD |
 | Autores | CODITO (EN1 / SoR) · SPAGHETTI (ESB / consumidor) |
-| Relacionados | [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-016](ADR-016-COMMERCIAL-LICENSING-V2-ENTITLEMENT.md) · [ADR-022](ADR-022-EN1-MULTIPRODUCT-COMMERCIAL-MODEL.md) · [ADR-026](ADR-026-EASY-INTEGRATION-SPECIFICATION-V1.md) · [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) · commercial bridge ESB (`/api/v1/commercial/*`) |
+| Relacionados | [ADR-014](ADR-014-SUBSCRIPTION-REGISTRY.md) · [ADR-016](ADR-016-COMMERCIAL-LICENSING-V2-ENTITLEMENT.md) · [ADR-022](ADR-022-EN1-MULTIPRODUCT-COMMERCIAL-MODEL.md) · [ADR-026](ADR-026-EASY-INTEGRATION-SPECIFICATION-V1.md) · [ADR-031](ADR-031-EN1-COMMERCIAL-DOMAIN-ARCHITECTURE.md) · commercial bridge ESB (`/api/v1/commercial/*`) · inventario: [EN1_ADR037_M2M_INVENTORY.md](EN1_ADR037_M2M_INVENTORY.md) |
 | Numeración | **No** usar ADR-009: ya es [Caja EN1](ADR-009-EN1-CAJA-CENTRO-COBRO.md). En chats ESB se mencionó «ADR-009 Integration»; el ID canónico es **ADR-037**. En ESB, **ADR-009 = incentivos cia** (producto); M2M = **037**. |
 | Implementación | **Prohibida** hasta ACCEPT conjunto (CODITO + SPAGHETTI) **y** GO de implementación explícito. Leer/aceptar el ADR **no** autoriza F1–F3 ni PROD. |
 
@@ -451,3 +451,4 @@ Borrador ESB misnumerado (`adr/ADR-009_m2m_credentials_operations.md`): tras ACC
 | 2026-08-12 | Propuesto tras E2E ESB↔EN1 DEV (C1 + handoff M2M). ID **037** (ADR-009 ya = Caja). |
 | 2026-08-12 | Enmienda review ESB: view-once, UI segura, `retiring`, fail-closed `/hoy`+mobile, gate PROD F1–F3 + checklist 1–16, URLs de obtención. |
 | 2026-08-13 | CODITO ACCEPT (diseño). Instrucciones pull ESB §16.1. Implementación sigue OFF hasta ACCEPT SPAGHETTI + GO. Numeración ESB ADR-009 incentivos ≠ 037. |
+| 2026-08-13 | Inventario M2M (discovery): [EN1_ADR037_M2M_INVENTORY.md](EN1_ADR037_M2M_INVENTORY.md). Sin F1 code. |

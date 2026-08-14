@@ -561,7 +561,7 @@ aside.left-panel.sidebar-erp li.sidebar-menu-divider hr {
 
 .erp-app-subnav__inner {
     display: flex;
-    align-items: stretch;
+    align-items: center;
     gap: 0.75rem;
     flex-wrap: nowrap;
     overflow: visible;
@@ -580,96 +580,87 @@ aside.left-panel.sidebar-erp li.sidebar-menu-divider hr {
     align-items: center;
 }
 
-.erp-module-header__title {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    flex-shrink: 0;
-    padding: 0.35rem 0.5rem 0.35rem 0;
-    border-right: 1px solid #e2e8f0;
-    margin-right: 0.25rem;
-    max-width: min(220px, 28vw);
-}
-
-.erp-app-subnav__module {
-    flex-shrink: 0;
-    font-size: 0.72rem;
-    font-weight: 800;
-    color: #0f172a;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    line-height: 1.2;
-}
-
-.erp-module-header__sep {
-    color: #94a3b8;
-    font-size: 0.75rem;
-    font-weight: 400;
-}
-
+/* Título/crumb Odoo eliminado del markup; reglas legacy anuladas por si quedan referencias */
+.erp-module-header__title,
+.erp-app-subnav__module,
+.erp-module-header__sep,
 .erp-module-header__crumb {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #475569;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: none !important;
 }
 
 .erp-app-subnav__list {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 0.2rem;
+    gap: 0.5rem;
     list-style: none;
     margin: 0;
-    padding: 0.25rem 0;
+    padding: 0.35rem 0;
     flex: 1;
     min-width: 0;
 }
 
+/* OCC y otros chips embebidos en página (no fixed) */
+ul.occ-subnav-chips.erp-app-subnav__list {
+    flex: none;
+    flex-wrap: wrap;
+    padding: 0;
+}
+
+/* Chips estilo Pedidos EPosOne — activo = primary acción */
 .erp-app-subnav__link {
-    display: block;
-    padding: 0.45rem 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.85rem;
     border-radius: 8px;
     font-size: 0.8125rem;
-    font-weight: 500;
-    color: #334155;
+    font-weight: 550;
+    line-height: 1.25;
+    color: var(--en1-ink-secondary, #6c757d);
     text-decoration: none;
     white-space: nowrap;
-    border: 1px solid transparent;
+    background: var(--en1-surface, #ffffff);
+    border: 1px solid var(--en1-border, #e2e8f0);
+    box-shadow: none;
+    transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 
 .erp-app-subnav__link:hover {
-    background: #f1f5f9;
-    color: #0f172a;
+    background: var(--en1-hover, #eef3f8);
+    border-color: var(--en1-border-strong, #cbd5e1);
+    color: var(--en1-ink, #2c3e50);
 }
 
 .erp-app-subnav__link.is-active {
-    color: #0369a1;
-    font-weight: 700;
-    background: #e0f2fe;
-    border-color: #bae6fd;
-    box-shadow: inset 0 -3px 0 0 #0ea5e9;
+    color: var(--en1-on-action, #ffffff) !important;
+    font-weight: 600;
+    background: var(--en1-action, #ff7a59) !important;
+    border-color: var(--en1-action, #ff7a59) !important;
+    box-shadow: none !important;
 }
 
-/* Ítems con submenú: estilo menú (▾), no pestaña azul como Monitor/Cotizaciones */
+.erp-app-subnav__link.is-active:hover {
+    background: var(--en1-action-hover, #e6694a) !important;
+    border-color: var(--en1-action-hover, #e6694a) !important;
+    color: var(--en1-on-action, #ffffff) !important;
+}
+
 .erp-app-subnav__link--menu {
-    border: 1px solid #e2e8f0;
-    background: #fff;
-    font-weight: 500;
+    border: 1px solid var(--en1-border, #e2e8f0);
+    background: var(--en1-surface, #ffffff);
+    font-weight: 550;
 }
 
 .erp-app-subnav__link--menu:hover {
-    background: #f8fafc;
-    border-color: #cbd5e1;
+    background: var(--en1-hover, #eef3f8);
+    border-color: var(--en1-border-strong, #cbd5e1);
 }
 
 .erp-app-subnav__link--menu.is-menu-active {
-    color: #0369a1;
+    color: var(--en1-action, #ff7a59);
     font-weight: 600;
-    border-color: #7dd3fc;
-    background: #f0f9ff;
+    border-color: var(--en1-action, #ff7a59);
+    background: var(--en1-surface, #ffffff);
     box-shadow: none;
 }
 
@@ -742,20 +733,20 @@ button.erp-app-subnav__link--menu.dropdown-toggle {
 #erpAppSubnav .erp-app-subnav__dropdown-item.active:focus,
 .erp-app-subnav__dropdown-menu .dropdown-item.active,
 .erp-app-subnav__dropdown-menu .dropdown-item.active:hover {
-    background-color: #e0f2fe !important;
-    color: #0369a1 !important;
+    background-color: color-mix(in srgb, var(--en1-action, #ff7a59) 14%, #ffffff) !important;
+    color: var(--en1-action, #ff7a59) !important;
     font-weight: 600;
 }
 
 #erpAppSubnav .erp-app-subnav__dropdown-item.active i,
 .erp-app-subnav__dropdown-menu .dropdown-item.active i {
-    color: #0284c7 !important;
+    color: var(--en1-action, #ff7a59) !important;
 }
 
 #erpAppSubnav .erp-app-subnav__dropdown-item:active,
 .erp-app-subnav__dropdown-menu .dropdown-item:active {
-    background-color: #e0f2fe !important;
-    color: #0369a1 !important;
+    background-color: color-mix(in srgb, var(--en1-action, #ff7a59) 14%, #ffffff) !important;
+    color: var(--en1-action, #ff7a59) !important;
 }
 
 html[data-theme="dark"] .erp-app-subnav.erp-module-header,
@@ -772,19 +763,23 @@ html[data-theme="auto"] .erp-app-subnav__module {
 html[data-theme="dark"] .erp-app-subnav__link,
 html[data-theme="auto"] .erp-app-subnav__link {
     color: #e2e8f0;
+    background: transparent;
+    border-color: #334155;
 }
 
 html[data-theme="dark"] .erp-app-subnav__link:hover,
 html[data-theme="auto"] .erp-app-subnav__link:hover {
     background: rgba(255, 255, 255, 0.08);
+    border-color: #475569;
     color: #f8fafc;
 }
 
 html[data-theme="dark"] .erp-app-subnav__link.is-active,
 html[data-theme="auto"] .erp-app-subnav__link.is-active {
-    background: rgba(56, 189, 248, 0.2);
-    box-shadow: inset 0 -2px 0 0 #38bdf8;
-    color: #f8fafc;
+    background: var(--en1-action, #ff7a59);
+    border-color: var(--en1-action, #ff7a59);
+    box-shadow: none;
+    color: var(--en1-on-action, #ffffff);
 }
 
 html[data-theme="dark"] #erpAppSubnav .erp-app-subnav__dropdown-menu,
@@ -1006,3 +1001,72 @@ aside.left-panel.sidebar-erp .sidebar-app-temp-badge {
     color: var(--color-primary, #2563eb);
     border: 1px solid color-mix(in srgb, var(--color-primary, #2563eb) 35%, transparent);
 }
+
+/* Inventario / Productos — usar todo el ancho del panel de contenido */
+.en1-inv-fullwidth {
+    width: 100%;
+    max-width: none !important;
+}
+body:has(#erpAppSubnav) #right-panel .content:has(.en1-inv-fullwidth) {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+.en1-inv-products-table {
+    width: 100%;
+    table-layout: fixed;
+}
+.en1-inv-products-table .en1-inv-col-thumb { width: 3.25rem; }
+.en1-inv-products-table .en1-inv-col-name { width: 34%; }
+.en1-inv-products-table .en1-inv-col-sku { width: 16%; }
+.en1-inv-products-table .en1-inv-col-type { width: 12%; }
+.en1-inv-products-table .en1-inv-col-cat { width: 14%; }
+.en1-inv-products-table .en1-inv-col-price { width: 10%; }
+.en1-inv-products-table .en1-inv-col-status { width: 7rem; }
+.en1-inv-products-table .en1-inv-col-actions { width: 5.5rem; }
+.en1-inv-products-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.en1-inv-products-table td:nth-child(2) {
+    white-space: normal;
+}
+@media (max-width: 1199.98px) {
+    .en1-inv-products-table .en1-inv-col-name { width: 42%; }
+    .en1-inv-products-table .en1-inv-col-sku { width: 20%; }
+}
+
+/* Configuración (engranaje) — dropdown agrupado más ancho y con scroll */
+.settings-gear-menu {
+    min-width: 17.5rem;
+    max-height: min(70vh, 28rem);
+    overflow-y: auto;
+}
+.settings-gear-menu .dropdown-header {
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding-top: 0.5rem;
+    padding-bottom: 0.25rem;
+}
+.settings-gear-menu .dropdown-item {
+    font-size: 0.875rem;
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+}
+.settings-gear-menu .dropdown-item i {
+    width: 1.1rem;
+    text-align: center;
+    opacity: 0.85;
+}
+
+/* Configuración de empresa — usar todo el ancho del panel */
+.en1-company-setup-fullwidth {
+    width: 100%;
+    max-width: none;
+}
+#right-panel .content:has(.en1-company-setup-fullwidth) {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+

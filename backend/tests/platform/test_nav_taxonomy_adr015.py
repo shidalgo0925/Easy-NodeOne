@@ -52,8 +52,9 @@ class NavTaxonomyTests(unittest.TestCase):
         self.assertIn('cobros', ids)
         self.assertIn('Marketing', labels)
         self.assertIn('tienda', ids)
-        # Cosmético: sin Inventario/Taller/Eventos en el menú v2
-        self.assertNotIn('Inventario', labels)
+        # Contador = «Conteo físico»; Inventario EN1 (ADR-039 + unificación A+B+C) sí va en v2.
+        self.assertIn('Inventario', labels)
+        self.assertIn('inventario', ids)
         self.assertNotIn('Taller', labels)
         self.assertNotIn('Eventos', labels)
         flat_ids = [a['id'] for a in top]
@@ -65,6 +66,7 @@ class NavTaxonomyTests(unittest.TestCase):
             [
                 'tienda',
                 'contactos',
+                'inventario',
                 'marketing_email',
                 'crm',
                 'ventas',

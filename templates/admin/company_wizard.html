@@ -3,9 +3,9 @@
 {% block title %}{% if wizard_mode == 'create' %}Nueva empresa{% elif wizard_mode == 'tenant' %}Mi empresa{% else %}Editar empresa{% endif %} - EasyNodeOne{% endblock %}
 
 {% block page_content %}
-<div class="container-fluid py-3 px-3">
-    <div class="{% if show_onboarding_rail %}d-flex flex-column flex-lg-row gap-4 align-items-start justify-content-lg-center org-onboarding-layout{% else %}row g-4 justify-content-center{% endif %}"{% if show_onboarding_rail %} id="orgOnboardingLayout"{% endif %}>
-        <div class="{% if show_onboarding_rail %}w-100 org-onboarding-main{% else %}col-12 col-xl-10{% endif %}">
+<div class="container-fluid py-3 px-3 en1-company-setup-fullwidth">
+    <div class="{% if show_onboarding_rail %}d-flex flex-column flex-lg-row gap-4 align-items-start org-onboarding-layout{% else %}row g-4{% endif %}"{% if show_onboarding_rail %} id="orgOnboardingLayout"{% endif %}>
+        <div class="{% if show_onboarding_rail %}w-100 org-onboarding-main{% else %}col-12{% endif %}">
             <div class="mb-3">
                 <h1 class="h4 mb-1">
                     {% if wizard_mode == 'create' %}Nueva empresa{% elif wizard_mode == 'tenant' %}Configuración de empresa{% else %}Editar empresa{% endif %}
@@ -21,7 +21,7 @@
                     <button type="button" class="nav-link wizard-step-tab" data-step="2">2. Fiscal</button>
                 </li>
                 <li class="nav-item">
-                    <button type="button" class="nav-link wizard-step-tab" data-step="3">3. Branding</button>
+                    <button type="button" class="nav-link wizard-step-tab" data-step="3">3. Identidad empresarial</button>
                 </li>
                 {% if wizard_mode != 'tenant' %}
                 <li class="nav-item">
@@ -141,7 +141,7 @@
                     </div>
                 </div>
 
-                {# —— Paso 3: Branding —— #}
+                {# —— Paso 3: Identidad empresarial —— #}
                 <div class="wizard-panel d-none" data-step-panel="3">
                     <p class="text-muted small mb-3">Colores de marca para esta empresa. Afecta botones, enlaces y barra lateral.</p>
                     <div class="d-flex flex-wrap gap-2 mb-3" id="identityPresetButtons">

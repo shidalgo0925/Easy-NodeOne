@@ -169,12 +169,13 @@ def apply_eposone_sync_operation(dto: SyncOperationDTO) -> None:
         )
         return
     if op == 'stock_adjust':
-        from nodeone.core.commerce.stock import StockService
+        from nodeone.core.platform.connected_inventory import record_connected_adjust
 
-        StockService.record_manual_adjust(
+        record_connected_adjust(
             int(dto.organization_id),
             payload,
             source_app_id='eposone',
+            source_system='EP1',
         )
         return
     if op == 'create_contact':

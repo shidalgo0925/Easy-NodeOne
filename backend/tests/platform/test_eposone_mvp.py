@@ -375,7 +375,7 @@ class TestEPosOneSyncHandler(unittest.TestCase):
         apply_eposone_sync_operation(dto)
         mock_promote.assert_called_once_with(1, 3, link_source='eposone_sync')
 
-    @patch('nodeone.core.commerce.stock.StockService.record_manual_adjust')
+    @patch('nodeone.core.platform.connected_inventory.record_connected_adjust')
     def test_stock_adjust_operation(self, mock_adjust):
         from nodeone.core.sync.queue import SyncOperationDTO
         from nodeone.modules.eposone.sync_handlers import apply_eposone_sync_operation

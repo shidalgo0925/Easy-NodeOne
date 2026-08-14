@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Mínimos — Inventario{% endblock %}
+{% block page_content %}
+<div class="container-fluid px-2 px-md-3 py-2 erp-compact-page en1-inv-fullwidth">
+  <div class="erp-toolbar d-flex flex-wrap align-items-center gap-2 mb-2">
+    <h1 class="h5 mb-0">Alertas de mínimo</h1>
+    <span class="erp-footnote text-muted">on_hand &lt; min_stock (producto)</span>
+  </div>
+  <form method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-auto">
+      <label class="form-label small mb-0">Almacén</label>
+      <select name="warehouse_id" class="form-select form-select-sm">
+        {% for w in warehouses %}
+        <option value="{{ w.id }}" {% if warehouse_id==w.id %}selected{% endif %}>{{ w.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto"><button class="btn btn-sm btn-outline-secondary" type="submit">Filtrar</button></div>
+  </form>
+  <div class="table-responsive">
+    <table class="table table-sm table-bordered align-middle">
+      <thead class="table-light"><tr><th>SKU</th><th>Nombre</th><th>On hand</th><th>Mínimo</th><th>Déficit</th></tr></thead>
+      <tbody>
+        {% for a in alerts %}
+        <tr>
+          <td><code>{{ a.product_ref }}</code></td>
+          <td>{{ a.name }}</td>
+          <td>{{ a.quantity_on_hand }}</td>
+          <td>{{ a.min_stock }}</td>
+          <td class="text-danger">{{ a.deficit }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-muted">Sin alertas (definí min_stock en Productos).</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

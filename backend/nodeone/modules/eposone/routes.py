@@ -2515,7 +2515,7 @@ def eposone_stock_adjust():
     if denied is not None:
         return denied
     from nodeone.core.commerce.order import OrderValidationError
-    from nodeone.core.commerce.stock import StockService, StockValidationError
+    from nodeone.core.commerce.stock import StockValidationError
     from nodeone.core.platform.runtime import resolve_organization_id
 
     oid = resolve_organization_id()
@@ -2531,7 +2531,9 @@ def eposone_stock_adjust():
     }
     tab = (request.form.get('redirect_tab') or 'ajustes').strip() or 'ajustes'
     try:
-        StockService.record_manual_adjust(int(oid), payload, source_app_id='eposone')
+        from nodeone.core.platform.connected_inventory import record_connected_adjust
+
+        record_connected_adjust(int(oid), payload, source_app_id='eposone', source_system='EP1')
     except (StockValidationError, OrderValidationError) as exc:
         flash(str(exc).replace('_', ' '), 'danger')
         return redirect(url_for('eposone.eposone_section', slug='inventory', tab=tab))

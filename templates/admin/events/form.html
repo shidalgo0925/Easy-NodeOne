@@ -39,10 +39,10 @@
                 <div class="event-admin-subnav-row event-admin-subnav-row--links pt-2 mt-1">
                     <span class="event-admin-subnav-label text-secondary" title="Otras pantallas">Enlaces</span>
                     <div class="event-admin-subnav-buttons d-flex flex-wrap align-items-center gap-1">
-                        <a class="btn btn-sm btn-outline-primary py-1 px-2 text-nowrap d-inline-flex align-items-center gap-1" href="{{ url_for('admin_events.event_registrations', event_id=event.id) }}"><i class="fas fa-clipboard-list" aria-hidden="true"></i><span>Inscripciones</span></a>
-                        <a class="btn btn-sm btn-outline-primary py-1 px-2 text-nowrap d-inline-flex align-items-center gap-1" href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}"><i class="fas fa-users" aria-hidden="true"></i><span>Participantes</span></a>
-                        <a class="btn btn-sm btn-outline-primary py-1 px-2 text-nowrap d-inline-flex align-items-center gap-1" href="{{ url_for('admin_events.admin_event_participants_import', event_id=event.id) }}"><i class="fas fa-file-upload" aria-hidden="true"></i><span>Import</span></a>
-                        <a class="btn btn-sm btn-outline-warning py-1 px-2 text-nowrap d-inline-flex align-items-center gap-1" href="{{ url_for('admin_events.admin_event_certificates', event_id=event.id) }}"><i class="fas fa-certificate" aria-hidden="true"></i><span>Certificados</span></a>
+                        <a class="btn btn-sm btn-outline-secondary py-1 px-2 text-nowrap d-inline-flex align-items-center gap-1" href="{{ url_for('admin_events.event_registrations', event_id=event.id) }}"><i class="fas fa-clipboard-list" aria-hidden="true"></i><span>Inscripciones</span></a>
+                        <a class="btn btn-sm btn-outline-secondary py-1 px-2 text-nowrap d-inline-flex align-items-center gap-1" href="{{ url_for('admin_events.admin_event_participants', event_id=event.id) }}"><i class="fas fa-users" aria-hidden="true"></i><span>Participantes</span></a>
+                        <a class="btn btn-sm btn-outline-secondary py-1 px-2 text-nowrap d-inline-flex align-items-center gap-1" href="{{ url_for('admin_events.admin_event_participants_import', event_id=event.id) }}"><i class="fas fa-file-upload" aria-hidden="true"></i><span>Import</span></a>
+                        <a class="btn btn-sm btn-outline-secondary py-1 px-2 text-nowrap d-inline-flex align-items-center gap-1" href="{{ url_for('admin_events.admin_event_certificates', event_id=event.id) }}"><i class="fas fa-certificate" aria-hidden="true"></i><span>Certificados</span></a>
                         <a class="btn btn-sm btn-outline-secondary py-1 px-2 text-nowrap d-inline-flex align-items-center gap-1" href="{{ url_for('admin_events.discounts_index') }}"><i class="fas fa-percent" aria-hidden="true"></i><span>Descuentos</span></a>
                     </div>
                 </div>

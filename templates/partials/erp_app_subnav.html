@@ -1,14 +1,8 @@
-{# Barra horizontal de módulo (Odoo-style). Fuente única: nav_menu.py → nav_area_children #}
+{# Barra horizontal de módulo — chips estilo Pedidos EPosOne (reemplaza breadcrumb Odoo).
+   Fuente: nav_menu.py → nav_area_children #}
 {% if nav_show_module_bar and nav_area_children %}
 <nav id="erpAppSubnav" class="erp-app-subnav erp-module-header" data-erp-zone="{{ nav_active_area_id or '' }}" aria-label="Navegación del módulo {{ nav_active_area_label or '' }}">
     <div class="erp-app-subnav__inner container-fluid">
-        <div class="erp-module-header__title" aria-hidden="false">
-            <span class="erp-app-subnav__module">{{ nav_active_area_label or nav_active_area_id }}</span>
-            {% if nav_active_child_label %}
-            <span class="erp-module-header__sep" aria-hidden="true">›</span>
-            <span class="erp-module-header__crumb">{{ nav_active_child_label }}</span>
-            {% endif %}
-        </div>
         <div class="erp-app-subnav__list-wrap">
         <ul class="erp-app-subnav__list" role="menubar">
             {% for child in nav_area_children %}

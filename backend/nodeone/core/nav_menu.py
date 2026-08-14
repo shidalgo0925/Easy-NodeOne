@@ -159,7 +159,6 @@ _PLATFORM_EPS = (
     'admin_messaging',
     'admin_messaging_detail',
     'admin_backup.admin_backup',
-    'admin_product_discount_codes.index',
 )
 
 _ACCOUNTING_EPS = (
@@ -217,6 +216,25 @@ def _v_contacts(ctx: NavContext) -> bool:
     return ctx.saas_module_enabled('contacts') and ctx.has_view_endpoint('contacts_admin.contacts_index')
 
 
+def _v_en1_products(ctx: NavContext) -> bool:
+    """ADR-039 — chip Productos bajo Inventario (módulo products)."""
+    return ctx.saas_module_enabled('products') and ctx.has_view_endpoint('en1_products.products_index')
+
+
+def _v_en1_inventory(ctx: NavContext) -> bool:
+    """ADR-039 — chips de stock (inventory + products)."""
+    return (
+        ctx.saas_module_enabled('inventory')
+        and ctx.saas_module_enabled('products')
+        and ctx.has_view_endpoint('en1_inventory.inventory_balances')
+    )
+
+
+def _v_en1_inventario_area(ctx: NavContext) -> bool:
+    """Área única Inventario = catálogo (products) y/o stock (inventory)."""
+    return _v_en1_products(ctx) or _v_en1_inventory(ctx)
+
+
 def _v_crm(ctx: NavContext) -> bool:
     return (ctx.saas_module_enabled('crm_contacts') or ctx.saas_module_enabled('crm')) and ctx.nav_can('users.view')
 
@@ -260,8 +278,8 @@ def _v_eposone_compose_contacts(ctx: NavContext) -> bool:
 def _v_eposone_compose_products(ctx: NavContext) -> bool:
     return (
         _v_eposone(ctx)
-        and ctx.saas_module_enabled('sales')
-        and ctx.has_view_endpoint('admin_services_catalog.admin_services')
+        and ctx.saas_module_enabled('products')
+        and ctx.has_view_endpoint('en1_products.products_index')
     )
 
 
@@ -313,11 +331,13 @@ def _v_tienda(ctx: NavContext) -> bool:
 
 
 def _v_catalog_productos(ctx: NavContext) -> bool:
-    return _v_ventas(ctx) and ctx.has_view_endpoint('admin_services_catalog.admin_services')
+    # Unificación A+B+C: catálogo comercial → Inventario → Productos (no duplicar bajo Ventas).
+    return False
 
 
 def _v_catalog_servicios(ctx: NavContext) -> bool:
-    return _v_ventas(ctx) and ctx.has_view_endpoint('admin_services_catalog.admin_service_categories')
+    # Categorías legado quedan fuera del menú; API/deep-link siguen vivos.
+    return False
 
 
 def _v_catalog_membresias(ctx: NavContext) -> bool:
@@ -1036,7 +1056,7 @@ _CERTIFICADOS_ZONE_ENDPOINTS: tuple[str, ...] = (
 # Top-level en sidebar ERP (modo classic).
 # TEMPORAL — atajo classic hasta cutover launcher (UX-T2 / Sprint UX transición apps).
 # «eposone» NO es un módulo ERP permanente: es acceso temporal a la app-producto EPosOne.
-# Entrada oficial: Login → Plataforma → Mis aplicaciones → EPosOne.
+# Admin SA: entrada Plataforma (final del menú). Launcher /apps sigue por login/dashboard.
 # No ampliar este atajo a otras apps; no tratarlo como diseño definitivo.
 #
 # ADR-015: taxonomía v2 aplana dominios (sin Comercial/Operaciones/Finanzas).
@@ -1048,10 +1068,11 @@ _SIDEBAR_TOP_LEVEL_AREA_IDS: tuple[str, ...] = (
 )
 
 # Orden plano ADR-015 v2 (cosmético Dev): Mis apps + Dashboard viven en base.html;
-# debajo solo estos dominios, en este orden. Inventario/Taller/Eventos fuera del menú v2.
+# debajo solo estos dominios, en este orden. Taller/Eventos fuera del menú v2.
 _SIDEBAR_V2_FLAT_AREA_IDS: tuple[str, ...] = (
     'tienda',
     'contactos',
+    'inventario',
     'marketing_email',
     'crm',
     'ventas',
@@ -1064,7 +1085,6 @@ _SIDEBAR_V2_FLAT_AREA_IDS: tuple[str, ...] = (
     'certificados',
     'analitica',
     'epayroll',
-    'api_center',
     'plataforma',
 )
 
@@ -1210,21 +1230,6 @@ APP_AREAS: tuple[NavArea, ...] = (
                 visible=_v_catalog_hub,
             ),
             NavAreaItem(
-                'promos_ets',
-                'Promos ETS',
-                'fas fa-ticket-alt',
-                'admin_product_discount_codes.index',
-                visible=lambda c: c.is_platform_admin,
-                active_endpoints=(
-                    'admin_product_discount_codes.index',
-                    'admin_product_discount_codes.create',
-                    'admin_product_discount_codes.get_one',
-                    'admin_product_discount_codes.update',
-                    'admin_product_discount_codes.delete',
-                ),
-                active_path_prefixes=('/admin/commercial/product-discount-codes',),
-            ),
-            NavAreaItem(
                 'reportes',
                 'Reportes',
                 'fas fa-chart-bar',
@@ -1267,7 +1272,8 @@ APP_AREAS: tuple[NavArea, ...] = (
                 active_path_prefixes=('/admin/eposone/section/orders', '/admin/eposone/orders'),
             ),
             _eposone_section_item('productos', 'Productos', 'fas fa-box-open', 'products'),
-            _eposone_section_item('inventario', 'Inventario', 'fas fa-warehouse', 'inventory'),
+            # ADR-039 F3: Inventario nativo = área sidebar «Inventario»; esto es stock operativo POS.
+            _eposone_section_item('inventario', 'Stock POS', 'fas fa-warehouse', 'inventory'),
             _eposone_section_item('clientes', 'Clientes', 'fas fa-address-book', 'contacts'),
             NavAreaItem(
                 'caja',
@@ -1377,7 +1383,7 @@ APP_AREAS: tuple[NavArea, ...] = (
     ),
     NavArea(
         id='contador',
-        label='Inventario',
+        label='Conteo físico',
         icon='fas fa-clipboard-list',
         visible=_v_contador,
         zone_blueprints=('contador', 'contador_api'),
@@ -1428,6 +1434,130 @@ APP_AREAS: tuple[NavArea, ...] = (
                     'contacts_admin.contacts_edit',
                 ),
                 active_blueprints=('contacts_admin',),
+            ),
+        ),
+    ),
+    NavArea(
+        id='productos',
+        label='Productos',
+        icon='fas fa-box-open',
+        # Área top-level retirada: catálogo vive como chip de Inventario.
+        visible=lambda _ctx: False,
+        zone_blueprints=('en1_products',),
+        zone_path_prefixes=('/admin/products',),
+        items=(),
+    ),
+    NavArea(
+        id='inventario',
+        label='Inventario',
+        icon='fas fa-warehouse',
+        visible=_v_en1_inventario_area,
+        zone_blueprints=('en1_inventory', 'en1_products'),
+        zone_path_prefixes=(
+            '/admin/inventory',
+            '/admin/products',
+            '/admin/commercial/product-discount-codes',
+        ),
+        zone_endpoints=(
+            'admin_product_discount_codes.index',
+            'admin_product_discount_codes.create',
+            'admin_product_discount_codes.get_one',
+            'admin_product_discount_codes.update',
+            'admin_product_discount_codes.delete',
+        ),
+        items=(
+            NavAreaItem(
+                'productos',
+                'Productos',
+                'fas fa-box-open',
+                'en1_products.products_index',
+                visible=_v_en1_products,
+                active_endpoints=(
+                    'en1_products.products_index',
+                    'en1_products.products_new',
+                    'en1_products.products_edit',
+                ),
+                active_path_prefixes=('/admin/products',),
+            ),
+            NavAreaItem(
+                'promos_ets',
+                'Promos ETS',
+                'fas fa-ticket-alt',
+                'admin_product_discount_codes.index',
+                visible=lambda c: c.is_platform_admin,
+                active_endpoints=(
+                    'admin_product_discount_codes.index',
+                    'admin_product_discount_codes.create',
+                    'admin_product_discount_codes.get_one',
+                    'admin_product_discount_codes.update',
+                    'admin_product_discount_codes.delete',
+                ),
+                active_path_prefixes=('/admin/commercial/product-discount-codes',),
+            ),
+            NavAreaItem(
+                'existencias',
+                'Existencias',
+                'fas fa-boxes',
+                'en1_inventory.inventory_balances',
+                visible=_v_en1_inventory,
+                active_endpoints=('en1_inventory.inventory_balances', 'en1_inventory.inventory_home'),
+                active_path_prefixes=('/admin/inventory/balances', '/admin/inventory/'),
+            ),
+            NavAreaItem(
+                'movimientos',
+                'Movimientos',
+                'fas fa-exchange-alt',
+                'en1_inventory.inventory_movements',
+                visible=_v_en1_inventory,
+                active_endpoints=('en1_inventory.inventory_movements',),
+            ),
+            NavAreaItem(
+                'entrada',
+                'Entrada',
+                'fas fa-plus-circle',
+                'en1_inventory.inventory_receipt',
+                visible=_v_en1_inventory,
+                active_endpoints=('en1_inventory.inventory_receipt',),
+            ),
+            NavAreaItem(
+                'ajuste',
+                'Ajuste',
+                'fas fa-sliders-h',
+                'en1_inventory.inventory_adjust',
+                visible=_v_en1_inventory,
+                active_endpoints=('en1_inventory.inventory_adjust',),
+            ),
+            NavAreaItem(
+                'transferencia',
+                'Transferencia',
+                'fas fa-truck',
+                'en1_inventory.inventory_transfer',
+                visible=_v_en1_inventory,
+                active_endpoints=('en1_inventory.inventory_transfer',),
+            ),
+            NavAreaItem(
+                'kardex',
+                'Kardex',
+                'fas fa-book',
+                'en1_inventory.inventory_kardex',
+                visible=_v_en1_inventory,
+                active_endpoints=('en1_inventory.inventory_kardex',),
+            ),
+            NavAreaItem(
+                'minimos',
+                'Mínimos',
+                'fas fa-exclamation-triangle',
+                'en1_inventory.inventory_alerts',
+                visible=_v_en1_inventory,
+                active_endpoints=('en1_inventory.inventory_alerts',),
+            ),
+            NavAreaItem(
+                'almacenes',
+                'Almacenes',
+                'fas fa-industry',
+                'en1_inventory.inventory_warehouses',
+                visible=_v_en1_inventory,
+                active_endpoints=('en1_inventory.inventory_warehouses',),
             ),
         ),
     ),
@@ -1719,26 +1849,11 @@ APP_AREAS: tuple[NavArea, ...] = (
         icon='fas fa-cloud',
         visible=_v_plataforma,
         zone_endpoints=_PLATFORM_EPS,
-        zone_path_prefixes=(
-            '/admin/commercial/product-discount-codes',
-        ),
+        zone_path_prefixes=(),
         items=(
-            # ADR-019: SaaS = catálogo/orgs (ETS); Sistema = ops plataforma (no admin de empresa).
+            # ADR-019: SaaS = catálogo/orgs (ETS); Sistema = ops plataforma.
+            # Promos ETS viven en Inventario (catálogo comercial de productos).
             _nav_menu_dropdown('saas', 'SaaS', 'fas fa-cloud', _PLATAFORMA_SAAS_ITEMS),
-            NavAreaItem(
-                'promos_producto',
-                'Promos por producto',
-                'fas fa-ticket-alt',
-                'admin_product_discount_codes.index',
-                visible=lambda c: c.is_platform_admin,
-                active_endpoints=(
-                    'admin_product_discount_codes.index',
-                    'admin_product_discount_codes.create',
-                    'admin_product_discount_codes.get_one',
-                    'admin_product_discount_codes.update',
-                    'admin_product_discount_codes.delete',
-                ),
-            ),
             _nav_menu_dropdown('sistema', 'Sistema', 'fas fa-server', _PLATAFORMA_SISTEMA_ITEMS),
             NavAreaItem(
                 'guia',
@@ -1809,7 +1924,7 @@ APP_AREAS: tuple[NavArea, ...] = (
         label='API Center',
         icon='fas fa-plug',
         visible=_v_api_center,
-        show_in_sidebar=True,
+        show_in_sidebar=False,
         zone_blueprints=('api_center',),
         zone_path_prefixes=('/admin/api-center',),
         zone_endpoints=(
@@ -2153,7 +2268,7 @@ def _serialize_sidebar_area(area: NavArea, ctx: NavContext) -> dict[str, Any]:
         row['badge'] = 'App'
         row['title'] = (
             f'{area.label} — aplicación (acceso temporal). '
-            'Entrada oficial: Mis aplicaciones.'
+            'Admin SA: Plataforma. Launcher de apps: dashboard / login.'
         )
     else:
         row['temporary_app_shortcut'] = False
@@ -2354,6 +2469,11 @@ def nav_launcher_payload(**kwargs) -> dict[str, Any]:
                 show_bar = False
     except Exception:
         pass
+    # Config vive en el engranaje; no duplicar Perfil/Fiscal/Acceso en barra horizontal.
+    if active_id == 'config':
+        show_bar = False
+        children = []
+        active_child_label = None
     result = {
         'nav_app_areas': areas,
         'nav_sidebar_top_areas': top_areas,

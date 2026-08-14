@@ -16,7 +16,7 @@ class TestApiCenterNav(unittest.TestCase):
 
         area = next(a for a in APP_AREAS if a.id == 'api_center')
         self.assertEqual(area.label, 'API Center')
-        self.assertTrue(area.show_in_sidebar)
+        self.assertFalse(area.show_in_sidebar)
         labels = [it.label for it in _API_CENTER_ITEMS]
         self.assertEqual(
             labels,

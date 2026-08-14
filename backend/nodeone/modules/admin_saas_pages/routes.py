@@ -42,6 +42,12 @@ def register_admin_saas_pages_routes(app):
     @platform_admin_required
     def admin_saas_catalog_list():
         mods = SaasModule.query.order_by(SaasModule.code).all()
+        try:
+            from nodeone.services.saas_catalog_defaults import saas_catalog_sort_key
+
+            mods = sorted(mods, key=lambda m: saas_catalog_sort_key(getattr(m, 'code', None)))
+        except Exception:
+            pass
         return render_template('admin/saas_catalog_list.html', modules=mods)
 
     @app.route('/admin/saas-catalog/new')

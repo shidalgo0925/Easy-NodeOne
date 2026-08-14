@@ -220,6 +220,41 @@ def ensure_core_master_schema(db, engine, printfn=None) -> None:
             """
         _exec(engine, ddl, printfn, 'core_contact_legacy_link')
 
+    if 'core_product_legacy_service_link' not in tables:
+        if dialect == 'postgresql':
+            ddl = """
+            CREATE TABLE IF NOT EXISTS core_product_legacy_service_link (
+                id SERIAL PRIMARY KEY,
+                organization_id INTEGER NOT NULL REFERENCES saas_organization(id) ON DELETE CASCADE,
+                product_ref VARCHAR(64) NOT NULL,
+                legacy_service_id INTEGER NOT NULL,
+                link_source VARCHAR(32) NOT NULL DEFAULT 'bridge',
+                created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+                updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
+                CONSTRAINT uq_core_product_legacy_ref UNIQUE (organization_id, product_ref),
+                CONSTRAINT uq_core_product_legacy_service UNIQUE (organization_id, legacy_service_id)
+            );
+            CREATE INDEX IF NOT EXISTS ix_core_product_legacy_service_org
+                ON core_product_legacy_service_link (organization_id);
+            """
+        else:
+            ddl = """
+            CREATE TABLE IF NOT EXISTS core_product_legacy_service_link (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                organization_id INTEGER NOT NULL,
+                product_ref VARCHAR(64) NOT NULL,
+                legacy_service_id INTEGER NOT NULL,
+                link_source VARCHAR(32) NOT NULL DEFAULT 'bridge',
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (organization_id, product_ref),
+                UNIQUE (organization_id, legacy_service_id)
+            );
+            CREATE INDEX IF NOT EXISTS ix_core_product_legacy_service_org
+                ON core_product_legacy_service_link (organization_id);
+            """
+        _exec(engine, ddl, printfn, 'core_product_legacy_service_link')
+
     _backfill_contact_legacy_links(db, engine, insp, dialect, printfn)
     _ensure_user_linked_contact(db, engine, insp, dialect, printfn)
 

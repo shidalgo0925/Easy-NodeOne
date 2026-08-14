@@ -12,24 +12,25 @@
 {%- endmacro %}
 
 {% macro occ_subnav(active) %}
-<ul class="nav nav-pills gap-1 mb-3 flex-wrap">
-    <li class="nav-item">
-        <a class="nav-link {% if active == 'hoy' %}active{% endif %}" href="{{ url_for('eposone.eposone_occ_hoy') }}">Hoy</a>
+{# Chips estilo Pedidos / erp_app_subnav (reemplaza nav-pills Bootstrap) #}
+<ul class="erp-app-subnav__list occ-subnav-chips mb-3 flex-wrap" role="menubar" aria-label="OCC">
+    <li class="erp-app-subnav__item" role="none">
+        <a class="erp-app-subnav__link {% if active == 'hoy' %}is-active{% endif %}" href="{{ url_for('eposone.eposone_occ_hoy') }}" role="menuitem">Hoy</a>
     </li>
-    <li class="nav-item">
-        <a class="nav-link {% if active == 'operacion' %}active{% endif %}" href="{{ url_for('eposone.eposone_occ_operacion') }}">Operación</a>
+    <li class="erp-app-subnav__item" role="none">
+        <a class="erp-app-subnav__link {% if active == 'operacion' %}is-active{% endif %}" href="{{ url_for('eposone.eposone_occ_operacion') }}" role="menuitem">Operación</a>
     </li>
-    <li class="nav-item">
-        <a class="nav-link {% if active == 'cierres' %}active{% endif %}" href="{{ url_for('eposone.eposone_occ_cierres') }}">Cierres</a>
+    <li class="erp-app-subnav__item" role="none">
+        <a class="erp-app-subnav__link {% if active == 'cierres' %}is-active{% endif %}" href="{{ url_for('eposone.eposone_occ_cierres') }}" role="menuitem">Cierres</a>
     </li>
-    <li class="nav-item">
-        <a class="nav-link {% if active == 'pagos' %}active{% endif %}" href="{{ url_for('eposone.eposone_occ_pagos') }}">Pagos</a>
+    <li class="erp-app-subnav__item" role="none">
+        <a class="erp-app-subnav__link {% if active == 'pagos' %}is-active{% endif %}" href="{{ url_for('eposone.eposone_occ_pagos') }}" role="menuitem">Pagos</a>
     </li>
-    <li class="nav-item">
-        <a class="nav-link {% if active == 'excepciones' %}active{% endif %}" href="{{ url_for('eposone.eposone_occ_excepciones') }}">Excepciones</a>
+    <li class="erp-app-subnav__item" role="none">
+        <a class="erp-app-subnav__link {% if active == 'excepciones' %}is-active{% endif %}" href="{{ url_for('eposone.eposone_occ_excepciones') }}" role="menuitem">Excepciones</a>
     </li>
-    <li class="nav-item">
-        <a class="nav-link {% if active == 'auditoria' %}active{% endif %}" href="{{ url_for('eposone.eposone_occ_auditoria') }}">Auditoría</a>
+    <li class="erp-app-subnav__item" role="none">
+        <a class="erp-app-subnav__link {% if active == 'auditoria' %}is-active{% endif %}" href="{{ url_for('eposone.eposone_occ_auditoria') }}" role="menuitem">Auditoría</a>
     </li>
 </ul>
 {% endmacro %}

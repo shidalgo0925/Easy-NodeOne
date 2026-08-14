@@ -20,7 +20,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/custom.css') }}?v=compact-ui-14-context-bar" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/en1-color-system.css') }}?v=11-tenant-sidebar-icons" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=33-tenant-brand-icons" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/sidebar-erp-theme.css') }}?v=34-subnav-chips-pedidos" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/platform-app-shell.css') }}?v=10-tenant-menu-icons" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/app-ui-unified.css') }}?v=app-ui-1" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/tour-custom.css') }}" rel="stylesheet">
@@ -290,6 +290,7 @@
             </button>
             <div class="collapse navbar-collapse navbar-collapse-three order-lg-2" id="navbarNav">
                 <ul class="navbar-nav navbar-nav-center align-items-lg-center">
+                    {% if not (nav_show_module_bar|default(false)) %}
                     {% if current_user.is_authenticated %}
                     <li class="nav-item d-none d-md-flex align-items-center me-1">
                         <span class="navbar-text text-muted small text-uppercase mb-0" style="letter-spacing:.06em;font-size:0.7rem;">Centro</span>
@@ -306,6 +307,9 @@
                         <a class="nav-link d-inline-flex align-items-center gap-1 text-nowrap {% if request.endpoint == 'dashboard' %}active fw-semibold{% endif %}" href="{{ url_for('dashboard') }}"><img class="nav-icon-top-img" src="{{ url_for('static', filename='images/nav-mi-espacio.svg') }}?v=1" width="16" height="16" alt="" loading="eager" decoding="async" /><span>Mi espacio</span></a>
                         {% endif %}
                     </li>
+                    {% endif %}
+                    {% endif %}
+                    {% if current_user.is_authenticated %}
                     {% if saas_module_enabled('memberships') %}
                     <li class="nav-item">
                         {% if show_tenant_admin_menu %}

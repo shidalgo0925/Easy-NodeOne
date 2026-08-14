@@ -5,7 +5,6 @@
   <div class="erp-toolbar d-flex flex-wrap align-items-center gap-2 mb-2">
     <h1 class="h5 mb-0">Alertas de mínimo</h1>
     <span class="erp-footnote text-muted">on_hand &lt; min_stock (producto)</span>
-    <a class="btn btn-sm btn-outline-secondary ms-md-auto" href="{{ url_for('en1_inventory.inventory_balances') }}">Existencias</a>
   </div>
   <form method="get" class="row g-2 align-items-end mb-3">
     <div class="col-auto">
@@ -16,7 +15,7 @@
         {% endfor %}
       </select>
     </div>
-    <div class="col-auto"><button class="btn btn-sm btn-outline-primary" type="submit">Filtrar</button></div>
+    <div class="col-auto"><button class="btn btn-sm btn-outline-secondary" type="submit">Filtrar</button></div>
   </form>
   <div class="table-responsive">
     <table class="table table-sm table-bordered align-middle">

@@ -561,7 +561,7 @@ aside.left-panel.sidebar-erp li.sidebar-menu-divider hr {
 
 .erp-app-subnav__inner {
     display: flex;
-    align-items: stretch;
+    align-items: center;
     gap: 0.75rem;
     flex-wrap: nowrap;
     overflow: visible;
@@ -580,40 +580,12 @@ aside.left-panel.sidebar-erp li.sidebar-menu-divider hr {
     align-items: center;
 }
 
-.erp-module-header__title {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    flex-shrink: 0;
-    padding: 0.35rem 0.5rem 0.35rem 0;
-    border-right: 1px solid #e2e8f0;
-    margin-right: 0.25rem;
-    max-width: min(220px, 28vw);
-}
-
-.erp-app-subnav__module {
-    flex-shrink: 0;
-    font-size: 0.72rem;
-    font-weight: 800;
-    color: #0f172a;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    line-height: 1.2;
-}
-
-.erp-module-header__sep {
-    color: #94a3b8;
-    font-size: 0.75rem;
-    font-weight: 400;
-}
-
+/* Título/crumb Odoo eliminado del markup; reglas legacy anuladas por si quedan referencias */
+.erp-module-header__title,
+.erp-app-subnav__module,
+.erp-module-header__sep,
 .erp-module-header__crumb {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #475569;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: none !important;
 }
 
 .erp-app-subnav__list {
@@ -628,7 +600,14 @@ aside.left-panel.sidebar-erp li.sidebar-menu-divider hr {
     min-width: 0;
 }
 
-/* Navegación de módulo = botones estilo EPosOne Pedidos (outline / primary activo) */
+/* OCC y otros chips embebidos en página (no fixed) */
+ul.occ-subnav-chips.erp-app-subnav__list {
+    flex: none;
+    flex-wrap: wrap;
+    padding: 0;
+}
+
+/* Chips estilo Pedidos EPosOne — activo = primary acción */
 .erp-app-subnav__link {
     display: inline-flex;
     align-items: center;
@@ -653,20 +632,19 @@ aside.left-panel.sidebar-erp li.sidebar-menu-divider hr {
 }
 
 .erp-app-subnav__link.is-active {
-    color: var(--en1-on-action, #ffffff);
+    color: var(--en1-on-action, #ffffff) !important;
     font-weight: 600;
-    background: var(--en1-action, #ff7a59);
-    border-color: var(--en1-action, #ff7a59);
-    box-shadow: none;
+    background: var(--en1-action, #ff7a59) !important;
+    border-color: var(--en1-action, #ff7a59) !important;
+    box-shadow: none !important;
 }
 
 .erp-app-subnav__link.is-active:hover {
-    background: var(--en1-action-hover, #e6694a);
-    border-color: var(--en1-action-hover, #e6694a);
-    color: var(--en1-on-action, #ffffff);
+    background: var(--en1-action-hover, #e6694a) !important;
+    border-color: var(--en1-action-hover, #e6694a) !important;
+    color: var(--en1-on-action, #ffffff) !important;
 }
 
-/* Ítems con submenú: mismo chip outline; activo de menú = borde acción (sin relleno CTA) */
 .erp-app-subnav__link--menu {
     border: 1px solid var(--en1-border, #e2e8f0);
     background: var(--en1-surface, #ffffff);
@@ -755,20 +733,20 @@ button.erp-app-subnav__link--menu.dropdown-toggle {
 #erpAppSubnav .erp-app-subnav__dropdown-item.active:focus,
 .erp-app-subnav__dropdown-menu .dropdown-item.active,
 .erp-app-subnav__dropdown-menu .dropdown-item.active:hover {
-    background-color: #e0f2fe !important;
-    color: #0369a1 !important;
+    background-color: color-mix(in srgb, var(--en1-action, #ff7a59) 14%, #ffffff) !important;
+    color: var(--en1-action, #ff7a59) !important;
     font-weight: 600;
 }
 
 #erpAppSubnav .erp-app-subnav__dropdown-item.active i,
 .erp-app-subnav__dropdown-menu .dropdown-item.active i {
-    color: #0284c7 !important;
+    color: var(--en1-action, #ff7a59) !important;
 }
 
 #erpAppSubnav .erp-app-subnav__dropdown-item:active,
 .erp-app-subnav__dropdown-menu .dropdown-item:active {
-    background-color: #e0f2fe !important;
-    color: #0369a1 !important;
+    background-color: color-mix(in srgb, var(--en1-action, #ff7a59) 14%, #ffffff) !important;
+    color: var(--en1-action, #ff7a59) !important;
 }
 
 html[data-theme="dark"] .erp-app-subnav.erp-module-header,

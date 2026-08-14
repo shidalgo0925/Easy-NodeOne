@@ -702,10 +702,14 @@ class DeviceProvisioningService:
         include: frozenset[str] | None = None,
         known_cashiers_version: int | None = None,
         known_policies_version: int | None = None,
+        known_catalog_version: int | None = None,
     ) -> dict[str, Any]:
         """
         Hito 2 — Device Bootstrap (Sync Down) v1.
         Snapshot: config + products + stock_balances + cashiers + commercial policies (infra V6).
+
+        ADR-039 post-F6: si ``known_catalog_version`` coincide con ``catalog_version``,
+        no se reenvía el array ``products`` (mismo patrón que cashiers).
         """
         from app import db
         from models.core_master import CoreProduct
@@ -823,8 +827,16 @@ class DeviceProvisioningService:
         if 'config' in include_set:
             payload['config'] = config_out
         if 'products' in include_set:
-            payload['products'] = products_out
-            payload['products_count'] = len(products_out)
+            catalog_unchanged = (
+                known_catalog_version is not None
+                and int(known_catalog_version) == int(catalog_version)
+            )
+            payload['products_changed'] = not catalog_unchanged
+            if not catalog_unchanged:
+                payload['products'] = products_out
+                payload['products_count'] = len(products_out)
+            else:
+                payload['products_count'] = 0
         if 'stock' in include_set:
             payload['stock_balances'] = stock_out
             payload['stock_balances_count'] = len(stock_out)

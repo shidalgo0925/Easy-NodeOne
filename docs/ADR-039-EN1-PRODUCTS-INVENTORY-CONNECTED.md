@@ -4,14 +4,15 @@
 |-------|--------|
 | ID | **ADR-039** |
 | Estado | **ACCEPTED** — 13 ago 2026 |
-| GO actual | **F0–F6 DONE (Dev; F6 EN1 bridge)** · EP1 client OFF |
-| Baseline | F6 tip `develop` |
+| GO actual | **F0–F7 DONE (Dev)** · Flutter consumer OFF |
+| Baseline | F7 tip `develop` |
 | Base | [ADR-038](ADR-038-EN1-MODULAR-DOMAIN-ARCHITECTURE.md) Module Registry F1 |
 | F0 inventario | [EN1_ADR039_F0_PRODUCTS_INVENTORY_DISCOVERY.md](EN1_ADR039_F0_PRODUCTS_INVENTORY_DISCOVERY.md) |
 | F5 Connected | [EN1_ADR039_F5_CONNECTED_CATALOG_DISCOVERY.md](EN1_ADR039_F5_CONNECTED_CATALOG_DISCOVERY.md) |
 | F6 bridge | [EN1_ADR039_F6_CONNECTED_INVENTORY_BRIDGE.md](EN1_ADR039_F6_CONNECTED_INVENTORY_BRIDGE.md) |
-| EP1 / STG / PRD | **NO TOCAR** sin GO; F6 no tocó Flutter |
-| Connected (post-F6) | EP1/client + delta bootstrap OFF hasta GO |
+| F7 bootstrap Δ | [EN1_ADR039_F7_BOOTSTRAP_CATALOG_INCREMENTAL.md](EN1_ADR039_F7_BOOTSTRAP_CATALOG_INCREMENTAL.md) |
+| EP1 / STG / PRD | **NO TOCAR** sin GO; F7 no tocó Flutter |
+| Connected (post-F7) | Consumo APK del delta OFF hasta GO |
 
 ---
 
@@ -37,7 +38,8 @@ Regla crítica: **no crear un tercer catálogo**. F0 eligió **FORMALIZE `core_p
 | **F3** | Inventory UI + nav Inventario nativo (EPosOne = Stock POS) | DONE |
 | **F4** | Transfers / mínimos | DONE |
 | **F5** | Connected contract discovery (sin código EP1) | DONE |
-| **F6** | Connected EN1 bridge → `inventory_service` (sin Flutter) | DONE → STOP |
+| **F6** | Connected EN1 bridge → `inventory_service` (sin Flutter) | DONE |
+| **F7** | Bootstrap catalog incremental (`catalog_version` / `products_changed`) | DONE → STOP |
 
 ---
 
@@ -63,3 +65,4 @@ Regla crítica: **no crear un tercer catálogo**. F0 eligió **FORMALIZE `core_p
 | 2026-08-13 | F4 DONE Dev: `transfer()` + compensación; almacenes extra; alertas `min_stock`; UI Transferencia/Mínimos; campo mínimo en Productos; tests. **STOP** — F5 discovery requiere GO. |
 | 2026-08-13 | F5 DONE (docs): contrato Connected discovery — bootstrap SoR `core_*`, gaps sync up/idempotency, sin código EP1. Ver `EN1_ADR039_F5_CONNECTED_CATALOG_DISCOVERY.md`. **STOP** — F6 requiere GO. |
 | 2026-08-13 | F6 DONE Dev (EN1-only): `connected_inventory` bridge sync/API/BO + order deduct/return → inventory_service; tests; sin Flutter/STG/PRD. **STOP** — EP1 client / delta bootstrap requieren GO. |
+| 2026-08-13 | F7 DONE Dev: bootstrap `catalog_version` query → `products_changed` / omit products (cashiers pattern); stock full; APK consumer OFF. **STOP** — Flutter + push requieren pedido explícito. |

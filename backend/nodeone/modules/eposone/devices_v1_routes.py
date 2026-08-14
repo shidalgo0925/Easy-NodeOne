@@ -91,11 +91,17 @@ def devices_bootstrap():
             known_policies_version = int(raw_policies_version) if raw_policies_version else None
         except ValueError:
             return jsonify({'error': 'invalid_policies_version'}), 400
+        raw_catalog_version = (request.args.get('catalog_version') or '').strip()
+        try:
+            known_catalog_version = int(raw_catalog_version) if raw_catalog_version else None
+        except ValueError:
+            return jsonify({'error': 'invalid_catalog_version'}), 400
         payload = DeviceProvisioningService.build_bootstrap_for_terminal(
             row,
             include=include,
             known_cashiers_version=known_cashiers_version,
             known_policies_version=known_policies_version,
+            known_catalog_version=known_catalog_version,
         )
     except DeviceProvisioningError as exc:
         return jsonify({'error': exc.code}), int(exc.http_status)

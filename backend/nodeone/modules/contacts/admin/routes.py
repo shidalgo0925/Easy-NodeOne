@@ -166,8 +166,13 @@ def contacts_index():
     active_only = True if active == '1' else False if active == '0' else None
     page = max(1, int(request.args.get('page', 1)))
     per_page = 50
+    from nodeone.services.commercial_customer_visibility import (
+        include_ets_buyers_on_contact_list,
+    )
+
+    include_ets_buyers = include_ets_buyers_on_contact_list(oid)
     extra_ids: list[int] = []
-    if _platform_admin():
+    if include_ets_buyers:
         from nodeone.services.commercial_customer_visibility import ets_buyer_contact_ids
 
         extra_ids = ets_buyer_contact_ids()
@@ -182,7 +187,7 @@ def contacts_index():
         offset=(page - 1) * per_page,
     )
     ets_products: dict[int, list[str]] = {}
-    if _platform_admin() and rows:
+    if include_ets_buyers and rows:
         from nodeone.services.commercial_customer_visibility import product_labels_by_contact_id
 
         ets_products = product_labels_by_contact_id([int(c.id) for c in rows])
@@ -197,7 +202,7 @@ def contacts_index():
         contact_type=ctype,
         active=active,
         ets_products=ets_products,
-        include_ets_buyers=_platform_admin(),
+        include_ets_buyers=include_ets_buyers,
     )
 
 

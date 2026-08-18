@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Factura | {{ get_nav_brand_name() }}{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/sales-quotation-odoo.css') }}?v=6">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/sales-quotation-odoo.css') }}?v=10">
 {% endblock %}
 {% block content %}
 <div class="container-fluid px-2 px-sm-3 py-2 quote-odoo-page erp-compact-page" id="odooInvoiceForm" data-invoice-id="{{ invoice_id }}" data-is-new="{{ 1 if invoice_id == 0 else 0 }}" data-initial-status="{{ invoice_status or '' }}" data-inv-api-base="/invoices" data-workshop-api-base="/api/workshop" data-invoice-org-name="{{ (invoice_org_name|default('', true))|e }}">
@@ -106,7 +106,6 @@
                                 <table class="table quotation-lines-table quote-lines-table mb-0">
                                     <thead>
                                         <tr>
-                                            <th>Producto</th>
                                             <th>Descripción</th>
                                             <th class="text-end">Cant.</th>
                                             <th class="text-end">Precio</th>
@@ -203,6 +202,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/modules/sales/quotation_lines_component.js') }}?v=11"></script>
-<script src="{{ url_for('static', filename='js/modules/accounting/invoice_form.js') }}?v=7"></script>
+<script src="{{ url_for('static', filename='js/modules/sales/quotation_lines_component.js') }}?v=13"></script>
+<script src="{{ url_for('static', filename='js/modules/accounting/invoice_form.js') }}?v=9"></script>
 {% endblock %}

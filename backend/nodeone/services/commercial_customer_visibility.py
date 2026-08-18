@@ -63,6 +63,14 @@ def backfill_missing_buyer_contacts(*, limit: int = 500) -> int:
     return n
 
 
+def include_ets_buyers_on_contact_list(organization_id: int) -> bool:
+    """Columna Productos / extra_ids ETS solo en la org proveedor, no en todo SA."""
+    try:
+        return int(organization_id) == int(ets_provider_organization_id())
+    except (TypeError, ValueError):
+        return False
+
+
 def ets_buyer_contact_ids() -> list[int]:
     """Contactos canónicos de compradores ETS (org proveedor)."""
     from models.ets_commercial_customer import EtsCommercialCustomer
@@ -87,6 +95,8 @@ def ets_buyer_contact_ids() -> list[int]:
 
 
 def product_labels_by_contact_id(contact_ids: list[int]) -> dict[int, list[str]]:
+    """Nombres de producto por contacto de la página (sin dossier / N+1)."""
+    from models.ets_commercial_contract import EtsCommercialContract
     from models.ets_commercial_customer import EtsCommercialCustomer
 
     ids = [int(i) for i in (contact_ids or []) if i]
@@ -98,16 +108,37 @@ def product_labels_by_contact_id(contact_ids: list[int]) -> dict[int, list[str]]
             EtsCommercialCustomer.organization_id == int(oid),
             EtsCommercialCustomer.contact_id.in_(ids),
         )
+        .with_entities(EtsCommercialCustomer.id, EtsCommercialCustomer.contact_id)
         .all()
     )
-    out: dict[int, list[str]] = {}
-    for customer in customers:
-        cid = int(customer.contact_id) if customer.contact_id else 0
-        if not cid:
+    if not customers:
+        return {}
+    cust_to_contact = {
+        int(customer_id): int(contact_id)
+        for customer_id, contact_id in customers
+        if contact_id
+    }
+    if not cust_to_contact:
+        return {}
+    out: dict[int, list[str]] = {cid: [] for cid in set(cust_to_contact.values())}
+    seen: dict[int, set[str]] = {cid: set() for cid in out}
+    contracts = (
+        EtsCommercialContract.query.filter(
+            EtsCommercialContract.customer_id.in_(list(cust_to_contact.keys()))
+        )
+        .with_entities(EtsCommercialContract.customer_id, EtsCommercialContract.product_code)
+        .order_by(EtsCommercialContract.id.desc())
+        .all()
+    )
+    for customer_id, product_code in contracts:
+        contact_id = cust_to_contact.get(int(customer_id))
+        if not contact_id:
             continue
-        dossier = commercial_dossier(customer)
-        labels = [str(p.get('product_name') or p.get('product_code') or '') for p in dossier.get('products') or []]
-        out[cid] = [x for x in labels if x]
+        code = (product_code or '').strip().lower()
+        if not code or code in seen[contact_id]:
+            continue
+        seen[contact_id].add(code)
+        out[contact_id].append(_product_name(code))
     return out
 
 

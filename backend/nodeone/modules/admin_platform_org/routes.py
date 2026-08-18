@@ -5,7 +5,7 @@ import re
 
 
 def register_admin_platform_org_routes(app):
-    from flask import abort, current_app, flash, redirect, render_template, request, send_from_directory, url_for
+    from flask import abort, current_app, flash, redirect, render_template, request, send_from_directory, session, url_for
     from app import (
         db,
         platform_admin_required,
@@ -91,6 +91,10 @@ def register_admin_platform_org_routes(app):
 
     def _tenant_public_base():
         return (os.environ.get('TENANT_PUBLIC_BASE') or os.environ.get('EASYNODEONE_PUBLIC_DOMAIN') or 'easynodeone.com').strip()
+
+    def _is_active_from_form(form) -> bool:
+        # hidden is_active=0 + checkbox=1: get() toma el primero; hay que mirar getlist.
+        return '1' in (form.getlist('is_active') or [])
 
     def _normalize_org_subdomain(raw):
         if raw is None:
@@ -257,7 +261,7 @@ def register_admin_platform_org_routes(app):
         if request.method == 'POST':
             name = (request.form.get('name') or '').strip()
             sub_raw = _normalize_org_subdomain(request.form.get('subdomain'))
-            is_active = request.form.get('is_active') == '1'
+            is_active = _is_active_from_form(request.form)
             from nodeone.services.company_wizard import fiscal_payload_from_form
 
             fiscal = fiscal_payload_from_form(request.form)
@@ -392,7 +396,7 @@ def register_admin_platform_org_routes(app):
         if request.method == 'POST':
             name = (request.form.get('name') or '').strip()
             sub_raw = _normalize_org_subdomain(request.form.get('subdomain'))
-            is_active = True if oid == 1 else request.form.get('is_active') == '1'
+            is_active = True if oid == 1 else _is_active_from_form(request.form)
             from nodeone.services.company_wizard import fiscal_payload_from_form
 
             fiscal = fiscal_payload_from_form(request.form)
@@ -507,5 +511,45 @@ def register_admin_platform_org_routes(app):
     @app.route('/admin/organizations/<int:oid>/delete', methods=['POST'])
     @platform_admin_required
     def admin_organization_delete(oid):
-        flash('Eliminacion de tenant desde UI no esta habilitada en esta build.', 'warning')
+        from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+        from utils.organization import default_organization_id
+
+        def_oid = int(default_organization_id())
+        if int(oid) in (1, def_oid):
+            flash('La organización por defecto no se elimina.', 'error')
+            return redirect(url_for('admin_organizations_list'))
+        o = SaasOrganization.query.get_or_404(oid)
+        name = (o.name or '').strip() or ('id %s' % oid)
+        n_users = User.query.filter_by(organization_id=int(oid)).count()
+        User.query.filter_by(organization_id=int(oid)).update(
+            {'organization_id': def_oid}, synchronize_session=False
+        )
+        User.query.filter_by(last_selected_organization_id=int(oid)).update(
+            {'last_selected_organization_id': None}, synchronize_session=False
+        )
+        User.query.filter_by(pending_initial_organization_id=int(oid)).update(
+            {'pending_initial_organization_id': None}, synchronize_session=False
+        )
+        try:
+            db.session.delete(o)
+            db.session.commit()
+        except (IntegrityError, SQLAlchemyError) as ex:
+            db.session.rollback()
+            current_app.logger.exception('admin_organization_delete oid=%s', oid)
+            flash(
+                'No se pudo eliminar la empresa (restricción de datos). No se aplicó ningún borrado. %s'
+                % (ex,),
+                'error',
+            )
+            return redirect(url_for('admin_organizations_list'))
+        try:
+            sid = session.get('organization_id')
+            if sid is not None and int(sid) == int(oid):
+                session['organization_id'] = def_oid
+        except (TypeError, ValueError):
+            pass
+        extra = ''
+        if n_users:
+            extra = ' %s usuario(s) pasaron a la organización por defecto.' % n_users
+        flash('Empresa «%s» (id %s) eliminada.%s' % (name, oid, extra), 'success')
         return redirect(url_for('admin_organizations_list'))

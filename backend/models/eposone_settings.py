@@ -27,6 +27,11 @@ class EposoneSettings(db.Model):
     trial_start_policy = db.Column(db.String(40), nullable=False, default='on_first_provision')
     provisioning_code_ttl_minutes = db.Column(db.Integer, nullable=False, default=30)
     offline_grace_days = db.Column(db.Integer, nullable=False, default=7)
-    # ADR-036 — SIMPLE | CHAIN_OF_CUSTODY (default SIMPLE)
+    # ADR-036 — SIMPLE | CHAIN_OF_CUSTODY (default SIMPLE) — custodio del cajón
     cash_operation_mode = db.Column(db.String(32), nullable=False, default='SIMPLE')
+    # ADR-EN1-EP1 — SIMPLE | CHAIN_OF_CUSTODY — entrega mesera → Caja Central
+    money_handoff_mode = db.Column(db.String(32), nullable=False, default='SIMPLE')
+    # ADR-EN1-EP1 — PROVISIONING | TEST | OPERATIONAL
+    operational_lifecycle = db.Column(db.String(32), nullable=False, default='TEST')
+    test_session_id = db.Column(db.String(80), nullable=True)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

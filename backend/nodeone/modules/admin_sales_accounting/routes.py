@@ -101,12 +101,14 @@ def register_admin_sales_quotations_invoices_routes(app):
 
         qrow = Quotation.query.filter_by(id=quotation_id, organization_id=oid).first()
         quotation_status = qrow.status if qrow else None
+        quotation_number = qrow.number if qrow else None
         org_row = SaasOrganization.query.get(oid)
         quotation_org_name = (org_row.name or '').strip() if org_row else ''
         return render_template(
             'admin/sales_quotation_form.html',
             quotation_id=quotation_id,
             quotation_status=quotation_status,
+            quotation_number=quotation_number,
             quotation_org_name=quotation_org_name,
         )
 
@@ -174,6 +176,24 @@ def register_admin_accounting_invoice_new_route(app):
             invoice_status='draft',
             invoice_org_name=invoice_org_name,
         )
+
+
+def register_admin_sales_xls_import_route(app):
+    """GET /admin/sales/quotations/import-xls — aparte del bloque idempotente de cotizaciones."""
+    if 'admin_sales_xls_import' in getattr(app, 'view_functions', {}):
+        return
+    from flask import flash, redirect, render_template, url_for
+
+    from app import admin_data_scope_organization_id, admin_required, has_saas_module_enabled
+
+    @app.route('/admin/sales/quotations/import-xls')
+    @admin_required
+    def admin_sales_xls_import():
+        oid = admin_data_scope_organization_id()
+        if not has_saas_module_enabled(oid, 'sales'):
+            flash('El módulo Ventas no está habilitado para esta organización.', 'error')
+            return redirect(url_for('dashboard'))
+        return render_template('admin/sales_xls_import.html')
 
 
 def register_admin_sales_commercial_contacts_routes(app):

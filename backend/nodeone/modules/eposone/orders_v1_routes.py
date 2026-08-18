@@ -80,10 +80,26 @@ def orders_list():
         status = request.args.get('status')
         table_ref = request.args.get('table_ref')
         limit = int(request.args.get('limit') or 50)
+        mine_raw = (request.args.get('mine') or request.args.get('scope') or '').strip().lower()
+        mine = mine_raw in {'1', 'true', 'yes', 'mine', 'mis'}
+        user_ref = (request.args.get('user_ref') or request.args.get('created_by') or '').strip() or None
+        if mine and not user_ref:
+            user_ref = _bo_actor_user_ref()
         items = OrderDomainService.list_orders(
-            device, status=status, table_ref=table_ref, limit=limit
+            device,
+            status=status,
+            table_ref=table_ref,
+            limit=limit,
+            mine=mine,
+            user_ref=user_ref,
         )
-        return jsonify({'orders': [order_to_dict(o) for o in items], 'count': len(items)})
+        return jsonify(
+            {
+                'orders': [order_to_dict(o) for o in items],
+                'count': len(items),
+                'scope': 'mine' if mine else 'all',
+            }
+        )
     except (DeviceProvisioningError, OrderDomainError) as exc:
         return _err(exc)
 

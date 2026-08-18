@@ -48,5 +48,12 @@ def register_eposone_blueprints(app) -> None:
 
         if 'eposone_public' not in app.blueprints:
             app.register_blueprint(eposone_public_bp)
+        try:
+            from nodeone.modules.eposone.ops_v1_routes import eposone_ops_v1_bp
+
+            if 'eposone_ops_v1' not in app.blueprints:
+                app.register_blueprint(eposone_ops_v1_bp)
+        except ImportError as ops_exc:
+            print(f'Warning: No se pudo registrar eposone_ops_v1_bp: {ops_exc}')
     except ImportError as e:
         print(f'Warning: No se pudo registrar eposone_bp: {e}')

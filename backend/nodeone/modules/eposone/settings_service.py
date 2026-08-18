@@ -24,6 +24,9 @@ class EposoneSettingsDTO:
     provisioning_code_ttl_minutes: int = 30
     offline_grace_days: int = 7
     cash_operation_mode: str = 'SIMPLE'
+    money_handoff_mode: str = 'SIMPLE'
+    operational_lifecycle: str = 'TEST'
+    test_session_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -38,11 +41,18 @@ class EposoneSettingsDTO:
             'provisioning_code_ttl_minutes': self.provisioning_code_ttl_minutes,
             'offline_grace_days': self.offline_grace_days,
             'cash_operation_mode': self.cash_operation_mode,
+            'money_handoff_mode': self.money_handoff_mode,
+            'operational_lifecycle': self.operational_lifecycle,
+            'test_session_id': self.test_session_id,
         }
 
 
 def _to_dto(row: EposoneSettings) -> EposoneSettingsDTO:
     from nodeone.modules.eposone.cash_operation_mode import normalize_cash_operation_mode
+    from nodeone.modules.eposone.ops_lifecycle import (
+        normalize_money_handoff_mode,
+        normalize_ops_lifecycle,
+    )
 
     return EposoneSettingsDTO(
         organization_id=int(row.organization_id),
@@ -60,6 +70,9 @@ def _to_dto(row: EposoneSettings) -> EposoneSettingsDTO:
         cash_operation_mode=normalize_cash_operation_mode(
             getattr(row, 'cash_operation_mode', None)
         ),
+        money_handoff_mode=normalize_money_handoff_mode(getattr(row, 'money_handoff_mode', None)),
+        operational_lifecycle=normalize_ops_lifecycle(getattr(row, 'operational_lifecycle', None)),
+        test_session_id=(str(getattr(row, 'test_session_id', None) or '').strip() or None),
     )
 
 
@@ -85,6 +98,9 @@ class EposoneSettingsService:
                 provisioning_code_ttl_minutes=30,
                 offline_grace_days=7,
                 cash_operation_mode='SIMPLE',
+                money_handoff_mode='SIMPLE',
+                operational_lifecycle='TEST',
+                test_session_id=None,
             )
         return _to_dto(row)
 
@@ -115,9 +131,17 @@ class EposoneSettingsService:
         fiscal_on_payment: bool | None = None,
         supervisor_approval_required: bool | None = None,
         cash_operation_mode: str | None = None,
+        money_handoff_mode: str | None = None,
+        operational_lifecycle: str | None = None,
+        test_session_id: str | None = None,
     ) -> EposoneSettingsDTO:
         from app import db
         from nodeone.modules.eposone.cash_operation_mode import normalize_cash_operation_mode
+        from nodeone.modules.eposone.ops_lifecycle import (
+            OPS_OPERATIONAL,
+            normalize_money_handoff_mode,
+            normalize_ops_lifecycle,
+        )
 
         oid = int(organization_id)
         row = EposoneSettings.query.filter_by(organization_id=oid).first()
@@ -139,5 +163,16 @@ class EposoneSettingsService:
             row.supervisor_approval_required = bool(supervisor_approval_required)
         if cash_operation_mode is not None:
             row.cash_operation_mode = normalize_cash_operation_mode(cash_operation_mode)
+        if money_handoff_mode is not None:
+            row.money_handoff_mode = normalize_money_handoff_mode(money_handoff_mode)
+        if operational_lifecycle is not None:
+            new_life = normalize_ops_lifecycle(operational_lifecycle)
+            prev = normalize_ops_lifecycle(getattr(row, 'operational_lifecycle', None))
+            if prev == OPS_OPERATIONAL and new_life != OPS_OPERATIONAL:
+                raise OrderValidationError('cannot_leave_operational')
+            row.operational_lifecycle = new_life
+        if test_session_id is not None:
+            raw = str(test_session_id).strip()
+            row.test_session_id = raw[:80] or None
         db.session.commit()
         return _to_dto(row)

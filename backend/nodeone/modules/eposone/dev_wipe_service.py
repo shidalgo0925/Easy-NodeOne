@@ -91,8 +91,11 @@ def wipe_today(organization_id: int, *, actor: str | None = None) -> dict[str, A
     from app import db
     from models.commercial_core import CoreCashShift, CoreCommercialOrder
     from models.eposone_order import EposoneOrder
+    from nodeone.modules.eposone.ops_lifecycle import OPS_OPERATIONAL, resolve_ops_lifecycle
 
     oid = int(organization_id)
+    if resolve_ops_lifecycle(oid) == OPS_OPERATIONAL:
+        raise RuntimeError('test_purge_forbidden_operational')
     start, end, day_local = _day_bounds_utc_naive()
 
     deleted_orders = _day_query(

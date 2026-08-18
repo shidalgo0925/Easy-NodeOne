@@ -410,6 +410,9 @@ class OrderPaymentService:
             # Reemplaza UUID local de APK por nombre resuelto al cobrar.
             order.user_ref = actor_user_ref
         apply_financial_state(order)
+        if order.financially_closed:
+            order.charged_by_user_ref = actor_user_ref
+            order.charged_at = now
 
         OrderDomainService._append_event(
             order,

@@ -32,7 +32,12 @@
   let serviceCatalogCache = [];
   let servicePickTargetTr = null;
 
-  const fmt = (n) => `B/. ${Number(n || 0).toFixed(2)}`;
+  const fmtNum = (n, decimals = 2) =>
+    Number(n || 0).toLocaleString('en-US', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+  const fmt = (n) => `B/. ${fmtNum(n)}`;
   const SVC_DEBOUNCE_MS = 300;
   const CUST_DEBOUNCE_MS = 300;
   const SP_DEBOUNCE_MS = 300;
@@ -60,6 +65,7 @@
       }
       return {
         product_id: ln.product_id != null ? Number(ln.product_id) : null,
+        product_name: ln.product_name || '',
         description: ln.description || '',
         quantity: Number(ln.quantity) || 0,
         price_unit: Number(ln.price_unit) || 0,
@@ -112,9 +118,11 @@
     });
     if (validityDate) validityDate.disabled = !editable;
     const btnAddLineEl = document.getElementById('btnAddLine');
-    const btnLineExtras = document.getElementById('btnLineExtras');
+    const quoteAddLinks = document.getElementById('quoteAddLinks');
     if (btnAddLineEl) btnAddLineEl.disabled = !editable;
-    if (btnLineExtras) btnLineExtras.disabled = !editable;
+    if (quoteAddLinks) {
+      quoteAddLinks.querySelectorAll('button').forEach((b) => { b.disabled = !editable; });
+    }
     const st = String(quote.status || '');
     const btnSave = document.getElementById('btnSave');
     const btnConfirm = document.getElementById('btnConfirm');
@@ -231,8 +239,8 @@
         const desc = (ln.description || '').trim() || '—';
         return `<tr>
           <td class="qd-col-desc">${nlToBr(desc)}</td>
-          <td class="qd-col-num">${Number(ln.quantity || 0).toFixed(2)} Unidades</td>
-          <td class="qd-col-num">${Number(ln.price_unit || 0).toFixed(2)}</td>
+          <td class="qd-col-num">${fmtNum(ln.quantity || 0)} Unidades</td>
+          <td class="qd-col-num">${fmtNum(ln.price_unit || 0)}</td>
           <td class="qd-col-num">${taxShow}</td>
           <td class="qd-col-money">${fmt(c.total)}</td>
         </tr>`;
@@ -364,8 +372,8 @@
         const desc = (ln.description || '').trim() || '—';
         return `<tr>
           <td class="qd-col-desc">${nlToBr(desc)}</td>
-          <td class="qd-col-num">${Number(ln.quantity || 0).toFixed(2)}</td>
-          <td class="qd-col-num">${Number(ln.price_unit || 0).toFixed(2)}</td>
+          <td class="qd-col-num">${fmtNum(ln.quantity || 0)}</td>
+          <td class="qd-col-num">${fmtNum(ln.price_unit || 0)}</td>
           <td class="qd-col-money">${fmt(ln.total)}</td>
         </tr>`;
       })
@@ -790,8 +798,10 @@
   }
 
   function applyServiceToRow(tr, p) {
-    tr.querySelector('.li-product').value = p.id;
-    tr.querySelector('.li-product-search').value = p.name || '';
+    const productEl = tr.querySelector('.li-product');
+    const name = (p.name || '').trim();
+    productEl.value = p.id;
+    productEl.dataset.name = name;
     tr.querySelector('.li-desc').value = (p.description || p.name || '').trim() || p.name || '';
     tr.querySelector('.li-price').value = Number(p.price_unit || 0).toFixed(2);
     const taxSel = tr.querySelector('.li-tax');
@@ -812,19 +822,22 @@
   }
 
   function buildServiceDropdownHtml(products) {
-    const fmtPu = (n) => `B/. ${Number(n || 0).toFixed(2)}`;
+    const fmtPu = (n) => `B/. ${fmtNum(n)}`;
     let body = products
       .map(
         (p) => {
           const code = p.code != null && String(p.code) !== '' ? String(p.code) : String(p.id);
           const dt =
             p.default_tax_id != null && p.default_tax_id !== '' ? escAttr(String(p.default_tax_id)) : '';
-          return `<button type="button" class="odoo-m2o-item li-product-option" data-id="${p.id}" data-name="${escAttr(p.name)}" data-desc="${escAttr(p.description || '')}" data-price="${Number(p.price_unit || 0)}" data-tax="${dt}"><span class="odoo-m2o-item-title">${escHtml(p.name)}</span><span class="odoo-m2o-item-meta"><span class="text-muted">Ref. ${escHtml(code)}</span> · ${escHtml(fmtPu(p.price_unit))}</span></button>`;
+          const title = (p.description || p.name || '').trim() || p.name || '';
+          const name = (p.name || '').trim();
+          const metaName = name && name !== title ? `${escHtml(name)} · ` : '';
+          return `<button type="button" class="odoo-m2o-item li-product-option" data-id="${p.id}" data-name="${escAttr(p.name)}" data-desc="${escAttr(p.description || '')}" data-price="${Number(p.price_unit || 0)}" data-tax="${dt}"><span class="odoo-m2o-item-title">${escHtml(title)}</span><span class="odoo-m2o-item-meta">${metaName}<span class="text-muted">Ref. ${escHtml(code)}</span> · ${escHtml(fmtPu(p.price_unit))}</span></button>`;
         },
       )
       .join('');
     if (!products.length) body = '<div class="px-3 py-2 small text-muted">Sin resultados</div>';
-    return `${body}<div class="odoo-m2o-footer"><a href="#" class="odoo-m2o-more li-product-more">Catálogo completo…</a></div><div class="odoo-m2o-hint">Nombre, descripción o ID</div>`;
+    return `${body}<div class="odoo-m2o-footer"><a href="#" class="odoo-m2o-more li-product-more">Catálogo completo…</a></div><div class="odoo-m2o-hint">Buscar por descripción</div>`;
   }
 
   async function fetchServices(q, limit) {
@@ -882,7 +895,7 @@
       list
         .map((p) => {
           const code = p.code != null && String(p.code) !== '' ? String(p.code) : String(p.id);
-          const pu = `B/. ${Number(p.price_unit || 0).toFixed(2)}`;
+          const pu = `B/. ${fmtNum(p.price_unit || 0)}`;
           const dtax =
             p.default_tax_id != null && p.default_tax_id !== '' ? escAttr(String(p.default_tax_id)) : '';
           return `<tr class="li-catalog-row" style="cursor:pointer" data-id="${p.id}" data-name="${escAttr(p.name)}" data-desc="${escAttr(p.description || '')}" data-price="${Number(p.price_unit || 0)}" data-tax="${dtax}"><td class="small py-1"><strong>${escHtml(p.name)}</strong><div class="text-muted" style="font-size:0.75rem">Ref. ${escHtml(code)}</div></td><td class="small text-muted py-1">${escHtml(String(p.description || '').slice(0, 100))}</td><td class="small text-end py-1">${escHtml(pu)}</td></tr>`;
@@ -1075,7 +1088,7 @@
       tax += calc.tax;
       grand += calc.total;
       const totalCell = tr.querySelector('.li-total');
-      if (totalCell) totalCell.textContent = Number(calc.total || 0).toFixed(2);
+      if (totalCell) totalCell.textContent = fmtNum(calc.total || 0);
     });
     document.getElementById('subtotalLbl').textContent = fmt(subtotal);
     document.getElementById('taxLbl').textContent = fmt(tax);
@@ -1083,23 +1096,21 @@
   }
 
   function setStatus(status) {
-    ['stDraft', 'stSent', 'stConfirmed', 'stInvoiced', 'stPaid'].forEach((id) => {
+    const order = ['stDraft', 'stSent', 'stConfirmed', 'stInvoiced', 'stPaid'];
+    const map = { draft: 0, sent: 1, confirmed: 2, invoiced: 3, paid: 4 };
+    const idx = Object.prototype.hasOwnProperty.call(map, status) ? map[status] : null;
+    order.forEach((id, i) => {
       const el = document.getElementById(id);
-      if (el) el.style.opacity = '0.35';
+      if (!el) return;
+      el.classList.toggle('is-current', idx === i);
+      el.classList.toggle('is-done', idx != null && i < idx);
+      el.classList.toggle('is-upcoming', idx == null || i > idx);
+      el.style.opacity = '';
     });
-    if (status === 'cancelled') return;
-    const map = {
-      draft: 'stDraft',
-      sent: 'stSent',
-      confirmed: 'stConfirmed',
-      invoiced: 'stInvoiced',
-      paid: 'stPaid',
-    };
-    const id = map[status];
-    if (id) {
-      const el = document.getElementById(id);
-      if (el) el.style.opacity = '1';
-    }
+    const cancelled = document.getElementById('stCancelled');
+    if (cancelled) cancelled.classList.toggle('d-none', status !== 'cancelled');
+    const bar = document.querySelector('#odooQuotationForm .quote-odoo-arrows');
+    if (bar) bar.classList.toggle('is-cancelled', status === 'cancelled');
   }
 
   async function loadQuotation() {
@@ -1819,6 +1830,7 @@
   });
 
   async function bootQuotationUi() {
+    root.classList.add('is-loading');
     try {
       await loadTaxes();
     } catch (e) {
@@ -1829,8 +1841,9 @@
       await loadQuotation();
     } catch (e) {
       showError(e.message || String(e));
+    } finally {
+      root.classList.remove('is-loading');
     }
-    recalcUiTotals();
   }
   void bootQuotationUi();
 })();

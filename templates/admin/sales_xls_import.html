@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Importar cotización desde Excel | {{ get_nav_brand_name() }}{% endblock %}
+{% block content %}
+<div class="container-fluid px-2 px-sm-3 py-3 erp-compact-page" id="salesXlsImportPage" data-api-base="/api/sales/quotations">
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <a href="{{ url_for('admin_sales_quotations') }}" class="btn btn-outline-secondary btn-sm">Volver a Ventas</a>
+    <h1 class="h5 mb-0">Importar cotización desde Excel</h1>
+  </div>
+  <div id="xlsAlert" class="alert d-none" role="alert"></div>
+
+  <div class="card shadow-sm mb-3" id="xlsUploadCard">
+    <div class="card-body">
+      <p class="text-muted small mb-3">El archivo se convierte en una <strong>cotización</strong>. No se emite Factura Electrónica desde esta pantalla.</p>
+      <div class="row g-2 align-items-end">
+        <div class="col-md-6">
+          <label class="form-label small mb-1" for="xlsFile">Archivo</label>
+          <input class="form-control form-control-sm" type="file" id="xlsFile" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small mb-1" for="xlsProfile">Perfil</label>
+          <select class="form-select form-select-sm" id="xlsProfile">
+            <option value="auto">Automático</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <button type="button" class="btn btn-primary btn-sm" id="btnAnalyze">Analizar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm d-none" id="xlsPreviewCard">
+    <div class="card-body">
+      <h2 class="h6">Importar cotización</h2>
+      <dl class="row small mb-3" id="xlsMeta"></dl>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-2">
+          <thead class="table-light">
+            <tr>
+              <th>Descripción</th>
+              <th class="text-end">Cant.</th>
+              <th class="text-end">Precio</th>
+              <th class="text-end">ITBMS</th>
+              <th class="text-end">Total</th>
+            </tr>
+          </thead>
+          <tbody id="xlsLines"></tbody>
+        </table>
+      </div>
+      <div class="text-end small mb-3" id="xlsTotals"></div>
+      <div id="xlsValidation" class="mb-3"></div>
+      <div class="d-flex gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_sales_quotations') }}">Cancelar</a>
+        <button type="button" class="btn btn-primary btn-sm" id="btnCreateQuote" disabled>Crear cotización</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="{{ url_for('static', filename='js/modules/sales/xls_import.js') }}?v=3"></script>
+{% endblock %}

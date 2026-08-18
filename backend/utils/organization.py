@@ -219,15 +219,8 @@ def payment_organization_id_for_user_id(user_id):
     return _clamp_org_id(getattr(u, 'organization_id', None) or default_organization_id())
 
 
-def platform_visible_organization_ids():
-    """
-    Lista blanca opcional de tenants visibles en admin (selector lateral, empresas, módulos SaaS).
-
-    EASYNODEONE_PLATFORM_VISIBLE_ORG_IDS=1,2 → solo esas filas; el resto se oculta en UI y,
-    en bootstrap, se desactiva y se reasignan usuarios a la org por defecto.
-
-    Vacío o ausente → sin filtro (comportamiento anterior).
-    """
+def env_platform_visible_organization_ids():
+    """IDs del env EASYNODEONE_PLATFORM_VISIBLE_ORG_IDS (sin unir orgs nuevas)."""
     raw = (os.environ.get('EASYNODEONE_PLATFORM_VISIBLE_ORG_IDS') or '').strip()
     if not raw:
         return None
@@ -241,6 +234,30 @@ def platform_visible_organization_ids():
         except ValueError:
             continue
     return out or None
+
+
+def platform_visible_organization_ids():
+    """
+    Lista blanca opcional de tenants visibles en admin (selector lateral, empresas, módulos SaaS).
+
+    EASYNODEONE_PLATFORM_VISIBLE_ORG_IDS=1,2 → esas filas (ruido histórico oculto).
+    Orgs con id mayor al máximo del env (empresas creadas después) también son visibles,
+    para que un alta nueva no desaparezca del listado ni se desactive en bootstrap.
+
+    Vacío o ausente → sin filtro (comportamiento anterior).
+    """
+    out = env_platform_visible_organization_ids()
+    if out is None:
+        return None
+    try:
+        from models.saas import SaasOrganization
+
+        mx = max(out)
+        for row in SaasOrganization.query.filter(SaasOrganization.id > mx).all():
+            out.add(int(row.id))
+    except Exception:
+        pass
+    return out
 
 
 def payment_organization_id_for_request():

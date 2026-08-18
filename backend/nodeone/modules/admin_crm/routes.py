@@ -2,14 +2,15 @@
 
 
 def register_admin_crm_routes(app):
-    from flask import render_template
+    from flask import redirect, render_template, url_for
 
     from app import admin_required
 
     @app.route('/admin/crm')
     @admin_required
     def admin_crm_dashboard():
-        return render_template('admin/crm_dashboard.html', crm_view='dashboard')
+        """Alias legacy → lista canónica (evita dos URLs con la misma UI)."""
+        return redirect(url_for('admin_crm_leads'), code=302)
 
     @app.route('/admin/crm/kanban')
     @admin_required

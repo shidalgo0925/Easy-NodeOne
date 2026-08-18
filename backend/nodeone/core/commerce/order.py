@@ -268,6 +268,9 @@ class OrderService:
             source_app_id=(source_app_id or 'eposone').strip().lower() or 'eposone',
             notes=(str(data.get('notes')).strip()[:5000] if data.get('notes') else None),
         )
+        from nodeone.modules.eposone.ops_lifecycle import stamp_test_fields
+
+        stamp_test_fields(row, oid)
         row.lines = line_rows
         db.session.add(row)
         db.session.commit()
@@ -359,6 +362,9 @@ class OrderService:
             'unit_price': line.unit_price,
             'product_ref': line.product_ref,
         }) for line in moved_lines]
+        from nodeone.modules.eposone.ops_lifecycle import stamp_test_fields
+
+        stamp_test_fields(child, oid)
         for line in moved_lines:
             db.session.delete(line)
 

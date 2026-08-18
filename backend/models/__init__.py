@@ -36,5 +36,6 @@ from .ets_activation_token import *  # noqa: F403
 from .ets_product_subscription import *  # noqa: F403
 from .ets_product_entitlement import *  # noqa: F403
 from .integration_api import *  # noqa: F403
+from .eposone_ops_closure import *  # noqa: F403 — ADR-EN1-EP1
 from .core_master import *  # noqa: F403
 from .password_reset import *  # noqa: F403

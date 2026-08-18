@@ -83,6 +83,8 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
         '/admin/eposone/section/terminals',
         '/admin/eposone/section/shifts',
         '/admin/eposone/control',
+        '/admin/eposone/money-handoffs',
+        '/admin/eposone/prepare-operational',
     )
 
     return AppNavTree(
@@ -283,6 +285,24 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                         url=_section('shifts'),
                         visible=_v_eposone,
                         active_path_prefixes=('/admin/eposone/section/shifts',),
+                    ),
+                    AppNavItem(
+                        'recibir-dinero',
+                        'Recibir dinero',
+                        'fas fa-hand-holding-usd',
+                        url=safe_url_for('eposone.eposone_money_handoffs'),
+                        visible=_v_tenant_business_admin,
+                        active_endpoints=('eposone.eposone_money_handoffs',),
+                        active_path_prefixes=('/admin/eposone/money-handoffs',),
+                    ),
+                    AppNavItem(
+                        'preparar-operacion',
+                        'Preparar operación real',
+                        'fas fa-flag-checkered',
+                        url=safe_url_for('eposone.eposone_prepare_operational'),
+                        visible=_v_tenant_business_admin,
+                        active_endpoints=('eposone.eposone_prepare_operational',),
+                        active_path_prefixes=('/admin/eposone/prepare-operational',),
                     ),
                 ),
                 active_path_prefixes=device_prefixes,

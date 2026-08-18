@@ -44,6 +44,12 @@ def _resolve_cash_mode(organization_id: int) -> str:
     return resolve_cash_operation_mode(int(organization_id))
 
 
+def _ops_runtime_block(organization_id: int) -> dict[str, Any]:
+    from nodeone.modules.eposone.money_handoff_service import runtime_contract
+
+    return runtime_contract(int(organization_id))
+
+
 def _audit_publish(organization_id: int, event_type: str, payload: dict[str, Any] | None = None) -> None:
     try:
         from nodeone.core.services.audit import AuditService
@@ -740,8 +746,9 @@ class DeviceProvisioningService:
         products_out: list[dict[str, Any]] = []
         catalog_version = 1
         if 'products' in include_set:
-            # Activos primero; incluir inactive para que APK pueda ocultar.
-            items = ProductService.search(oid, limit=500)
+            from nodeone.modules.eposone.ops_lifecycle import catalog_sync_status
+
+            items = ProductService.search(oid, limit=2000)
             products_out = [
                 {
                     'product_ref': p.product_ref,
@@ -749,6 +756,7 @@ class DeviceProvisioningService:
                     'description': p.description,
                     'product_type': p.product_type,
                     'status': p.status,
+                    'sync_status': catalog_sync_status(p.status),
                     'category': p.category,
                     'fiscal_category': getattr(p, 'fiscal_category', None),
                     'barcode': p.barcode,
@@ -1008,6 +1016,7 @@ class DeviceProvisioningService:
             },
             'commercial': _commercial_block_for_org(oid),
             'license': _license_block_for_register(oid, str(row.register_ref or '')),
+            'ops': _ops_runtime_block(oid),
         }
 
     @staticmethod

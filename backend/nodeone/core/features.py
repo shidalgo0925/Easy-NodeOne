@@ -293,6 +293,7 @@ def register_admin_sales_accounting_routes(app):
             register_admin_sales_catalog_route as _reg_catalog,
             register_admin_sales_commercial_contacts_routes as _reg_cc,
             register_admin_sales_quotations_invoices_routes as _reg_qi,
+            register_admin_sales_xls_import_route as _reg_xls,
         )
 
         _reg_qi(app)
@@ -300,6 +301,7 @@ def register_admin_sales_accounting_routes(app):
         _reg_cc(app)
         # Rutas añadidas tras el bloque idempotente de cotizaciones (despliegues parciales sin reinicio limpio).
         _reg_inv_new(app)
+        _reg_xls(app)
     except ImportError as e:
         print(f'Warning: No se pudieron registrar rutas admin sales/accounting: {e}')
 

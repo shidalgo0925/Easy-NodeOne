@@ -55,6 +55,12 @@ def _ensure_tables():
         ensure_contacts_schema(db, db.engine)
     except Exception:
         current_app.logger.exception('ensure_contacts_schema en sales._ensure_tables')
+    try:
+        from nodeone.services.sales_xls_import_schema import ensure_sales_xls_import_schema
+
+        ensure_sales_xls_import_schema(db, db.engine)
+    except Exception:
+        current_app.logger.exception('ensure_sales_xls_import_schema en sales._ensure_tables')
     _TABLES_ENSURED = True
 
 
@@ -1020,3 +1026,8 @@ def quotations_create_invoice(qid):
             'quotation_status': q.status,
         }
     ), 201
+
+
+from nodeone.modules.sales.xls_import.routes import register_xls_import_api
+
+register_xls_import_api(sales_bp)

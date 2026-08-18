@@ -174,7 +174,11 @@ def eposone_lab_wipe_today():
                 organization_id=int(oid),
             )
         actor = actor_label_from_user(current_user) or f'user-{getattr(current_user, "id", "")}'
-        result = wipe_today(int(oid), actor=str(actor))
+        try:
+            result = wipe_today(int(oid), actor=str(actor))
+        except RuntimeError as exc:
+            flash(str(exc).replace('_', ' '), 'danger')
+            return redirect(url_for('eposone.eposone_lab_wipe_today'))
         flash(
             (
                 f"Lab wipe {result['day_local']}: "
@@ -190,6 +194,135 @@ def eposone_lab_wipe_today():
         'eposone/lab_wipe_today.html',
         preview=preview,
         organization_id=int(oid),
+    )
+
+
+@eposone_bp.route('/money-handoffs', methods=['GET', 'POST'])
+@login_required
+def eposone_money_handoffs():
+    """Caja Central: confirmar recepción de dinero (ADR-EN1-EP1)."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.bo_actor import actor_label_from_user
+    from nodeone.modules.eposone.money_handoff_service import MoneyHandoffError, MoneyHandoffService
+    from nodeone.modules.eposone.ops_lifecycle import HANDOFF_PENDING, resolve_money_handoff_mode
+
+    oid = resolve_organization_id()
+    if oid is None:
+        flash('Seleccioná una organización activa.', 'warning')
+        return redirect(url_for('dashboard'))
+    oid = int(oid)
+    if request.method == 'POST':
+        action = (request.form.get('action') or 'confirm').strip()
+        hid = request.form.get('handoff_id', type=int)
+        uid = int(getattr(current_user, 'id', 0) or 0) or None
+        label = actor_label_from_user(current_user) or f'user-{uid}'
+        try:
+            if not hid:
+                raise MoneyHandoffError('handoff_not_found')
+            if action == 'reverse':
+                MoneyHandoffService.reverse(
+                    oid, int(hid), reason=str(request.form.get('reason') or ''),
+                    actor_user_id=uid, actor_label=str(label),
+                )
+                flash('Recepción revertida.', 'warning')
+            else:
+                received = request.form.get('received_amount', type=float)
+                if received is None:
+                    flash('Monto recibido obligatorio.', 'danger')
+                    return redirect(url_for('eposone.eposone_money_handoffs'))
+                MoneyHandoffService.confirm(
+                    oid, int(hid), received_amount=float(received),
+                    actor_user_id=uid, actor_label=str(label),
+                )
+                flash('Recepción confirmada.', 'success')
+        except MoneyHandoffError as exc:
+            flash(str(exc).replace('_', ' '), 'danger')
+        return redirect(url_for('eposone.eposone_money_handoffs'))
+
+    status = (request.args.get('status') or '').strip() or None
+    from_date = (request.args.get('from') or '').strip() or None
+    to_date = (request.args.get('to') or '').strip() or None
+    handoffs = MoneyHandoffService.list_handoffs(
+        oid, status=status, from_date=from_date, to_date=to_date, limit=200
+    )
+    return render_template(
+        'eposone/money_handoffs.html',
+        organization_id=oid,
+        handoffs=handoffs,
+        summary=MoneyHandoffService.summary(oid),
+        money_handoff_mode=resolve_money_handoff_mode(oid),
+        pending_status=HANDOFF_PENDING,
+        filter_status=status or '',
+        filter_from=from_date or '',
+        filter_to=to_date or '',
+    )
+
+
+@eposone_bp.route('/prepare-operational', methods=['GET', 'POST'])
+@login_required
+def eposone_prepare_operational():
+    """Preparar para operación real — purga TEST autorizada (ADR-EN1-EP1)."""
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.runtime import resolve_organization_id
+    from nodeone.modules.eposone.bo_actor import actor_label_from_user
+    from nodeone.modules.eposone.money_handoff_service import (
+        MoneyHandoffError,
+        close_test_period,
+        preview_test_purge,
+    )
+    from nodeone.modules.eposone.ops_lifecycle import CLOSE_TEST_PHRASE
+
+    oid = resolve_organization_id()
+    if oid is None:
+        flash('Seleccioná una organización activa.', 'warning')
+        return redirect(url_for('dashboard'))
+    oid = int(oid)
+    preview = preview_test_purge(oid)
+    if request.method == 'POST':
+        phrase = (request.form.get('confirm_phrase') or '').strip()
+        second = (request.form.get('confirm_again') or '').strip()
+        if phrase != CLOSE_TEST_PHRASE or second != CLOSE_TEST_PHRASE:
+            flash(f'Debés escribir dos veces: {CLOSE_TEST_PHRASE}', 'danger')
+            return render_template(
+                'eposone/prepare_operational.html',
+                preview=preview,
+                organization_id=oid,
+                confirm_phrase=CLOSE_TEST_PHRASE,
+            )
+        uid = int(getattr(current_user, 'id', 0) or 0) or None
+        label = actor_label_from_user(current_user) or f'user-{uid}'
+        try:
+            result = close_test_period(
+                oid, confirm_phrase=phrase, actor_user_id=uid, actor_label=str(label)
+            )
+        except MoneyHandoffError as exc:
+            flash(str(exc).replace('_', ' '), 'danger')
+            return render_template(
+                'eposone/prepare_operational.html',
+                preview=preview,
+                organization_id=oid,
+                confirm_phrase=CLOSE_TEST_PHRASE,
+            )
+        flash(
+            (
+                f"TEST cerrado ({result.get('result')}): "
+                f"{(result.get('deleted') or {}).get('orders', 0)} pedidos, "
+                f"{(result.get('deleted') or {}).get('stock_movements', 0)} mov. inventario. "
+                'Definí inventario inicial definitivo antes de vender.'
+            ),
+            'success',
+        )
+        return redirect(url_for('eposone.eposone_prepare_operational'))
+    return render_template(
+        'eposone/prepare_operational.html',
+        preview=preview,
+        organization_id=oid,
+        confirm_phrase=CLOSE_TEST_PHRASE,
     )
 
 
@@ -2186,7 +2319,13 @@ def eposone_settings_save():
             'cash_operation_mode': (
                 request.form.get('cash_operation_mode') or 'SIMPLE'
             ).strip(),
+            'money_handoff_mode': (
+                request.form.get('money_handoff_mode') or 'SIMPLE'
+            ).strip(),
         }
+        life = (request.form.get('operational_lifecycle') or '').strip()
+        if life:
+            update_kwargs['operational_lifecycle'] = life
         label = 'Caja'
         redirect_slug = redirect_slug or 'registers'
     else:

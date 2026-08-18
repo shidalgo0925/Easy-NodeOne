@@ -674,8 +674,10 @@
   }
 
   function applyServiceToRow(tr, p) {
-    tr.querySelector('.li-product').value = p.id;
-    tr.querySelector('.li-product-search').value = p.name || '';
+    const productEl = tr.querySelector('.li-product');
+    const name = (p.name || '').trim();
+    productEl.value = p.id;
+    productEl.dataset.name = name;
     tr.querySelector('.li-desc').value = (p.description || p.name || '').trim() || p.name || '';
     tr.querySelector('.li-price').value = Number(p.price_unit || 0).toFixed(2);
     const taxSel = tr.querySelector('.li-tax');
@@ -702,11 +704,14 @@
         const code = p.code != null && String(p.code) !== '' ? String(p.code) : String(p.id);
         const dt =
           p.default_tax_id != null && p.default_tax_id !== '' ? escAttr(String(p.default_tax_id)) : '';
-        return `<button type="button" class="odoo-m2o-item li-product-option" data-id="${p.id}" data-name="${escAttr(p.name)}" data-desc="${escAttr(p.description || '')}" data-price="${Number(p.price_unit || 0)}" data-tax="${dt}"><span class="odoo-m2o-item-title">${escHtml(p.name)}</span><span class="odoo-m2o-item-meta"><span class="text-muted">Ref. ${escHtml(code)}</span> · ${escHtml(fmtPu(p.price_unit))}</span></button>`;
+        const title = (p.description || p.name || '').trim() || p.name || '';
+        const name = (p.name || '').trim();
+        const metaName = name && name !== title ? `${escHtml(name)} · ` : '';
+        return `<button type="button" class="odoo-m2o-item li-product-option" data-id="${p.id}" data-name="${escAttr(p.name)}" data-desc="${escAttr(p.description || '')}" data-price="${Number(p.price_unit || 0)}" data-tax="${dt}"><span class="odoo-m2o-item-title">${escHtml(title)}</span><span class="odoo-m2o-item-meta">${metaName}<span class="text-muted">Ref. ${escHtml(code)}</span> · ${escHtml(fmtPu(p.price_unit))}</span></button>`;
       })
       .join('');
     if (!products.length) body = '<div class="px-3 py-2 small text-muted">Sin resultados</div>';
-    return `${body}<div class="odoo-m2o-footer"><a href="#" class="odoo-m2o-more li-product-more">Catálogo completo…</a></div><div class="odoo-m2o-hint">Nombre, descripción o ID</div>`;
+    return `${body}<div class="odoo-m2o-footer"><a href="#" class="odoo-m2o-more li-product-more">Catálogo completo…</a></div><div class="odoo-m2o-hint">Buscar por descripción</div>`;
   }
 
   async function renderServiceDropdown(tr, q, limit) {

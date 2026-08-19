@@ -104,6 +104,11 @@
   flex: 1 1 auto;
 }
 
+.quote-odoo-page--sheet.is-invoice-form .quote-sheet-toolbar,
+.quote-odoo-page--sheet.is-invoice-form .quote-sheet-toolbar-actions {
+  flex-wrap: wrap !important;
+}
+
 .quote-odoo-page--sheet .quote-sheet-toolbar .btn-sm {
   white-space: nowrap;
   flex-shrink: 0;

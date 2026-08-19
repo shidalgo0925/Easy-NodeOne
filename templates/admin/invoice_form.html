@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Factura | {{ get_nav_brand_name() }}{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/sales-quotation-odoo.css') }}?v=10">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/sales-quotation-odoo.css') }}?v=14">
 {% endblock %}
 {% block content %}
-<div class="container-fluid px-2 px-sm-3 py-2 quote-odoo-page erp-compact-page" id="odooInvoiceForm" data-invoice-id="{{ invoice_id }}" data-is-new="{{ 1 if invoice_id == 0 else 0 }}" data-initial-status="{{ invoice_status or '' }}" data-inv-api-base="/invoices" data-workshop-api-base="/api/workshop" data-invoice-org-name="{{ (invoice_org_name|default('', true))|e }}">
+<div class="container-fluid px-3 px-lg-4 py-2 quote-odoo-page quote-odoo-page--sheet is-invoice-form is-loading" id="odooInvoiceForm" data-invoice-id="{{ invoice_id }}" data-is-new="{{ 1 if invoice_id == 0 else 0 }}" data-initial-status="{{ invoice_status or '' }}" data-inv-api-base="/invoices" data-workshop-api-base="/api/workshop" data-invoice-org-name="{{ (invoice_org_name|default('', true))|e }}">
     <div id="invFormError" class="alert alert-danger d-none"></div>
     <div id="invLedgerReadiness" class="alert d-none mb-2 py-2" role="status" aria-live="polite"></div>
     <div id="invFeStatus" class="alert alert-info d-none mb-2 py-2 small" role="status"></div>
@@ -13,132 +13,136 @@
     </div>
     <div id="invSavedToast" class="quote-saved-toast d-none" role="status" aria-live="polite">Guardado</div>
 
-    <div class="quote-odoo-toolbar erp-toolbar d-flex flex-wrap align-items-center mb-2">
-        <h1 class="h5 mb-0 text-nowrap me-1 d-none d-sm-inline"><i class="fas fa-file-invoice me-1 text-muted" aria-hidden="true"></i>Factura</h1>
-        <div class="d-flex flex-wrap gap-1">
-            <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_accounting_invoices') }}">Listado</a>
+    <div class="quote-odoo-toolbar quote-sheet-toolbar">
+        <div class="quote-sheet-toolbar-actions">
+            <a class="btn btn-light border btn-sm" href="{{ url_for('admin_accounting_invoices') }}">Listado</a>
             <button type="button" id="invBtnSave" class="btn btn-primary btn-sm">Guardar</button>
-            <button type="button" id="invBtnPost" class="btn btn-outline-primary btn-sm">Contabilizar</button>
-            <button type="button" id="invBtnPay" class="btn btn-outline-success btn-sm">Registrar pago</button>
-            <button type="button" id="invBtnCancel" class="btn btn-light border btn-sm">Cancelar factura</button>
-            <button type="button" id="invBtnEmitFe" class="btn btn-outline-info btn-sm d-none">Emitir FE</button>
-            <button type="button" id="invBtnDelete" class="btn btn-danger btn-sm">Eliminar</button>
+            <button type="button" id="invBtnPost" class="btn btn-light border btn-sm">Contabilizar</button>
+            <button type="button" id="invBtnPay" class="btn btn-light border btn-sm">Registrar pago</button>
+            <button type="button" id="invBtnCancel" class="btn btn-light border btn-sm">Cancelar</button>
+            <button type="button" id="invBtnEmitFe" class="btn btn-light border btn-sm d-none">Emitir FE</button>
+            <button type="button" id="invBtnPreviewPdf" class="btn btn-light border btn-sm d-none">Vista previa</button>
+            <button type="button" id="invBtnDownloadPdf" class="btn btn-light border btn-sm d-none">Descargar PDF</button>
+            <button type="button" id="invBtnPacDoc" class="btn btn-light border btn-sm d-none">Documento FE / PAC</button>
+            <button type="button" id="invBtnDelete" class="btn btn-outline-danger btn-sm">Eliminar</button>
         </div>
-        <div class="d-flex align-items-center gap-1 quote-odoo-status flex-wrap ms-md-auto">
-            <span class="badge rounded-pill text-bg-secondary" id="invStDraft" title="Borrador">Borrador</span>
-            <span class="badge rounded-pill text-bg-primary" id="invStPosted" title="Contabilizada">Contabilizada</span>
-            <span class="badge rounded-pill text-bg-warning text-dark" id="invStPartial" title="Pago parcial">Parcial</span>
-            <span class="badge rounded-pill text-bg-success" id="invStPaid" title="Pagada">Pagada</span>
-            <span class="badge rounded-pill text-bg-dark" id="invStCancelled" title="Cancelada">Cancelada</span>
-            <div id="invLedgerLinks" class="w-100 text-end small text-muted mt-1 d-none" aria-live="polite"></div>
+        <div class="quote-odoo-arrows" role="status" aria-label="Estado de la factura">
+            <span class="quote-arrow" id="invStDraft">Borrador</span>
+            <span class="quote-arrow" id="invStPosted">Contabilizada</span>
+            <span class="quote-arrow" id="invStPartial">Parcial</span>
+            <span class="quote-arrow" id="invStPaid">Pagada</span>
+            <span class="quote-arrow-cancelled d-none" id="invStCancelled">Cancelada</span>
         </div>
     </div>
 
-    <div class="quote-odoo-card card border shadow-sm">
-        <div class="card-body p-2">
-            <div class="quote-odoo-header quote-odoo-header--compact">
-                <div class="row g-2 align-items-end">
-                    <div class="col-auto">
-                        <span class="quote-odoo-label d-block">Número</span>
-                        <span class="quote-odoo-number" id="invNumber">—</span>
-                    </div>
-                    <div class="col-12 col-md-5 col-lg-4">
-                        <label class="quote-odoo-field quote-odoo-field-customer w-100 mb-0">
-                            <span class="quote-odoo-label">Cliente</span>
+    <div class="quote-odoo-card quote-sheet-card card border-0 shadow-sm">
+        <div class="card-body">
+            <h2 class="quote-sheet-title" id="invNumber">{{ invoice_number|default('Nueva factura', true) }}</h2>
+            <div class="quote-sheet-grid">
+                <div class="quote-sheet-group">
+                    <div class="quote-sheet-row">
+                        <span class="quote-sheet-label">Cliente</span>
+                        <div class="quote-sheet-ctl">
                             <div class="odoo-m2o quote-customer-m2o" id="invCustomerM2o">
-                                <div class="d-flex align-items-stretch odoo-m2o-input-wrap quote-odoo-input border rounded px-1 bg-white">
-                                    <input type="text" id="invCustomerSearch" class="flex-grow-1 border-0 shadow-none rounded-0 bg-transparent px-2" placeholder="Contacto…" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" title="Filtrar o crear contacto">
+                                <div class="d-flex align-items-stretch odoo-m2o-input-wrap quote-sheet-underline">
+                                    <input type="text" id="invCustomerSearch" class="flex-grow-1 border-0 shadow-none rounded-0 bg-transparent px-1" placeholder="Comience a escribir para encontrar un cliente…" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" title="Filtrar o crear contacto">
                                     <button type="button" class="btn btn-sm btn-link odoo-m2o-toggle quote-cust-toggle px-2" tabindex="-1" title="Mostrar contactos">🔍</button>
                                 </div>
                                 <input type="hidden" id="invCustomerId" value="">
                                 <input type="hidden" id="invCustomerContactId" value="">
                                 <div id="invCustomerMenu" class="odoo-m2o-dropdown" role="listbox"></div>
                             </div>
-                        </label>
+                        </div>
                     </div>
-                    <div class="col-6 col-md-3 col-lg-2">
-                        <label class="quote-odoo-field quote-odoo-field-salesperson w-100 mb-0">
-                            <span class="quote-odoo-label">Vendedor</span>
+                    <div class="quote-sheet-row">
+                        <span class="quote-sheet-label">Vendedor</span>
+                        <div class="quote-sheet-ctl">
                             <div class="odoo-m2o quote-salesperson-m2o" id="invSalespersonM2o">
-                                <div class="d-flex align-items-stretch odoo-m2o-input-wrap quote-odoo-input border rounded px-1 bg-white">
-                                    <input type="text" id="invSalespersonSearch" class="flex-grow-1 border-0 shadow-none rounded-0 bg-transparent px-2" placeholder="Vendedor…" autocomplete="off" role="combobox" aria-expanded="false">
+                                <div class="d-flex align-items-stretch odoo-m2o-input-wrap quote-sheet-underline">
+                                    <input type="text" id="invSalespersonSearch" class="flex-grow-1 border-0 shadow-none rounded-0 bg-transparent px-1" placeholder="Vendedor…" autocomplete="off" role="combobox" aria-expanded="false">
                                 </div>
                                 <input type="hidden" id="invSalespersonUserId" value="">
                                 <div id="invSalespersonMenu" class="odoo-m2o-dropdown" role="listbox"></div>
                             </div>
-                        </label>
+                        </div>
                     </div>
-                    <div class="col-6 col-md-2 col-lg-auto">
-                        <label class="quote-odoo-field w-100 mb-0">
-                            <span class="quote-odoo-label">Fecha</span>
-                            <input id="invDate" class="quote-odoo-input w-100" type="date">
-                        </label>
+                </div>
+                <div class="quote-sheet-group">
+                    <div class="quote-sheet-row">
+                        <label class="quote-sheet-label" for="invDate">Fecha</label>
+                        <div class="quote-sheet-ctl"><input id="invDate" class="quote-sheet-input" type="date"></div>
                     </div>
-                    <div class="col-6 col-md-2 col-lg-auto">
-                        <label class="quote-odoo-field w-100 mb-0">
-                            <span class="quote-odoo-label">Vence</span>
-                            <input id="invDueDate" class="quote-odoo-input w-100" type="date">
-                        </label>
+                    <div class="quote-sheet-row">
+                        <label class="quote-sheet-label" for="invDueDate">Vencimiento</label>
+                        <div class="quote-sheet-ctl"><input id="invDueDate" class="quote-sheet-input" type="date"></div>
                     </div>
-                    <div class="col-6 col-md-3 col-lg-2">
-                        <label class="quote-odoo-field w-100 mb-0">
-                            <span class="quote-odoo-label">Origen</span>
-                            <input id="invOriginLabel" class="quote-odoo-input w-100" style="max-width:none" readonly placeholder="—">
-                        </label>
+                    <div class="quote-sheet-row">
+                        <label class="quote-sheet-label" for="invOriginLabel">Origen</label>
+                        <div class="quote-sheet-ctl"><input id="invOriginLabel" class="quote-sheet-input" type="text" readonly placeholder="—"></div>
                     </div>
-                    <div class="col-12 col-lg">
-                        <div class="quote-odoo-field w-100 mb-0">
-                            <span class="quote-odoo-label">Emisor (fiscal)</span>
-                            <div id="invOrgFiscalText" class="erp-footnote text-muted text-truncate" style="min-height:1.85rem;line-height:1.85rem">Sin datos fiscales.</div>
+                </div>
+            </div>
+
+            <ul class="nav nav-tabs quote-odoo-tabs mb-0" role="tablist">
+                <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#inv-tab-lines" type="button">Líneas de la factura</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#inv-tab-other" type="button">Otra información</button></li>
+            </ul>
+            <div class="tab-content quote-odoo-tab-content border border-top-0 bg-white">
+                <div class="tab-pane fade show active" id="inv-tab-lines">
+                    <div class="quotation-lines-table-outer">
+                        <table class="table quotation-lines-table quote-lines-table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Descripción</th>
+                                    <th class="text-end">Cantidad</th>
+                                    <th class="text-end">Precio unitario</th>
+                                    <th>Impuestos</th>
+                                    <th class="text-end">Importe</th>
+                                    <th class="text-center" style="width:2rem"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="invLineItems"></tbody>
+                        </table>
+                    </div>
+                    <div class="quote-add-links" id="invAddLinks">
+                        <button type="button" class="btn btn-link btn-sm" id="invBtnAddLine">Agregar un producto</button>
+                        <span class="quote-add-sep" aria-hidden="true">·</span>
+                        <button type="button" class="btn btn-link btn-sm" id="invMenuAddSection">Agregar una sección</button>
+                        <span class="quote-add-sep" aria-hidden="true">·</span>
+                        <button type="button" class="btn btn-link btn-sm" id="invMenuAddNote">Agregar una nota</button>
+                        <span class="quote-add-sep" aria-hidden="true">·</span>
+                        <button type="button" class="btn btn-link btn-sm" id="invMenuOpenCatalog">Catálogo</button>
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="inv-tab-other">
+                    <div class="quote-sheet-grid quote-sheet-grid--other pt-3 px-2">
+                        <div class="quote-sheet-group">
+                            <div class="quote-sheet-row quote-sheet-row--top">
+                                <span class="quote-sheet-label">Emisor (fiscal)</span>
+                                <div class="quote-sheet-ctl">
+                                    <div id="invOrgFiscalText" class="quote-sheet-static">Sin datos fiscales.</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="quote-sheet-group">
+                            <div class="quote-sheet-row quote-sheet-row--top">
+                                <span class="quote-sheet-label">Libro mayor</span>
+                                <div class="quote-sheet-ctl">
+                                    <div id="invLedgerLinks" class="quote-sheet-static small text-muted" aria-live="polite">Sin asientos.</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="row g-2 quote-doc-body-row">
-                <div class="col-lg-9">
-                    <ul class="nav nav-tabs quote-odoo-tabs border-0 mb-0" role="tablist">
-                        <li class="nav-item"><button class="nav-link active py-1" data-bs-toggle="tab" data-bs-target="#inv-tab-lines" type="button">Líneas</button></li>
-                    </ul>
-                    <div class="tab-content quote-odoo-tab-content border border-top-0 rounded-bottom bg-white">
-                        <div class="tab-pane fade show active" id="inv-tab-lines">
-                            <div class="quotation-lines-table-outer">
-                                <table class="table quotation-lines-table quote-lines-table mb-0">
-                                    <thead>
-                                        <tr>
-                                            <th>Descripción</th>
-                                            <th class="text-end">Cant.</th>
-                                            <th class="text-end">Precio</th>
-                                            <th>Imp.</th>
-                                            <th class="text-end">Importe</th>
-                                            <th class="text-center" style="width:2rem"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="invLineItems"></tbody>
-                                </table>
-                            </div>
-                            <div class="d-flex flex-wrap align-items-center gap-1 mt-2">
-                                <button type="button" class="btn btn-primary btn-sm" id="invBtnAddLine">+ Línea</button>
-                                <div class="dropdown">
-                                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" id="invBtnLineExtras">Más</button>
-                                    <ul class="dropdown-menu dropdown-menu-start shadow-sm" aria-labelledby="invBtnLineExtras">
-                                        <li><a class="dropdown-item" href="#" id="invMenuAddNote">Nota</a></li>
-                                        <li><a class="dropdown-item" href="#" id="invMenuAddSection">Sección</a></li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item" href="#" id="invMenuOpenCatalog">Catálogo…</a></li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-3 quote-totals-col">
-                    <div class="quote-totals-panel mt-0 mt-lg-4">
-                        <div class="quote-totals-row"><span>Subtotal</span><span id="invSubtotalLbl">B/. 0.00</span></div>
-                        <div class="quote-totals-row"><span>Impuestos</span><span id="invTaxLbl">B/. 0.00</span></div>
-                        <div class="quote-totals-row quote-totals-grand"><span>Total</span><span id="invGrandLbl">B/. 0.00</span></div>
-                        <div class="quote-totals-row d-none" id="invAmountDueRow"><span class="text-muted">Pendiente</span><span id="invAmountDueLbl">B/. 0.00</span></div>
-                    </div>
+            <div class="quote-sheet-footer">
+                <div class="quote-sheet-terms text-muted small">El total se recalcula con las líneas e impuestos de EN1. El pendiente aparece tras contabilizar si hay saldo.</div>
+                <div class="quote-totals-panel">
+                    <div class="quote-totals-row"><span>Subtotal</span><span id="invSubtotalLbl">{{ 0|en1_money }}</span></div>
+                    <div class="quote-totals-row"><span>Impuestos</span><span id="invTaxLbl">{{ 0|en1_money }}</span></div>
+                    <div class="quote-totals-row quote-totals-grand"><span>Total</span><span id="invGrandLbl">{{ 0|en1_money }}</span></div>
+                    <div class="quote-totals-row d-none" id="invAmountDueRow"><span class="text-muted">Pendiente</span><span id="invAmountDueLbl">{{ 0|en1_money }}</span></div>
                 </div>
             </div>
         </div>
@@ -199,9 +203,22 @@
         </div>
     </div>
 </div>
+<div class="modal fade" id="invPdfPreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h5 class="modal-title">Vista previa — factura</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-0" style="min-height:70vh">
+                <iframe id="invPdfPreviewFrame" title="Vista previa de factura" style="width:100%;height:75vh;border:0"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/modules/sales/quotation_lines_component.js') }}?v=13"></script>
-<script src="{{ url_for('static', filename='js/modules/accounting/invoice_form.js') }}?v=9"></script>
+<script src="{{ url_for('static', filename='js/modules/sales/quotation_lines_component.js') }}?v=15"></script>
+<script src="{{ url_for('static', filename='js/modules/accounting/invoice_form.js') }}?v=12"></script>
 {% endblock %}

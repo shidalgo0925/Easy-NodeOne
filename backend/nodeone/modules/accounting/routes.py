@@ -5,7 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_file
 from flask_login import current_user, login_required
 
 from nodeone.core.db import db
@@ -73,6 +73,12 @@ def _ensure_tables():
         from nodeone.services.saas_org_fiscal_schema import ensure_saas_organization_fiscal_columns
 
         ensure_saas_organization_fiscal_columns(db, db.engine)
+    except Exception:
+        pass
+    try:
+        from nodeone.services.efactura_schema import ensure_efactura_schema
+
+        ensure_efactura_schema(db, db.engine)
     except Exception:
         pass
 
@@ -289,14 +295,10 @@ def _serialize_invoice(inv: Invoice, user_by_id=None, contact_by_id=None):
         'lines': [_serialize_invoice_line(ln, product_name=pnames.get(ln.product_id, '')) for ln in ilines],
     }
     try:
-        from nodeone.modules.efactura.services.issue import find_active_fe_for_invoice
+        from nodeone.modules.efactura.services.fe_visual import find_latest_fe_for_invoice, serialize_fe_for_invoice
 
-        fe = find_active_fe_for_invoice(inv.id, inv.organization_id)
-        out['fe_document'] = (
-            {'id': fe.id, 'status': fe.status, 'cufe': fe.cufe, 'authorization_message': fe.authorization_message}
-            if fe
-            else None
-        )
+        fe = find_latest_fe_for_invoice(inv.id, inv.organization_id)
+        out['fe_document'] = serialize_fe_for_invoice(fe)
     except Exception:
         out['fe_document'] = None
     if inv.status == 'draft':
@@ -651,6 +653,74 @@ def invoice_get(iid):
             for c in TenantCrmContact.query.filter(TenantCrmContact.id.in_(list(missing))).all():
                 contact_by_id[c.id] = c
     return jsonify(_serialize_invoice(inv, user_by_id, contact_by_id))
+
+
+@accounting_bp.route('/<int:iid>/pdf', methods=['GET'])
+@login_required
+def invoice_visual_pdf(iid):
+    """Vista previa / descarga de la factura visual EN1. No emite FE."""
+    from io import BytesIO
+
+    _ensure_tables()
+    if not _can_accounting():
+        return jsonify({'error': 'forbidden'}), 403
+    oid = _org_id()
+    from nodeone.modules.accounting.invoice_pdf import load_invoice_for_visual, render_invoice_pdf_bytes
+
+    inv = load_invoice_for_visual(iid, oid)
+    if not inv:
+        return jsonify({'error': 'not_found', 'user_message': 'Factura no encontrada.'}), 404
+    pdf = render_invoice_pdf_bytes(inv)
+    buf = BytesIO(pdf)
+    buf.seek(0)
+    fname = f"Factura-{(inv.number or str(inv.id)).replace('/', '-')}.pdf"
+    as_attach = str(request.args.get('download') or '').strip() in ('1', 'true', 'yes')
+    return send_file(buf, mimetype='application/pdf', as_attachment=as_attach, download_name=fname)
+
+
+@accounting_bp.route('/<int:iid>/fe-pac', methods=['GET'])
+@login_required
+def invoice_fe_pac_document(iid):
+    """Documento PAC (CAFE/PDF o XML) persistido. No emite FE."""
+    from io import BytesIO
+
+    from nodeone.modules.efactura.services.fe_visual import find_latest_fe_for_invoice
+    from nodeone.modules.efactura.services.pac_artifacts import decode_base64_bytes
+
+    _ensure_tables()
+    if not _can_accounting():
+        return jsonify({'error': 'forbidden'}), 403
+    oid = _org_id()
+    inv = Invoice.query.filter_by(id=iid, organization_id=oid).first()
+    if not inv:
+        return jsonify({'error': 'not_found', 'user_message': 'Factura no encontrada.'}), 404
+    fe = find_latest_fe_for_invoice(inv.id, oid)
+    if fe is None:
+        return jsonify({'error': 'not_found', 'user_message': 'No hay documento PAC para esta factura.'}), 404
+    pdf_raw = decode_base64_bytes(getattr(fe, 'pdf_content', None))
+    if pdf_raw:
+        buf = BytesIO(pdf_raw)
+        buf.seek(0)
+        return send_file(
+            buf,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f"FE-PAC-{(inv.number or str(inv.id)).replace('/', '-')}.pdf",
+        )
+    xml_raw = getattr(fe, 'xml_content', None) or ''
+    xml_bytes = decode_base64_bytes(xml_raw)
+    if xml_bytes is None and xml_raw.strip().startswith('<'):
+        xml_bytes = xml_raw.encode('utf-8')
+    if xml_bytes:
+        buf = BytesIO(xml_bytes)
+        buf.seek(0)
+        return send_file(
+            buf,
+            mimetype='application/xml',
+            as_attachment=True,
+            download_name=f"FE-{(inv.number or str(inv.id)).replace('/', '-')}.xml",
+        )
+    return jsonify({'error': 'not_found', 'user_message': 'El PAC no entregó PDF ni XML persistido.'}), 404
 
 
 @accounting_bp.route('/<int:iid>', methods=['PUT'])

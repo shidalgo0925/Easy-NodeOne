@@ -29,6 +29,9 @@
   const customerMenu = document.getElementById('invCustomerMenu');
   const invFeStatus = document.getElementById('invFeStatus');
   const btnEmitFe = document.getElementById('invBtnEmitFe');
+  const btnPreviewPdf = document.getElementById('invBtnPreviewPdf');
+  const btnDownloadPdf = document.getElementById('invBtnDownloadPdf');
+  const btnPacDoc = document.getElementById('invBtnPacDoc');
   const salespersonSearch = document.getElementById('invSalespersonSearch');
   const salespersonMenu = document.getElementById('invSalespersonMenu');
   const salespersonUserId = document.getElementById('invSalespersonUserId');
@@ -41,7 +44,9 @@
   let serviceCatalogCache = [];
   let servicePickTargetTr = null;
 
-  const fmt = (n) => `B/. ${Number(n || 0).toFixed(2)}`;
+  const fmt = (n) => (window.EN1Format ? window.EN1Format.money(n) : `B/. ${Number(n || 0).toFixed(2)}`);
+  const fmtNum = (n, decimals) =>
+    window.EN1Format ? window.EN1Format.number(n, decimals) : Number(n || 0).toFixed(decimals != null ? decimals : 2);
   const SVC_DEBOUNCE_MS = 300;
   const CUST_DEBOUNCE_MS = 300;
   const SP_DEBOUNCE_MS = 300;
@@ -69,8 +74,7 @@
     const el = document.getElementById('invLedgerLinks');
     if (!el) return;
     if (!row) {
-      el.classList.add('d-none');
-      el.textContent = '';
+      el.textContent = 'Sin asientos.';
       return;
     }
     const jv = row.journal_entry_id != null && row.journal_entry_id !== '' ? Number(row.journal_entry_id) : null;
@@ -79,11 +83,9 @@
         ? Number(row.payment_journal_entry_id)
         : null;
     if (!jv && !jp) {
-      el.classList.add('d-none');
-      el.textContent = '';
+      el.textContent = 'Sin asientos.';
       return;
     }
-    el.classList.remove('d-none');
     const parts = [];
     if (jv)
       parts.push(
@@ -93,7 +95,7 @@
       parts.push(
         `<a href="/admin/accounting-core/entries/${jp}">Asiento cobro #${jp}</a>`,
       );
-    el.innerHTML = `<span class="me-1">Libro mayor:</span>${parts.join(' <span class="text-secondary">·</span> ')}`;
+    el.innerHTML = parts.join(' <span class="text-secondary">·</span> ');
   }
 
   function updateLedgerPostingBanner(row) {
@@ -162,9 +164,13 @@
     if (invDate) invDate.readOnly = !editable;
     if (invDueDate) invDueDate.disabled = !editable;
     const btnAdd = document.getElementById('invBtnAddLine');
-    const btnExtras = document.getElementById('invBtnLineExtras');
+    const invAddLinks = document.getElementById('invAddLinks');
     if (btnAdd) btnAdd.disabled = !editable;
-    if (btnExtras) btnExtras.disabled = !editable;
+    if (invAddLinks) {
+      invAddLinks.querySelectorAll('button').forEach((b) => {
+        b.disabled = !editable;
+      });
+    }
 
     const st = String(inv.status || '');
     const idNum = Number(root.dataset.invoiceId) || 0;
@@ -369,7 +375,7 @@
       tax += calc.tax;
       grand += calc.total;
       const totalCell = tr.querySelector('.li-total');
-      if (totalCell) totalCell.textContent = Number(calc.total || 0).toFixed(2);
+      if (totalCell) totalCell.textContent = fmtNum(calc.total || 0);
     });
     document.getElementById('invSubtotalLbl').textContent = fmt(subtotal);
     document.getElementById('invTaxLbl').textContent = fmt(tax);
@@ -377,22 +383,21 @@
   }
 
   function setStatus(status) {
-    ['invStDraft', 'invStPosted', 'invStPartial', 'invStPaid', 'invStCancelled'].forEach((id) => {
+    const order = ['invStDraft', 'invStPosted', 'invStPartial', 'invStPaid'];
+    const map = { draft: 0, posted: 1, partial: 2, paid: 3 };
+    const idx = Object.prototype.hasOwnProperty.call(map, status) ? map[status] : null;
+    order.forEach((id, i) => {
       const el = document.getElementById(id);
-      if (el) el.style.opacity = '0.35';
+      if (!el) return;
+      el.classList.toggle('is-current', idx === i);
+      el.classList.toggle('is-done', idx != null && i < idx);
+      el.classList.toggle('is-upcoming', idx == null || i > idx);
+      el.style.opacity = '';
     });
-    const map = {
-      draft: 'invStDraft',
-      posted: 'invStPosted',
-      partial: 'invStPartial',
-      paid: 'invStPaid',
-      cancelled: 'invStCancelled',
-    };
-    const id = map[status];
-    if (id) {
-      const el = document.getElementById(id);
-      if (el) el.style.opacity = '1';
-    }
+    const cancelled = document.getElementById('invStCancelled');
+    if (cancelled) cancelled.classList.toggle('d-none', status !== 'cancelled');
+    const bar = document.querySelector('#odooInvoiceForm .quote-odoo-arrows');
+    if (bar) bar.classList.toggle('is-cancelled', status === 'cancelled');
   }
 
   function closeCustomerMenu() {
@@ -640,7 +645,7 @@
   }
 
   function updateFeUi(row) {
-    if (!invFeStatus || !btnEmitFe) return;
+    if (!invFeStatus) return;
     const fe = row && row.fe_document;
     const st = row && row.status;
     const canEmit = st && st !== 'draft' && st !== 'cancelled' && (!fe || !fe.cufe);
@@ -659,6 +664,18 @@
       invFeStatus.textContent = `FE ${fe.status}${fe.authorization_message ? ': ' + fe.authorization_message : ''}`;
     } else {
       invFeStatus.classList.add('d-none');
+    }
+    if (iid > 0) {
+      btnPreviewPdf?.classList.remove('d-none');
+      btnDownloadPdf?.classList.remove('d-none');
+    } else {
+      btnPreviewPdf?.classList.add('d-none');
+      btnDownloadPdf?.classList.add('d-none');
+    }
+    if (iid > 0 && fe && fe.has_pac_document) {
+      btnPacDoc?.classList.remove('d-none');
+    } else {
+      btnPacDoc?.classList.add('d-none');
     }
   }
 
@@ -698,7 +715,7 @@
   }
 
   function buildServiceDropdownHtml(products) {
-    const fmtPu = (n) => `B/. ${Number(n || 0).toFixed(2)}`;
+    const fmtPu = (n) => fmt(n);
     let body = products
       .map((p) => {
         const code = p.code != null && String(p.code) !== '' ? String(p.code) : String(p.id);
@@ -770,7 +787,7 @@
       list
         .map((p) => {
           const code = p.code != null && String(p.code) !== '' ? String(p.code) : String(p.id);
-          const pu = `B/. ${Number(p.price_unit || 0).toFixed(2)}`;
+          const pu = fmt(p.price_unit || 0);
           const dtax =
             p.default_tax_id != null && p.default_tax_id !== '' ? escAttr(String(p.default_tax_id)) : '';
           return `<tr class="li-catalog-row" style="cursor:pointer" data-id="${p.id}" data-name="${escAttr(p.name)}" data-desc="${escAttr(p.description || '')}" data-price="${Number(p.price_unit || 0)}" data-tax="${dtax}"><td class="small py-1"><strong>${escHtml(p.name)}</strong><div class="text-muted" style="font-size:0.75rem">Ref. ${escHtml(code)}</div></td><td class="small text-muted py-1">${escHtml(String(p.description || '').slice(0, 100))}</td><td class="small text-end py-1">${escHtml(pu)}</td></tr>`;
@@ -1420,6 +1437,26 @@
     }
   });
 
+  btnPreviewPdf?.addEventListener('click', () => {
+    if (iid < 1) return;
+    const frame = document.getElementById('invPdfPreviewFrame');
+    if (frame) frame.src = `${INV_BASE}/${iid}/pdf?t=${Date.now()}`;
+    const modalEl = document.getElementById('invPdfPreviewModal');
+    if (window.bootstrap && modalEl) {
+      window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+  });
+
+  btnDownloadPdf?.addEventListener('click', () => {
+    if (iid < 1) return;
+    window.location.href = `${INV_BASE}/${iid}/pdf?download=1`;
+  });
+
+  btnPacDoc?.addEventListener('click', () => {
+    if (iid < 1) return;
+    window.location.href = `${INV_BASE}/${iid}/fe-pac`;
+  });
+
   document.getElementById('invBtnPay')?.addEventListener('click', async () => {
     try {
       clearError();
@@ -1430,7 +1467,7 @@
       );
       const def = due > 0 ? due.toFixed(2) : '';
       const raw = window.prompt(
-        `Importe a cobrar en B/. (pendiente ${def ? `B/. ${def}` : '0.00'}). Deje el valor por defecto para cobrar todo el pendiente:`,
+        `Importe a cobrar (${def ? fmt(due) : fmt(0)}). Deje el valor por defecto para cobrar todo el pendiente:`,
         def,
       );
       if (raw === null) return;
@@ -1479,6 +1516,7 @@
   });
 
   (async function init() {
+    root.classList.add('is-loading');
     try {
       await loadTaxes();
       if (isNewDraft && (Number(root.dataset.invoiceId) || 0) < 1) {
@@ -1488,6 +1526,8 @@
       }
     } catch (e) {
       showError(e.message || String(e));
+    } finally {
+      root.classList.remove('is-loading');
     }
   })();
 })();

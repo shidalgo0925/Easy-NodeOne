@@ -221,6 +221,7 @@ class StockService:
                     quantity=qty,
                     order_ref=ref,
                     idempotency_key=f'{ref}:{movement}:{product_ref}',
+                    allow_negative=True,
                 )
                 if result.get('status') == 'applied':
                     applied += 1

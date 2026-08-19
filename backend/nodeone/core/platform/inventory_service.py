@@ -1,7 +1,16 @@
-"""ADR-039 F2–F4 — Inventory Core (EN1).
+"""ADR-039 F2–F4 + Connected EP1 — Inventory Core (EN1).
 
 Reutiliza ``core_org_unit`` (warehouse), ``core_stock_balance``, ``core_stock_movement``
 y ``StockService``. No crea un segundo ledger. UI = F3; transfers/mínimos = F4.
+
+Camino canónico Connected (products=ON + inventory=ON): una operación comercial =
+un movimiento vía ``record_movement`` / ``transfer``. No postear el mismo hecho
+en ``StockService`` y en ``inventory_service``.
+
+Excepción documentada: ``reserve`` / ``release`` de pedido siguen en
+``StockService`` (cantidad reservada, no on_hand) hasta una migración explícita.
+Toma física = sesión ``PhysicalInventoryCount``; el ledger solo recibe
+ADJUSTMENT_IN/OUT al aprobar.
 """
 
 from __future__ import annotations
@@ -131,12 +140,61 @@ def ensure_default_warehouse(organization_id: int) -> dict[str, Any]:
     return {'id': unit.id, 'unit_ref': unit.unit_ref, 'name': unit.name, 'created': True}
 
 
+def location_role_for_ref(unit_ref: str) -> str:
+    """Rol conceptual barra/bodega sobre ``core_org_unit`` warehouse (sin segundo stock)."""
+    ref = (unit_ref or '').strip().lower()
+    if ref in ('barra', 'bar'):
+        return 'BARRA'
+    if ref in ('bodega', 'main', 'storeroom', 'almacen', 'almacén'):
+        return 'BODEGA'
+    return 'WAREHOUSE'
+
+
 def list_warehouses(organization_id: int) -> list[dict[str, Any]]:
     units = OrgUnitService.list_units(int(organization_id), unit_type=ORG_UNIT_TYPE_WAREHOUSE)
     return [
-        {'id': u.id, 'unit_ref': u.unit_ref, 'name': u.name, 'status': u.status}
+        {
+            'id': u.id,
+            'unit_ref': u.unit_ref,
+            'name': u.name,
+            'status': u.status,
+            'location_role': location_role_for_ref(u.unit_ref),
+        }
         for u in units
     ]
+
+
+def ensure_bar_locations(organization_id: int) -> dict[str, Any]:
+    """Bodega (almacén default / main) + Barra como warehouses del mismo ledger."""
+    _assert_inventory_module(organization_id)
+    oid = int(organization_id)
+    bodega = ensure_default_warehouse(oid)
+    existing = {w['unit_ref']: w for w in list_warehouses(oid)}
+    barra = existing.get('barra')
+    if barra is None:
+        barra = create_warehouse(oid, unit_ref='barra', name='Barra')
+    return {
+        'bodega': {**bodega, 'location_role': location_role_for_ref(bodega.get('unit_ref') or 'main')},
+        'barra': {**barra, 'location_role': 'BARRA'},
+    }
+
+
+def convert_closed_to_open(
+    organization_id: int,
+    *,
+    closed_product_ref: str,
+    open_product_ref: str,
+    closed_quantity: float,
+    open_quantity: float,
+) -> dict[str, Any]:
+    """Transformación botella cerrada → contenido fraccionable.
+
+    El ledger actual mueve un solo ``product_ref``/UOM por movimiento. pack_factor
+    es conversión de empaque del *mismo* SKU (caja→und), no dos SKUs (botella vs ml).
+    No improvisar con dos ADJUSTMENT. Extensión mínima: kind CONVERT + from/to refs.
+    """
+    _assert_inventory_module(organization_id)
+    raise InventoryError('uom_conversion_not_implemented')
 
 
 def _engine_for_kind(kind: str, quantity: float) -> tuple[str, float]:
@@ -204,9 +262,9 @@ def record_movement(
         raise InventoryError('quantity_required')
 
     policy = get_stock_policy(oid)
-    allow_negative = policy != STOCK_POLICY_BLOCK
-
     src = (source_system or 'EN1').strip()[:32] or 'EN1'
+    # EP1 POS: ALLOW/WARN — no bloquear cobro por falta de existencia.
+    allow_negative = policy != STOCK_POLICY_BLOCK or src == 'EP1'
     idem = None
     if source_event_id:
         idem = f'{src}:{(source_event_id or "").strip()}'[:128]
@@ -240,6 +298,7 @@ def record_movement(
 
     bal = StockService.list_balances(oid, warehouse_org_unit_id=int(wh), product_ref=product_ref, limit=1)
     on_hand = bal[0].quantity_on_hand if bal else None
+    negative = on_hand is not None and float(on_hand) < 0
     return {
         'status': 'applied',
         'kind': k,
@@ -248,7 +307,11 @@ def record_movement(
         'engine_movement': engine_type,
         'warehouse_org_unit_id': int(wh),
         'quantity_on_hand': on_hand,
-        'stock_policy': policy,
+        'stock_policy': policy if src != 'EP1' else (
+            STOCK_POLICY_WARN if policy == STOCK_POLICY_BLOCK else policy
+        ),
+        'stock_negative': negative,
+        'stock_warning': negative and (policy in (STOCK_POLICY_WARN, STOCK_POLICY_BLOCK) or src == 'EP1'),
         'source_system': src,
         'source_event_id': source_event_id,
     }
@@ -294,10 +357,17 @@ def kardex(
         salida = -delta if delta < 0 else 0.0
         saldo = round(saldo + delta, 4)
         kind = None
-        if m.notes and 'kind=' in m.notes:
+        physical_count_id = None
+        if m.notes:
             for part in m.notes.split(';'):
                 if part.startswith('kind='):
                     kind = part.split('=', 1)[1]
+                if part.startswith('physical_count_id='):
+                    raw_pc = part.split('=', 1)[1].strip()
+                    try:
+                        physical_count_id = int(raw_pc)
+                    except ValueError:
+                        physical_count_id = raw_pc
         rows.append(
             {
                 'id': m.id,
@@ -309,6 +379,7 @@ def kardex(
                 'saldo': saldo,
                 'notes': m.notes,
                 'order_ref': m.order_ref,
+                'physical_count_id': physical_count_id,
             }
         )
     return rows

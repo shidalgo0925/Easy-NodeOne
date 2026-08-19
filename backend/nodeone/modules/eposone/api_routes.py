@@ -531,6 +531,97 @@ def stock_adjust():
     return stock_adjust_handler(gate)
 
 
+@eposone_api_bp.route('/inventory-counts', methods=['POST'])
+@login_required
+def inventory_counts_create():
+    from nodeone.modules.eposone.inventory_count_api import start_handler
+
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    body = request.get_json(silent=True) or {}
+    return start_handler(
+        gate,
+        body,
+        created_by_user_id=int(current_user.id) if getattr(current_user, 'id', None) else None,
+    )
+
+
+@eposone_api_bp.route('/inventory-counts/<int:count_id>', methods=['GET'])
+@login_required
+def inventory_counts_get(count_id: int):
+    from nodeone.modules.eposone.inventory_count_api import get_handler, request_include_theoretical
+
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return get_handler(gate, count_id, include_theoretical=request_include_theoretical())
+
+
+@eposone_api_bp.route('/inventory-counts/<int:count_id>/lines', methods=['PUT', 'POST'])
+@login_required
+def inventory_counts_lines(count_id: int):
+    from nodeone.modules.eposone.inventory_count_api import lines_handler
+
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    body = request.get_json(silent=True) or {}
+    return lines_handler(gate, count_id, body)
+
+
+@eposone_api_bp.route('/inventory-counts/<int:count_id>/complete', methods=['POST'])
+@login_required
+def inventory_counts_complete(count_id: int):
+    from nodeone.modules.eposone.inventory_count_api import complete_handler
+
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return complete_handler(gate, count_id)
+
+
+@eposone_api_bp.route('/inventory-counts/<int:count_id>/approve', methods=['POST'])
+@login_required
+def inventory_counts_approve(count_id: int):
+    from nodeone.modules.eposone.inventory_count_api import approve_handler
+
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    is_admin = bool(getattr(current_user, 'is_admin', False))
+    return approve_handler(
+        gate,
+        count_id,
+        approved_by_user_id=int(current_user.id) if getattr(current_user, 'id', None) else None,
+        is_admin=is_admin,
+        allow_self_approve=is_admin,
+    )
+
+
+@eposone_api_bp.route('/inventory-counts/<int:count_id>/cancel', methods=['POST'])
+@login_required
+def inventory_counts_cancel(count_id: int):
+    from nodeone.modules.eposone.inventory_count_api import cancel_handler
+
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    return cancel_handler(gate, count_id)
+
+
+@eposone_api_bp.route('/inventory-locations/<int:warehouse_org_unit_id>/products', methods=['GET'])
+@login_required
+def inventory_location_products(warehouse_org_unit_id: int):
+    from nodeone.modules.eposone.inventory_count_api import products_handler
+
+    gate = _org_gate()
+    if not isinstance(gate, int):
+        return gate
+    blind = (request.args.get('blind') or '1').strip().lower() not in ('0', 'false', 'no')
+    return products_handler(gate, warehouse_org_unit_id, blind=blind)
+
+
 @eposone_api_bp.route('/contacts', methods=['GET', 'POST'])
 @login_required
 def contacts_collection():

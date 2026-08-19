@@ -3898,6 +3898,13 @@ def bootstrap_nodeone_schema():
             db.session.rollback()
             print(f'⚠️ ensure_commercial_core_schema: {e}')
         try:
+            from nodeone.services.physical_inventory_schema import ensure_physical_inventory_schema
+
+            ensure_physical_inventory_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_physical_inventory_schema: {e}')
+        try:
             from nodeone.services.core_master_schema import ensure_core_master_schema
 
             ensure_core_master_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))

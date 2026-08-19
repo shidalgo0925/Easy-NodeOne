@@ -142,7 +142,10 @@ def build_nav_tree(ctx: NavContext) -> AppNavTree:
                 'fas fa-warehouse',
                 url=_section('inventory'),
                 visible=_v_eposone,
-                active_path_prefixes=('/admin/eposone/section/inventory',),
+                active_path_prefixes=(
+                    '/admin/eposone/section/inventory',
+                    '/admin/eposone/inventory-counts',
+                ),
             ),
             AppNavItem(
                 'clientes',

@@ -19,7 +19,7 @@
 
 | Hito | Nombre | Estado |
 |------|--------|--------|
-| **1** | Provisioning EN1-02 | ✅ Cerrado / congelado |
+| **1** | Provisioning EN1-02 | ✅ Cerrado / congelado · SOP instalación en sitio (técnico + correo propio + código por caja) **REALIZADO** 19 ago 2026 — [`EN1_ROADMAP.md`](EN1_ROADMAP.md) § Instalación |
 | **2** | Device Bootstrap | ✅ Cerrado / congelado (API EN1; consumo APK = contrato `/api/v1/devices/bootstrap`) |
 | **2.5** | Cajero POS (snapshot + PIN + sync Up) | ✅ **EN1 listo** — contrato congelado · CRUD PIN hash · bootstrap `cashiers` · Sync Up con `cashier_contact_id` · **APK pendiente P2** |
 | **3** | Dominio Pedido + contrato HTTP | ✅ **3B publicado** (ejemplos + handoff-eposone) |

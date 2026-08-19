@@ -1467,6 +1467,7 @@ APP_AREAS: tuple[NavArea, ...] = (
             '/admin/inventory',
             '/admin/products',
             '/admin/commercial/product-discount-codes',
+            '/admin/eposone/inventory-counts',
         ),
         zone_endpoints=(
             'admin_product_discount_codes.index',
@@ -1536,6 +1537,19 @@ APP_AREAS: tuple[NavArea, ...] = (
                 'en1_inventory.inventory_adjust',
                 visible=_v_en1_inventory,
                 active_endpoints=('en1_inventory.inventory_adjust',),
+            ),
+            NavAreaItem(
+                'toma_fisica',
+                'Toma física',
+                'fas fa-clipboard-list',
+                'eposone.eposone_inventory_counts',
+                url_path='/admin/eposone/inventory-counts',
+                visible=_v_en1_inventory,
+                active_endpoints=(
+                    'eposone.eposone_inventory_counts',
+                    'eposone.eposone_inventory_count_capture',
+                ),
+                active_path_prefixes=('/admin/eposone/inventory-counts',),
             ),
             NavAreaItem(
                 'transferencia',

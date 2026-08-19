@@ -1,6 +1,6 @@
 # EN1 — Roadmap producto
 
-**Última actualización:** 18 ago 2026  
+**Última actualización:** 19 ago 2026  
 **Edición:** `/opt/easynodeone/dev/app` → rama `develop`
 
 Índice de iniciativas planificadas o en curso en Easy NodeOne. Roadmaps de módulo con detalle propio enlazan desde aquí.
@@ -13,8 +13,29 @@
 | Plataforma / EPosOne UX | Este archivo § Plataforma — EPosOne (nav) |
 | Sprint UX transición apps | [`EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md`](EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md) |
 | **EPosOne V5 (activo)** | [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) · [handoff](EN1_EPOSONE_HANDOFF_STATUS.md) |
+| **Instalación en sitio (SOP)** | Este archivo § Instalación EPosOne — técnico en sitio |
 | **EPosOne V4 (historia)** | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) · [EN1-01](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md) · [POS/licencia](EN1_PLATFORM_EPOSONE_V4_POS_LICENSING_ROADMAP.md) · [Etapa 2 Android](EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md) · sync: [`EN1_PLATFORM_EPOSONE_V4_SYNC.md`](EN1_PLATFORM_EPOSONE_V4_SYNC.md) |
 | **Ventas / CRM (cotizaciones)** | Este archivo § Ventas — CRM y cotizaciones |
+
+---
+
+## Instalación EPosOne — técnico en sitio (SOP)
+
+**Estado:** **REALIZADO** (19 ago 2026) — procedimiento operativo acordado. No es feature nueva: EN1-02 ya está cerrado; esto deja escrito el escenario de instalación **manual**.
+
+**Escenario:** el técnico registra al cliente (si el negocio no tiene correo, usa **el correo del técnico**). Eso solo crea la **cuenta EN1 / admin web**. El **código de aprovisionamiento no va por mail**.
+
+| Paso | Qué se hace |
+|------|-------------|
+| 1 | Alta org/cliente en EN1 (`/start` o panel). Email = el que administre el panel (puede ser el del técnico). |
+| 2 | Entrar a **esa** organización. Confirmar que existe la **caja**. |
+| 3 | **EPosOne → Cajas / Instalar dispositivo** → **Generar código** (EN1-02, **por caja**, in situ). TTL ~30 min, un solo uso. QR = el mismo código. |
+| 4 | APK en la tablet → URL del servidor EN1 → pegar código o escanear QR. |
+| 5 | Cajeros con **PIN** (no es el código de instalación). |
+
+**No mezclar:** código org legacy (EN1-01) · PIN de cajero · enviar el código por correo. Si el código expiró: generar otro. Cuando el cliente tenga mail, se puede cambiar el usuario admin; la tablet no se reinstala.
+
+Manual usuario: [`MANUAL_INSTALACION_EPOSONE_USUARIO.md`](MANUAL_INSTALACION_EPOSONE_USUARIO.md). Contrato: [EN1-02](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md).
 
 ---
 

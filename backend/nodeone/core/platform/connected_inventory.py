@@ -1,11 +1,15 @@
 """ADR-039 F6 — bridge Connected / EPosOne stock → inventory_service.
 
-Cuando la org tiene módulos ``products``+``inventory``, los ajustes Connected y
-las deducciones/devoluciones de pedido pasan por ``inventory_service`` (kinds
-ADR-039 + ``source_system`` / ``source_event_id``). Si no, se conserva
-``StockService`` (comportamiento previo).
+Camino canónico si ``products``+``inventory`` ON: SALE / RETURN / RECEIPT /
+OPENING / TRANSFER / ADJUSTMENT (y toma física vía physical_count_service)
+usan ``inventory_service``. Una operación comercial = un movimiento.
 
-No toca Flutter/EP1 ni bootstrap. Sin STG/PRD.
+Si los módulos están OFF, se conserva ``StockService`` (no Connected inventory).
+
+Excepción: reserve/release de pedido permanece en ``StockService`` (reservado,
+no saldo). No duplicar el mismo SALE en ambos motores.
+
+EP1: política efectiva ALLOW/WARN (no BLOCK de cobro). Sin tabla epos_stock.
 """
 
 from __future__ import annotations

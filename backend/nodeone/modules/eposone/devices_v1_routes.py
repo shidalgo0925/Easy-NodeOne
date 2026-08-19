@@ -118,3 +118,72 @@ def devices_installation_ready():
     except DeviceProvisioningError as exc:
         return jsonify({'error': exc.code}), int(exc.http_status)
     return jsonify(result), 200
+
+
+def _device_count_org(row):
+    return int(row.organization_id)
+
+
+@eposone_devices_v1_bp.route('/inventory-counts', methods=['POST'])
+def devices_inventory_counts_create():
+    from nodeone.modules.eposone.inventory_count_api import start_handler
+
+    try:
+        row = DeviceProvisioningService.authenticate_bearer(request.headers.get('Authorization'))
+    except DeviceProvisioningError as exc:
+        return jsonify({'error': exc.code}), int(exc.http_status)
+    body = request.get_json(silent=True) or {}
+    return start_handler(
+        _device_count_org(row),
+        body,
+        source_device_id=int(row.id),
+    )
+
+
+@eposone_devices_v1_bp.route('/inventory-counts/<int:count_id>', methods=['GET'])
+def devices_inventory_counts_get(count_id: int):
+    from nodeone.modules.eposone.inventory_count_api import get_handler, request_include_theoretical
+
+    try:
+        row = DeviceProvisioningService.authenticate_bearer(request.headers.get('Authorization'))
+    except DeviceProvisioningError as exc:
+        return jsonify({'error': exc.code}), int(exc.http_status)
+    return get_handler(
+        _device_count_org(row),
+        count_id,
+        include_theoretical=request_include_theoretical(),
+    )
+
+
+@eposone_devices_v1_bp.route('/inventory-counts/<int:count_id>/lines', methods=['PUT', 'POST'])
+def devices_inventory_counts_lines(count_id: int):
+    from nodeone.modules.eposone.inventory_count_api import lines_handler
+
+    try:
+        row = DeviceProvisioningService.authenticate_bearer(request.headers.get('Authorization'))
+    except DeviceProvisioningError as exc:
+        return jsonify({'error': exc.code}), int(exc.http_status)
+    body = request.get_json(silent=True) or {}
+    return lines_handler(_device_count_org(row), count_id, body)
+
+
+@eposone_devices_v1_bp.route('/inventory-counts/<int:count_id>/complete', methods=['POST'])
+def devices_inventory_counts_complete(count_id: int):
+    from nodeone.modules.eposone.inventory_count_api import complete_handler
+
+    try:
+        row = DeviceProvisioningService.authenticate_bearer(request.headers.get('Authorization'))
+    except DeviceProvisioningError as exc:
+        return jsonify({'error': exc.code}), int(exc.http_status)
+    return complete_handler(_device_count_org(row), count_id)
+
+
+@eposone_devices_v1_bp.route('/inventory-locations/<int:warehouse_org_unit_id>/products', methods=['GET'])
+def devices_inventory_location_products(warehouse_org_unit_id: int):
+    from nodeone.modules.eposone.inventory_count_api import products_handler
+
+    try:
+        row = DeviceProvisioningService.authenticate_bearer(request.headers.get('Authorization'))
+    except DeviceProvisioningError as exc:
+        return jsonify({'error': exc.code}), int(exc.http_status)
+    return products_handler(_device_count_org(row), warehouse_org_unit_id, blind=True)

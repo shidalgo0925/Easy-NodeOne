@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Toma física — EPosOne | {{ get_nav_brand_name() }}{% endblock %}
+{% block page_content %}
+<div class="container-fluid py-3 en1-eposone-page">
+  <div class="epos-page-header">
+    <div>
+      <h1 class="epos-page-title"><i class="fas fa-clipboard-list me-2" style="color: var(--epos-accent)"></i>Toma física</h1>
+      <p class="epos-page-subtitle mb-0">Contá de a poco, actualizá y volvé cuando quieras. En proceso no se cancela solo. Finalizar no mueve stock.</p>
+    </div>
+    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('eposone.eposone_section', slug='inventory') }}">Volver a inventario</a>
+  </div>
+
+  <div class="epos-card mb-3">
+    <div class="epos-card-body">
+      <h2 class="h6 mb-3">Nueva toma</h2>
+      <form method="post" class="row g-2 align-items-end">
+        {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+        <div class="col-md-4">
+          <label class="form-label small mb-0">Ubicación</label>
+          <select name="warehouse_org_unit_id" class="form-select" required>
+            {% for w in warehouses %}
+            <option value="{{ w.id }}">{{ w.name }} ({{ w.unit_ref }}{% if w.location_role %} · {{ w.location_role }}{% endif %})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small mb-0">Notas (opcional)</label>
+          <input name="notes" class="form-control" placeholder="ej. cierre de turno barra">
+        </div>
+        <div class="col-md-4">
+          <button type="submit" class="btn btn-primary" {% if not warehouses %}disabled{% endif %}>Iniciar toma ciega</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="epos-card">
+    <div class="epos-card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0 align-middle epos-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Ubicación</th>
+              <th>Estado</th>
+              <th>Progreso</th>
+              <th>Inicio</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in counts %}
+            <tr>
+              <td>{{ c.id }}</td>
+              <td>{{ (warehouse_name_by_id or {}).get(c.warehouse_org_unit_id, c.warehouse_org_unit_id) }}</td>
+              <td>
+                {% if c.status == 'COUNTING' %}
+                <span class="badge text-bg-warning">En proceso</span>
+                {% elif c.status == 'COMPLETED' %}
+                <span class="badge text-bg-info">Pendiente de aprobar</span>
+                {% elif c.status == 'APPROVED' %}
+                <span class="badge text-bg-success">Aprobada</span>
+                {% elif c.status == 'CANCELLED' %}
+                <span class="badge text-bg-secondary">Cancelada</span>
+                {% else %}
+                <span class="badge text-bg-light border">{{ c.status }}</span>
+                {% endif %}
+              </td>
+              <td class="small">{{ c.lines_counted }} / {{ c.lines_total }}</td>
+              <td class="small text-nowrap">{{ c.started_at or '—' }}</td>
+              <td>
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('eposone.eposone_inventory_count_capture', count_id=c.id) }}">
+                  {% if c.status == 'COUNTING' %}Seguir contando{% elif c.status == 'COMPLETED' %}Revisar{% else %}Ver{% endif %}
+                </a>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-muted p-4">No hay tomas. Iniciá una arriba.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -306,6 +306,18 @@ def register_admin_sales_accounting_routes(app):
         print(f'Warning: No se pudieron registrar rutas admin sales/accounting: {e}')
 
 
+def register_org_regional_routes(app):
+    """Empresa → Regionalización y formatos."""
+    if 'admin_regional_settings' in getattr(app, 'view_functions', {}):
+        return
+    try:
+        from nodeone.modules.org_regional.routes import register_org_regional_routes as _register
+
+        _register(app)
+    except ImportError as e:
+        print(f'Warning: No se pudieron registrar rutas regionalización: {e}')
+
+
 def register_admin_notifications_identity_routes(app):
     """Vistas/API /admin/notifications* y /admin/identity (endpoints legacy)."""
     if 'admin_notifications' in getattr(app, 'view_functions', {}):

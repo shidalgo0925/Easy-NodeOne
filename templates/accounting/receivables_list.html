@@ -16,7 +16,7 @@
     {% endif %}
     <input class="form-control form-control-sm erp-search" type="search" name="q" value="{{ q|e }}" placeholder="Nº factura, email, nombre…" aria-label="Buscar">
     <button type="submit" class="btn btn-secondary btn-sm">Filtrar</button>
-    <span class="ms-md-auto erp-footnote text-muted text-nowrap">Pendiente: <strong>B/. {{ '%.2f'|format(total_open) }}</strong> · {{ rows|length }} doc.</span>
+    <span class="ms-md-auto erp-footnote text-muted text-nowrap">Pendiente: <strong>{{ total_open|en1_money }}</strong> · {{ rows|length }} doc.</span>
   </form>
 
   <div class="table-responsive border rounded bg-white">
@@ -60,8 +60,8 @@
               <span class="text-muted">—</span>
             {% endif %}
           </td>
-          <td class="text-end text-nowrap">B/. {{ '%.2f'|format(inv.grand_total or 0) }}</td>
-          <td class="text-end fw-semibold text-nowrap">B/. {{ '%.2f'|format(row.amount_due or 0) }}</td>
+          <td class="text-end text-nowrap">{{ (inv.grand_total or 0)|en1_money }}</td>
+          <td class="text-end fw-semibold text-nowrap">{{ (row.amount_due or 0)|en1_money }}</td>
           <td class="text-nowrap">
             {% if inv.journal_entry_id %}
               <a class="btn btn-sm btn-outline-secondary py-0" href="{{ url_for('accounting_core.entry_detail', entry_id=inv.journal_entry_id) }}">#{{ inv.journal_entry_id }}</a>

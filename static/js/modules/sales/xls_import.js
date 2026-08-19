@@ -14,12 +14,9 @@
   const validEl = document.getElementById('xlsValidation');
   let importId = null;
 
-  const fmtNum = (n, decimals = 2) =>
-    Number(n || 0).toLocaleString('en-US', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    });
-  const money = (n) => `B/. ${fmtNum(n)}`;
+  const fmtNum = (n, decimals) =>
+    window.EN1Format ? window.EN1Format.number(n, decimals) : Number(n || 0).toFixed(decimals != null ? decimals : 2);
+  const money = (n) => (window.EN1Format ? window.EN1Format.money(n) : `B/. ${fmtNum(n)}`);
   function showAlert(kind, msg, extraHtml) {
     alertEl.className = `alert alert-${kind}`;
     alertEl.innerHTML = extraHtml || '';
@@ -66,6 +63,16 @@
     return data;
   }
 
+  function contactLabel(c) {
+    if (!c) return 'Se creará en Clientes';
+    if (c.status === 'matched') {
+      const how = c.match === 'name' ? 'por nombre' : c.match === 'email' ? 'por correo' : 'por RUC';
+      return `#${c.contact_id} ${c.display_name || ''} (${how})`.trim();
+    }
+    if (c.status === 'ambiguous') return 'Varios contactos con el mismo nombre — no se duplicará';
+    return 'Se creará en Clientes';
+  }
+
   function renderPreview(p) {
     importId = p.import_id;
     const rows = [
@@ -74,7 +81,7 @@
       ['DV', p.dv || '—'],
       ['Fecha', p.date || '—'],
       ['Referencia XLS', p.external_reference || p.filename || '—'],
-      ['Contacto EN1', p.contact && p.contact.status === 'matched' ? `#${p.contact.contact_id} ${p.contact.display_name}` : 'Se propondrá crear'],
+      ['Contacto EN1', contactLabel(p.contact)],
     ];
     metaEl.innerHTML = rows
       .map(([k, v]) => `<dt class="col-sm-3">${esc(k)}</dt><dd class="col-sm-9 mb-1">${esc(v)}</dd>`)

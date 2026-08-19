@@ -2574,6 +2574,12 @@ def eposone_organization_save():
     try:
         if currency:
             EposoneSettingsService.update_settings(int(oid), default_currency=currency)
+        try:
+            from nodeone.core.regional_format import RegionalFormatService
+
+            RegionalFormatService.sync_ops(int(oid), timezone=org.timezone, currency=currency)
+        except Exception:
+            pass
         db.session.commit()
     except OrderValidationError as exc:
         db.session.rollback()

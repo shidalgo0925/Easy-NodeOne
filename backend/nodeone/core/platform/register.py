@@ -24,6 +24,7 @@ def register_platform_core(app) -> None:
     f.register_admin_email_page_routes(app)
     f.register_media_admin_blueprint(app)
     f.register_admin_notifications_identity_routes(app)
+    f.register_org_regional_routes(app)
     f.register_user_api_blueprint(app)
     f.register_history_admin_blueprint(app)
     f.register_auth_blueprint(app)

@@ -126,6 +126,7 @@ _CONFIG_EPS = (
     'admin_configuration_taxes',
     'admin_identity',
     'admin_company_setup',
+    'admin_regional_settings',
     'admin_email',
     'media_admin.admin_media',
     'admin_ai',
@@ -968,6 +969,14 @@ _CONFIG_ORG_ITEMS: tuple[NavAreaItem, ...] = (
         'admin_company_setup',
         visible=_v_config,
         active_endpoints=('admin_company_setup', 'admin_identity'),
+    ),
+    NavAreaItem(
+        'regional',
+        'Regionalización y formatos',
+        'fas fa-globe',
+        'admin_regional_settings',
+        visible=_v_config,
+        active_endpoints=('admin_regional_settings',),
     ),
     NavAreaItem(
         'smtp',

@@ -32,12 +32,10 @@
   let serviceCatalogCache = [];
   let servicePickTargetTr = null;
 
-  const fmtNum = (n, decimals = 2) =>
-    Number(n || 0).toLocaleString('en-US', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    });
-  const fmt = (n) => `B/. ${fmtNum(n)}`;
+  const fmtNum = (n, decimals) =>
+    window.EN1Format ? window.EN1Format.number(n, decimals) : Number(n || 0).toFixed(decimals != null ? decimals : 2);
+  const fmt = (n) => (window.EN1Format ? window.EN1Format.money(n) : fmtNum(n));
+  const fmtQty = (n) => (window.EN1Format ? window.EN1Format.qty(n) : fmtNum(n));
   const SVC_DEBOUNCE_MS = 300;
   const CUST_DEBOUNCE_MS = 300;
   const SP_DEBOUNCE_MS = 300;
@@ -220,9 +218,9 @@
     const seller = getQuotationSellerDisplay('—');
     const payTerms = (paymentTerms && paymentTerms.value.trim()) || 'Pago inmediato';
     const validityVal = document.getElementById('validityDate') ? document.getElementById('validityDate').value : '';
-    const subtotalT = (document.getElementById('subtotalLbl') && document.getElementById('subtotalLbl').textContent) || 'B/. 0.00';
-    const taxT = (document.getElementById('taxLbl') && document.getElementById('taxLbl').textContent) || 'B/. 0.00';
-    const grandT = (document.getElementById('grandLbl') && document.getElementById('grandLbl').textContent) || 'B/. 0.00';
+    const subtotalT = (document.getElementById('subtotalLbl') && document.getElementById('subtotalLbl').textContent) || fmt(0);
+    const taxT = (document.getElementById('taxLbl') && document.getElementById('taxLbl').textContent) || fmt(0);
+    const grandT = (document.getElementById('grandLbl') && document.getElementById('grandLbl').textContent) || fmt(0);
 
     const bodyRows = lines
       .map((ln) => {
@@ -239,7 +237,7 @@
         const desc = (ln.description || '').trim() || '—';
         return `<tr>
           <td class="qd-col-desc">${nlToBr(desc)}</td>
-          <td class="qd-col-num">${fmtNum(ln.quantity || 0)} Unidades</td>
+          <td class="qd-col-num">${fmtQty(ln.quantity || 0)} Unidades</td>
           <td class="qd-col-num">${fmtNum(ln.price_unit || 0)}</td>
           <td class="qd-col-num">${taxShow}</td>
           <td class="qd-col-money">${fmt(c.total)}</td>
@@ -372,7 +370,7 @@
         const desc = (ln.description || '').trim() || '—';
         return `<tr>
           <td class="qd-col-desc">${nlToBr(desc)}</td>
-          <td class="qd-col-num">${fmtNum(ln.quantity || 0)}</td>
+          <td class="qd-col-num">${fmtQty(ln.quantity || 0)}</td>
           <td class="qd-col-num">${fmtNum(ln.price_unit || 0)}</td>
           <td class="qd-col-money">${fmt(ln.total)}</td>
         </tr>`;
@@ -822,7 +820,7 @@
   }
 
   function buildServiceDropdownHtml(products) {
-    const fmtPu = (n) => `B/. ${fmtNum(n)}`;
+    const fmtPu = (n) => fmt(n);
     let body = products
       .map(
         (p) => {
@@ -895,7 +893,7 @@
       list
         .map((p) => {
           const code = p.code != null && String(p.code) !== '' ? String(p.code) : String(p.id);
-          const pu = `B/. ${fmtNum(p.price_unit || 0)}`;
+          const pu = fmt(p.price_unit || 0);
           const dtax =
             p.default_tax_id != null && p.default_tax_id !== '' ? escAttr(String(p.default_tax_id)) : '';
           return `<tr class="li-catalog-row" style="cursor:pointer" data-id="${p.id}" data-name="${escAttr(p.name)}" data-desc="${escAttr(p.description || '')}" data-price="${Number(p.price_unit || 0)}" data-tax="${dtax}"><td class="small py-1"><strong>${escHtml(p.name)}</strong><div class="text-muted" style="font-size:0.75rem">Ref. ${escHtml(code)}</div></td><td class="small text-muted py-1">${escHtml(String(p.description || '').slice(0, 100))}</td><td class="small text-end py-1">${escHtml(pu)}</td></tr>`;
@@ -1660,7 +1658,7 @@
     subEl.value = org ? `${org} — Cotización (Ref ${num})` : `Cotización (Ref ${num})`;
     const nombre = quote && quote.customer_name ? String(quote.customer_name).trim() : 'Cliente';
     const grandEl = document.getElementById('grandLbl');
-    const total = grandEl ? String(grandEl.textContent || '').trim() : 'B/. 0.00';
+    const total = grandEl ? String(grandEl.textContent || '').trim() : fmt(0);
     const seller = getQuotationSellerDisplay('');
     const sig = seller ? `— ${seller}` : '—';
     bodyEl.value = [

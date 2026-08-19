@@ -995,6 +995,53 @@ def inject_theme():
             'theme_favicon_url': '',
         }
 
+
+@app.context_processor
+def inject_en1_regional():
+    """Preferencias de presentación por org (no fiscal). Lectura; no crea fila."""
+    from flask import g
+
+    from nodeone.core.regional_format import RegionalFormatService, default_regional_dict
+
+    cfg = default_regional_dict()
+    try:
+        if getattr(current_user, 'is_authenticated', False):
+            from utils.organization import get_current_organization_id
+
+            oid = get_current_organization_id()
+            if oid is not None:
+                dto = RegionalFormatService.get(int(oid))
+                if dto is not None:
+                    cfg = dto.to_dict()
+    except Exception:
+        pass
+    g.en1_regional = cfg
+    return {'en1_regional': cfg}
+
+
+@app.template_filter('en1_money')
+def en1_money_filter(value):
+    from flask import g
+
+    from nodeone.core.regional_format import format_money_from_cfg
+
+    return format_money_from_cfg(value, getattr(g, 'en1_regional', None))
+
+
+@app.template_filter('en1_number')
+def en1_number_filter(value):
+    from flask import g
+
+    from nodeone.core.regional_format import default_regional_dict, format_plain_number
+
+    c = getattr(g, 'en1_regional', None) or default_regional_dict()
+    return format_plain_number(
+        value,
+        number_format=str(c.get('number_format') or '1,234.56'),
+        decimals=int(c.get('money_decimals') if c.get('money_decimals') is not None else 2),
+    )
+
+
 # Context processor: planes de membresía configurables (para dropdowns y listas)
 @app.context_processor
 def inject_membership_plans():
@@ -3511,6 +3558,12 @@ def bootstrap_nodeone_schema():
             ensure_saas_organization_timezone_column(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
         except Exception as e:
             print(f'⚠️ ensure_saas_organization_timezone_column: {e}')
+        try:
+            from nodeone.services.org_regional_schema import ensure_organization_regional_settings_schema
+
+            ensure_organization_regional_settings_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_organization_regional_settings_schema: {e}')
         try:
             from nodeone.services.tenant_email_logo_storage import migrate_legacy_tenant_email_logos_to_uploads
 

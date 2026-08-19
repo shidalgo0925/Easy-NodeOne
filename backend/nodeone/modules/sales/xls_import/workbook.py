@@ -2,11 +2,24 @@
 
 from __future__ import annotations
 
+from contextvars import ContextVar
 from datetime import date, datetime
 from io import BytesIO
 from typing import Any
 
 from nodeone.modules.sales.xls_import.security import XlsImportSecurityError
+
+_number_format_ctx: ContextVar[str] = ContextVar('xls_number_format', default='1,234.56')
+
+
+def use_number_format(number_format: str | None):
+    """Token para parsear montos según el formato de la org."""
+    nf = (number_format or '1,234.56').strip() or '1,234.56'
+    return _number_format_ctx.set(nf)
+
+
+def reset_number_format(token) -> None:
+    _number_format_ctx.reset(token)
 
 
 def load_sheet_grid(kind: str, payload: bytes) -> list[list[Any]]:
@@ -35,18 +48,9 @@ def cell_number(value: Any) -> float | None:
     text = cell_text(value)
     if '%' in text:
         return None
-    text = text.replace('B/.', '').replace('$', '').replace('USD', '').strip()
-    text = text.replace(' ', '')
-    if not text:
-        return None
-    if text.count(',') == 1 and text.count('.') == 0:
-        text = text.replace(',', '.')
-    else:
-        text = text.replace(',', '')
-    try:
-        return float(text)
-    except ValueError:
-        return None
+    from nodeone.core.regional_format import parse_localized_number
+
+    return parse_localized_number(text, _number_format_ctx.get())
 
 
 def cell_percent(value: Any) -> float | None:

@@ -135,12 +135,14 @@ def register_admin_sales_quotations_invoices_routes(app):
 
         inv_row = Invoice.query.filter_by(id=invoice_id, organization_id=oid).first()
         invoice_status = inv_row.status if inv_row else None
+        invoice_number = (inv_row.number if inv_row else None) or 'Nueva factura'
         org_row = SaasOrganization.query.get(oid)
         invoice_org_name = (org_row.name or '').strip() if org_row else ''
         return render_template(
             'admin/invoice_form.html',
             invoice_id=invoice_id,
             invoice_status=invoice_status,
+            invoice_number=invoice_number,
             invoice_org_name=invoice_org_name,
         )
 

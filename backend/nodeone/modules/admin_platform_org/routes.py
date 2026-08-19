@@ -443,6 +443,12 @@ def register_admin_platform_org_routes(app):
             for k, v in fiscal.items():
                 setattr(o, k, v)
             try:
+                from nodeone.core.regional_format import RegionalFormatService
+
+                RegionalFormatService.sync_ops(int(o.id), timezone=o.timezone)
+            except Exception:
+                pass
+            try:
                 db.session.commit()
                 from nodeone.services.company_wizard import save_identity_from_form
 

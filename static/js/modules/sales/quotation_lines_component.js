@@ -1,9 +1,10 @@
 window.QuotationLinesComponent = (function () {
-  function fmtNum(n, decimals = 2) {
-    return Number(n || 0).toLocaleString('en-US', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    });
+  function fmtNum(n, decimals) {
+    if (window.EN1Format) return window.EN1Format.number(n, decimals);
+    return Number(n || 0).toFixed(decimals != null ? decimals : 2);
+  }
+  function fmtQty(n) {
+    return window.EN1Format ? window.EN1Format.qty(n) : fmtNum(n);
   }
 
   function esc(v) {
@@ -54,10 +55,10 @@ window.QuotationLinesComponent = (function () {
     }
     const qty = Number(line.quantity || 0);
     const pu = Number(line.price_unit || 0);
-    const total = Number(line.total != null ? line.total : qty * pu).toFixed(2);
+    const total = Number(line.total != null ? line.total : qty * pu);
     return `<tr data-idx="${idx}">
       <td class="p-2"><div class="small">${esc(line.description || '')}</div></td>
-      <td class="p-2 text-end align-middle">${fmtNum(qty)}</td>
+      <td class="p-2 text-end align-middle">${fmtQty(qty)}</td>
       <td class="p-2 text-end align-middle">${fmtNum(pu)}</td>
       <td class="p-2 align-middle small">${taxLabelReadonly(line, taxes)}</td>
       <td class="p-2 li-total text-end fw-semibold align-middle">${fmtNum(total)}</td>

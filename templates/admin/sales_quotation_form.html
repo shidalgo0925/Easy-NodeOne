@@ -141,9 +141,9 @@
             <div class="quote-sheet-footer">
                 <div class="quote-sheet-terms text-muted small">Los términos de pago se editan en la cabecera. El total se recalcula con las líneas e impuestos de EN1.</div>
                 <div class="quote-totals-panel">
-                    <div class="quote-totals-row"><span>Subtotal</span><span id="subtotalLbl">B/. 0.00</span></div>
-                    <div class="quote-totals-row"><span>Impuestos</span><span id="taxLbl">B/. 0.00</span></div>
-                    <div class="quote-totals-row quote-totals-grand"><span>Total</span><span id="grandLbl">B/. 0.00</span></div>
+                    <div class="quote-totals-row"><span>Subtotal</span><span id="subtotalLbl">{{ 0|en1_money }}</span></div>
+                    <div class="quote-totals-row"><span>Impuestos</span><span id="taxLbl">{{ 0|en1_money }}</span></div>
+                    <div class="quote-totals-row quote-totals-grand"><span>Total</span><span id="grandLbl">{{ 0|en1_money }}</span></div>
                 </div>
             </div>
         </div>
@@ -268,6 +268,6 @@
 
 {# Tras bootstrap.bundle (defer) en base.html — si no, Modal.show() no existe y el diálogo no abre. #}
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/modules/sales/quotation_lines_component.js') }}?v=14"></script>
-<script src="{{ url_for('static', filename='js/modules/sales/quotation_form.js') }}?v=36"></script>
+<script src="{{ url_for('static', filename='js/modules/sales/quotation_lines_component.js') }}?v=15"></script>
+<script src="{{ url_for('static', filename='js/modules/sales/quotation_form.js') }}?v=37"></script>
 {% endblock %}

@@ -5,6 +5,7 @@
   <div class="erp-toolbar d-flex flex-wrap align-items-center gap-2 mb-2">
     <h1 class="h5 mb-0"><i class="fas fa-warehouse me-1 text-muted"></i>Existencias</h1>
     <span class="erp-footnote text-muted">org {{ organization_id }} · policy {{ stock_policy }}</span>
+    <a class="btn btn-sm btn-outline-primary" href="/admin/eposone/inventory-counts">Toma física</a>
     <a class="btn btn-sm btn-primary ms-md-auto" href="{{ url_for('en1_inventory.inventory_receipt') }}">Entrada</a>
     <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('en1_inventory.inventory_adjust') }}">Ajuste</a>
   </div>

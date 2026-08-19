@@ -152,6 +152,10 @@ class TestPhysicalInventoryCount(unittest.TestCase):
         self.assertEqual(payload['status'], 'COUNTING')
         self.assertEqual(payload['count_mode'], 'BLIND')
         self.assertTrue(payload['lines'])
+        listed = __import__(
+            'nodeone.core.platform.physical_count_service', fromlist=['list_counts']
+        ).list_counts(self.oid)
+        self.assertTrue(any(int(c['id']) == int(payload['id']) for c in listed))
         line = payload['lines'][0]
         self.assertIn('physical_qty', line)
         self.assertNotIn('snapshot_qty', line)

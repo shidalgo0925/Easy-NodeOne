@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+{% block title %}Contar — Toma #{{ count.id }} | {{ get_nav_brand_name() }}{% endblock %}
+{% block page_content %}
+{% set status = count.status %}
+{% set counting = status == 'COUNTING' %}
+{% set completed = status == 'COMPLETED' %}
+{% set approved = status == 'APPROVED' %}
+<div class="container-fluid py-3 en1-eposone-page epos-inventory-v2">
+  <div class="epos-page-header">
+    <div>
+      <p class="small text-muted mb-1"><a href="{{ url_for('eposone.eposone_inventory_counts') }}">Tomas</a> · #{{ count.id }}</p>
+      <h1 class="epos-page-title mb-0">Toma física · {{ warehouse_name or 'Ubicación' }}</h1>
+      <p class="epos-page-subtitle mb-0">
+        {% if counting %}Podés contar de a poco: se guarda solo. Si salís, la toma sigue <strong>en proceso</strong> — no se cancela.{% endif %}
+        {% if completed %}Finalizada. Revisá diferencias y aprobá para ajustar el kardex.{% endif %}
+        {% if approved %}Aprobada. Los ajustes ya están en el kardex.{% endif %}
+        {% if status == 'CANCELLED' %}Cancelada.{% endif %}
+        <span class="badge text-bg-light border ms-1">{{ status }}</span>
+      </p>
+    </div>
+    <div class="epos-btn-row">
+      {% if counting %}
+      <span class="small text-muted" id="count-save-status">En proceso · se guarda al anotar</span>
+      <form method="post" action="{{ url_for('eposone.eposone_inventory_count_complete', count_id=count.id) }}" class="d-inline"
+            onsubmit="return confirm('¿Finalizar? El stock sigue igual hasta que apruebes.');">
+        {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+        <button class="btn btn-sm btn-outline-primary" type="submit">Finalizar toma</button>
+      </form>
+      {% endif %}
+      {% if completed %}
+      <form method="post" action="{{ url_for('eposone.eposone_inventory_count_approve', count_id=count.id) }}" class="d-inline"
+            onsubmit="return confirm('¿Aprobar y generar ajustes de inventario?');">
+        {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+        <button class="btn btn-sm btn-primary" type="submit">Aprobar diferencias</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <form class="epos-filter-bar mb-3" id="count-filters" onsubmit="return false;">
+    <div class="epos-filter-field" style="min-width:12rem; flex:1 1 14rem;">
+      <label for="count-q">Buscar</label>
+      <input class="form-control" type="search" id="count-q" placeholder="Producto o SKU…" autocomplete="off">
+    </div>
+    <div class="epos-filter-field">
+      <label for="count-cat">Categoría</label>
+      <select class="form-select" id="count-cat">
+        <option value="">Todas</option>
+        {% for c in (categories or []) %}
+        <option value="{{ c }}">{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="epos-filter-field">
+      <label for="count-view">Mostrar</label>
+      <select class="form-select" id="count-view">
+        <option value="all">Todos</option>
+        {% if counting %}
+        <option value="pend">Pendientes</option>
+        <option value="mod">Modificados</option>
+        {% else %}
+        <option value="diff">Con diferencia</option>
+        <option value="zero">Sin diferencia</option>
+        {% endif %}
+      </select>
+    </div>
+    <div class="epos-filter-bar__actions">
+      <span class="small text-muted me-2" id="count-progress"></span>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="count-clear">Limpiar</button>
+    </div>
+  </form>
+
+  {% if counting %}
+  <form method="post" id="count-form">
+    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+    <div class="epos-card">
+      <div class="epos-card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0 align-middle epos-table" id="count-table">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Unidad</th>
+                <th class="text-end" style="width:9rem">Físico</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ln in count.lines %}
+              <tr class="count-row"
+                  data-name="{{ (ln.name or ln.product_ref)|lower }}"
+                  data-ref="{{ (ln.product_ref or '')|lower }}"
+                  data-cat="{{ ln.category or '' }}"
+                  data-saved="{% if ln.physical_qty is not none %}1{% else %}0{% endif %}">
+                <td>
+                  <div class="fw-semibold">{{ ln.name or ln.product_ref }}</div>
+                  <code class="small text-muted">{{ ln.product_ref }}</code>
+                </td>
+                <td class="small text-muted">{{ ln.uom or 'und' }}</td>
+                <td>
+                  <input class="form-control form-control-sm text-end count-qty" type="number" step="any" min="0"
+                         name="qty_{{ ln.product_ref }}"
+                         value="{% if ln.physical_qty is not none %}{{ ln.physical_qty }}{% endif %}"
+                         data-saved="{% if ln.physical_qty is not none %}{{ ln.physical_qty }}{% endif %}"
+                         inputmode="decimal" autocomplete="off">
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="3" class="text-muted p-4">No hay productos con inventario en esta org.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="p-4 text-muted d-none" id="count-empty-filter">Ningún producto coincide con los filtros.</div>
+      </div>
+    </div>
+    <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+      <span class="small text-muted">Enter pasa al siguiente. Se guarda solo. Salir no cancela la toma.</span>
+      <button class="btn btn-primary" type="submit" id="count-update">Actualizar</button>
+    </div>
+  </form>
+  <form method="post" action="{{ url_for('eposone.eposone_inventory_count_cancel', count_id=count.id) }}" class="mt-2"
+        onsubmit="return confirm('¿Descartar esta toma? Lo contado no se aplica al stock. La toma en proceso no se cancela sola.');">
+    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+    <button class="btn btn-sm btn-link text-muted px-0" type="submit">Descartar toma</button>
+  </form>
+  {% else %}
+  <div class="epos-card">
+    <div class="epos-card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0 align-middle epos-table" id="count-table">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th class="text-end">Sistema</th>
+              <th class="text-end">Físico</th>
+              <th class="text-end">Diferencia</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ln in count.lines %}
+            {% set dqty = ln.get('difference_qty') %}
+            {% set exp = ln.get('expected_qty') %}
+            {% set snap = ln.get('snapshot_qty') %}
+            {% if ln.get('physical_qty') is not none %}
+            <tr class="count-row"
+                data-name="{{ (ln.name or ln.product_ref)|lower }}"
+                data-ref="{{ (ln.product_ref or '')|lower }}"
+                data-cat="{{ ln.category or '' }}"
+                data-diff="{{ dqty if dqty is not none else '' }}">
+              <td>
+                <div class="fw-semibold">{{ ln.name or ln.product_ref }}</div>
+                <code class="small text-muted">{{ ln.product_ref }}</code>
+              </td>
+              <td class="text-end">{% if exp is not none %}{{ exp }}{% elif snap is not none %}{{ snap }}{% else %}—{% endif %}</td>
+              <td class="text-end">{{ ln.physical_qty }}</td>
+              <td class="text-end {% if dqty is not none and dqty < 0 %}text-danger{% elif dqty is not none and dqty > 0 %}text-success{% endif %}">
+                {% if dqty is not none %}{{ '%+.4g'|format(dqty) }}{% else %}—{% endif %}
+              </td>
+            </tr>
+            {% endif %}
+            {% else %}
+            <tr><td colspan="4" class="text-muted p-4">Sin líneas.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="p-4 text-muted d-none" id="count-empty-filter">Ningún producto coincide con los filtros.</div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+<script>
+(function () {
+  var qEl = document.getElementById('count-q');
+  var catEl = document.getElementById('count-cat');
+  var viewEl = document.getElementById('count-view');
+  var clearBtn = document.getElementById('count-clear');
+  var empty = document.getElementById('count-empty-filter');
+  var progress = document.getElementById('count-progress');
+  var counting = {{ 'true' if counting else 'false' }};
+
+  function qtyVal(inp) {
+    return (inp.value || '').trim();
+  }
+  function isFilled(inp) {
+    return qtyVal(inp) !== '';
+  }
+  function isDirty(inp) {
+    return qtyVal(inp) !== (inp.getAttribute('data-saved') || '');
+  }
+  function isModified(tr) {
+    var inp = tr.querySelector('.count-qty');
+    if (!inp) return tr.getAttribute('data-saved') === '1';
+    return isFilled(inp) || isDirty(inp);
+  }
+
+  function apply() {
+    var q = (qEl && qEl.value || '').trim().toLowerCase();
+    var cat = (catEl && catEl.value) || '';
+    var view = (viewEl && viewEl.value) || 'all';
+    var rows = document.querySelectorAll('#count-table .count-row');
+    var n = 0, filled = 0, dirty = 0;
+    rows.forEach(function (tr) {
+      var inp = tr.querySelector('.count-qty');
+      if (inp && isFilled(inp)) filled += 1;
+      if (inp && isDirty(inp)) {
+        dirty += 1;
+        tr.classList.add('count-row--dirty');
+      } else {
+        tr.classList.remove('count-row--dirty');
+      }
+      var ok = true;
+      if (q) {
+        var hay = (tr.getAttribute('data-name') || '') + ' ' + (tr.getAttribute('data-ref') || '');
+        ok = hay.indexOf(q) !== -1;
+      }
+      if (ok && cat && (tr.getAttribute('data-cat') || '') !== cat) ok = false;
+      if (ok && view === 'pend') {
+        ok = !(inp ? isFilled(inp) : tr.getAttribute('data-saved') === '1');
+      }
+      if (ok && view === 'mod') ok = isModified(tr);
+      if (ok && view === 'diff') {
+        var d = parseFloat(tr.getAttribute('data-diff') || '0');
+        ok = !isNaN(d) && Math.abs(d) > 1e-9;
+      }
+      if (ok && view === 'zero') {
+        var z = parseFloat(tr.getAttribute('data-diff') || '0');
+        ok = !isNaN(z) && Math.abs(z) <= 1e-9;
+      }
+      tr.style.display = ok ? '' : 'none';
+      if (ok) n += 1;
+    });
+    if (empty) empty.classList.toggle('d-none', n !== 0 || !rows.length);
+    if (progress) {
+      if (counting) {
+        progress.textContent = filled + ' contados · ' + dirty + ' sin actualizar · ' + rows.length + ' ítems';
+      } else {
+        progress.textContent = n + ' visibles';
+      }
+    }
+  }
+
+  [qEl, catEl, viewEl].forEach(function (el) {
+    if (!el) return;
+    el.addEventListener('input', apply);
+    el.addEventListener('change', apply);
+  });
+  document.querySelectorAll('.count-qty').forEach(function (inp) {
+    inp.addEventListener('input', apply);
+    inp.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Enter') return;
+      ev.preventDefault();
+      var vis = Array.prototype.filter.call(document.querySelectorAll('.count-qty'), function (el) {
+        return el.closest('tr') && el.closest('tr').style.display !== 'none';
+      });
+      var i = vis.indexOf(inp);
+      if (i >= 0 && i < vis.length - 1) vis[i + 1].focus();
+    });
+  });
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      if (qEl) qEl.value = '';
+      if (catEl) catEl.value = '';
+      if (viewEl) viewEl.value = 'all';
+      apply();
+      if (qEl) qEl.focus();
+    });
+  }
+  apply();
+  if (qEl) qEl.focus();
+
+  var form = document.getElementById('count-form');
+  var saveStatus = document.getElementById('count-save-status');
+  var saveTimer = null;
+  var saving = false;
+
+  function setStatus(msg) {
+    if (saveStatus) saveStatus.textContent = msg;
+  }
+
+  function collectDirty() {
+    var fd = new FormData();
+    var csrf = form ? form.querySelector('input[name="csrf_token"]') : null;
+    if (csrf) fd.append('csrf_token', csrf.value);
+    var n = 0;
+    document.querySelectorAll('.count-qty').forEach(function (inp) {
+      if (!isDirty(inp) || !isFilled(inp)) return;
+      fd.append(inp.name, qtyVal(inp));
+      n += 1;
+    });
+    return { fd: fd, n: n };
+  }
+
+  function markSaved() {
+    document.querySelectorAll('.count-qty').forEach(function (inp) {
+      if (!isFilled(inp)) return;
+      inp.setAttribute('data-saved', qtyVal(inp));
+      var tr = inp.closest('tr');
+      if (tr) tr.setAttribute('data-saved', '1');
+    });
+    apply();
+  }
+
+  function saveNow(reason) {
+    if (!form || !counting || saving) return Promise.resolve();
+    var packed = collectDirty();
+    if (!packed.n) {
+      setStatus('En proceso · todo guardado. Podés salir y seguir después.');
+      return Promise.resolve();
+    }
+    saving = true;
+    setStatus('Guardando ' + packed.n + '…');
+    return fetch(form.getAttribute('action') || window.location.pathname, {
+      method: 'POST',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json'
+      },
+      body: packed.fd,
+      credentials: 'same-origin'
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok || !data.ok) throw new Error((data && data.error) || 'No se pudo guardar');
+        markSaved();
+        setStatus('Guardado · stock sin cambios · podés seguir o salir');
+      });
+    }).catch(function (err) {
+      setStatus('No se guardó: ' + (err.message || 'error') + ' — usá Actualizar');
+    }).finally(function () {
+      saving = false;
+    });
+  }
+
+  function scheduleSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () { saveNow('debounce'); }, 1200);
+  }
+
+  document.querySelectorAll('.count-qty').forEach(function (inp) {
+    inp.addEventListener('input', function () {
+      setStatus('Cambio sin guardar…');
+      scheduleSave();
+    });
+    inp.addEventListener('blur', function () { saveNow('blur'); });
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) saveNow('hidden');
+  });
+  window.addEventListener('pagehide', function () { saveNow('leave'); });
+  window.addEventListener('beforeunload', function (ev) {
+    var dirty = 0;
+    document.querySelectorAll('.count-qty').forEach(function (inp) {
+      if (isDirty(inp) && isFilled(inp)) dirty += 1;
+    });
+    if (dirty) {
+      ev.preventDefault();
+      ev.returnValue = '';
+    }
+  });
+})();
+</script>
+<style>
+  .count-row--dirty { background: rgba(255, 193, 7, 0.12); }
+</style>
+{% endblock %}

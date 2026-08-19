@@ -4,7 +4,7 @@
 
 {% block page_content %}
 {% set tab = (request.args.get('tab') or 'existencias')|lower %}
-{% if tab not in ['resumen', 'existencias', 'movimientos', 'ajustes', 'transferencias', 'bodegas'] %}
+{% if tab not in ['resumen', 'existencias', 'movimientos', 'ajustes', 'toma', 'transferencias', 'bodegas'] %}
   {% set tab = 'existencias' %}
 {% endif %}
 
@@ -34,6 +34,9 @@
             </p>
         </div>
         <div class="epos-btn-row">
+            <a class="btn btn-sm btn-outline-primary" href="/admin/eposone/inventory-counts">
+                <i class="fas fa-clipboard-list me-1"></i>Toma física
+            </a>
             <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#adjustStockModal"
                     {% if not warehouses or not products %}disabled{% endif %}>
                 <i class="fas fa-sliders-h me-1"></i>Ajustar stock
@@ -89,6 +92,7 @@
         <li class="nav-item"><a class="nav-link {% if tab == 'existencias' %}active{% endif %}" href="?tab=existencias">Existencias</a></li>
         <li class="nav-item"><a class="nav-link {% if tab == 'movimientos' %}active{% endif %}" href="?tab=movimientos">Movimientos</a></li>
         <li class="nav-item"><a class="nav-link {% if tab == 'ajustes' %}active{% endif %}" href="?tab=ajustes">Ajustes</a></li>
+        <li class="nav-item"><a class="nav-link {% if tab == 'toma' %}active{% endif %}" href="/admin/eposone/inventory-counts">Toma física</a></li>
         <li class="nav-item"><a class="nav-link {% if tab == 'transferencias' %}active{% endif %}" href="?tab=transferencias">Transferencias</a></li>
         <li class="nav-item"><a class="nav-link {% if tab == 'bodegas' %}active{% endif %}" href="?tab=bodegas">Bodegas</a></li>
     </ul>
@@ -563,7 +567,8 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
-                <p class="small text-muted">Operación sensible. Se registra en el kardex como ajuste manual.</p>
+                <p class="small text-muted">Ajuste puntual (merma, daño, corrección). Para un conteo completo usá
+                    <a href="/admin/eposone/inventory-counts">Toma física</a>.</p>
                 <div class="vstack gap-3">
                     <div>
                         <label class="form-label" for="adj_wh">Bodega <span class="text-danger">*</span></label>

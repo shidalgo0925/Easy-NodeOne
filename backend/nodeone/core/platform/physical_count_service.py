@@ -237,6 +237,18 @@ def start_count(
         ).first()
         if existing is not None:
             return count_to_dict(existing, include_theoretical=False)
+    else:
+        open_row = (
+            PhysicalInventoryCount.query.filter_by(
+                organization_id=oid,
+                warehouse_org_unit_id=wh,
+                status=COUNT_STATUS_COUNTING,
+            )
+            .order_by(PhysicalInventoryCount.id.desc())
+            .first()
+        )
+        if open_row is not None:
+            return count_to_dict(open_row, include_theoretical=False)
 
     started_at = _utcnow()
     count = PhysicalInventoryCount(
@@ -486,6 +498,45 @@ def get_count(
     _assert_inventory_module(organization_id)
     count = _get_count(int(organization_id), count_id)
     return count_to_dict(count, include_theoretical=include_theoretical)
+
+
+def list_counts(organization_id: int, *, limit: int = 80) -> list[dict[str, Any]]:
+    _assert_inventory_module(organization_id)
+    rows = (
+        PhysicalInventoryCount.query.filter_by(organization_id=int(organization_id))
+        .order_by(PhysicalInventoryCount.id.desc())
+        .limit(max(1, min(int(limit), 200)))
+        .all()
+    )
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        data = count_to_dict(row, include_lines=False)
+        lines = list(row.lines or [])
+        data['lines_total'] = len(lines)
+        data['lines_counted'] = sum(1 for ln in lines if ln.physical_qty is not None)
+        out.append(data)
+    return out
+
+
+def enrich_count_with_product_names(payload: dict[str, Any]) -> dict[str, Any]:
+    """Agrega name al catálogo de captura (sin saldo teórico)."""
+    refs = [str(ln.get('product_ref') or '') for ln in payload.get('lines') or []]
+    refs = [r for r in refs if r]
+    if not refs:
+        return payload
+    oid = int(payload.get('organization_id') or 0)
+    rows = (
+        CoreProduct.query.filter_by(organization_id=oid)
+        .filter(CoreProduct.product_ref.in_(refs))
+        .all()
+    )
+    names = {str(p.product_ref): str(p.name) for p in rows}
+    cats = {str(p.product_ref): (p.category or '').strip() for p in rows}
+    for ln in payload.get('lines') or []:
+        ref = str(ln.get('product_ref') or '')
+        ln['name'] = names.get(ref, ln.get('product_ref'))
+        ln['category'] = cats.get(ref, '')
+    return payload
 
 
 def delete_count(organization_id: int, count_id: int) -> None:

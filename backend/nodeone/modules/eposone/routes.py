@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from nodeone.core.template_context_gates import user_can_see_tenant_admin_menu
@@ -2651,6 +2651,208 @@ def eposone_warehouse_create():
     flash(f'Bodega {dto.name} ({dto.unit_ref}) creada.', 'success')
     tab = (request.form.get('redirect_tab') or 'bodegas').strip() or 'bodegas'
     return redirect(url_for('eposone.eposone_section', slug='inventory', tab=tab))
+
+
+def _eposone_inventory_oid():
+    denied = _require_eposone_admin()
+    if denied is not None:
+        return denied
+    from nodeone.core.platform.runtime import resolve_organization_id
+
+    oid = resolve_organization_id()
+    if oid is None:
+        abort(400)
+    return int(oid)
+
+
+@eposone_bp.route('/inventory-counts', methods=['GET', 'POST'])
+@login_required
+def eposone_inventory_counts():
+    """Lista + nueva toma (UX tipo Contador: sesión, no kardex)."""
+    oid = _eposone_inventory_oid()
+    if not isinstance(oid, int):
+        return oid
+    from nodeone.core.platform import inventory_service as inv
+    from nodeone.core.platform.inventory_service import InventoryError
+    from nodeone.core.platform.module_registry import is_module_enabled
+    from nodeone.core.platform.physical_count_service import (
+        PhysicalCountError,
+        list_counts,
+        start_count,
+    )
+
+    if not (is_module_enabled(oid, 'inventory') and is_module_enabled(oid, 'products')):
+        flash('La toma física requiere módulos Productos e Inventario activos.', 'warning')
+        return redirect(url_for('eposone.eposone_section', slug='inventory'))
+
+    try:
+        inv.ensure_default_warehouse(oid)
+    except InventoryError as exc:
+        flash(str(exc), 'danger')
+        return redirect(url_for('eposone.eposone_section', slug='inventory'))
+    warehouses = inv.list_warehouses(oid)
+    if request.method == 'POST':
+        try:
+            payload = start_count(
+                oid,
+                warehouse_org_unit_id=int(request.form.get('warehouse_org_unit_id') or 0),
+                created_by_user_id=int(current_user.id) if getattr(current_user, 'id', None) else None,
+                count_mode='BLIND',
+                notes=(request.form.get('notes') or '').strip() or None,
+                source_system='EN1',
+            )
+            flash('Toma en proceso. Contá de a poco: se guarda solo. Salir no cancela.', 'success')
+            return redirect(
+                url_for('eposone.eposone_inventory_count_capture', count_id=int(payload['id']))
+            )
+        except (PhysicalCountError, InventoryError, ValueError, TypeError) as exc:
+            flash(str(exc), 'danger')
+    counts = list_counts(oid)
+    wh_names = {int(w['id']): w.get('name') or w.get('unit_ref') for w in warehouses}
+    return render_template(
+        'eposone/inventory_counts.html',
+        counts=counts,
+        warehouses=warehouses,
+        warehouse_name_by_id=wh_names,
+        organization_id=oid,
+    )
+
+
+@eposone_bp.route('/inventory-counts/<int:count_id>', methods=['GET', 'POST'])
+@login_required
+def eposone_inventory_count_capture(count_id: int):
+    oid = _eposone_inventory_oid()
+    if not isinstance(oid, int):
+        return oid
+    from nodeone.core.platform.inventory_service import InventoryError
+    from nodeone.core.platform.physical_count_service import (
+        PhysicalCountError,
+        enrich_count_with_product_names,
+        get_count,
+        upsert_lines,
+    )
+
+    if request.method == 'POST':
+        wants_json = (
+            (request.headers.get('X-Requested-With') or '').lower() == 'xmlhttprequest'
+            or 'application/json' in (request.headers.get('Accept') or '')
+        )
+        lines = []
+        for key, raw in request.form.items():
+            if not key.startswith('qty_'):
+                continue
+            product_ref = key[4:]
+            val = (raw or '').strip()
+            if val == '':
+                continue
+            try:
+                qty = float(val.replace(',', '.'))
+            except ValueError:
+                if wants_json:
+                    return jsonify({'ok': False, 'error': f'Cantidad inválida en {product_ref}'}), 400
+                flash(f'Cantidad inválida en {product_ref}', 'danger')
+                return redirect(url_for('eposone.eposone_inventory_count_capture', count_id=count_id))
+            lines.append({'product_ref': product_ref, 'physical_qty': qty})
+        try:
+            upsert_lines(oid, count_id, lines)
+        except (PhysicalCountError, InventoryError, ValueError) as exc:
+            if wants_json:
+                return jsonify({'ok': False, 'error': str(exc)}), 400
+            flash(str(exc), 'danger')
+            return redirect(url_for('eposone.eposone_inventory_count_capture', count_id=count_id))
+        if wants_json:
+            return jsonify(
+                {
+                    'ok': True,
+                    'saved': len(lines),
+                    'message': 'Cantidades actualizadas. El stock no cambió.',
+                }
+            )
+        flash('Cantidades actualizadas. El stock no cambió.', 'success')
+        return redirect(url_for('eposone.eposone_inventory_count_capture', count_id=count_id))
+
+    try:
+        payload = enrich_count_with_product_names(get_count(oid, count_id))
+    except PhysicalCountError as exc:
+        flash(str(exc), 'danger')
+        return redirect(url_for('eposone.eposone_inventory_counts'))
+    from nodeone.core.platform import inventory_service as inv
+
+    wh_names = {int(w['id']): w.get('name') or w.get('unit_ref') for w in inv.list_warehouses(oid)}
+    categories = sorted(
+        {
+            str(ln.get('category') or '').strip()
+            for ln in (payload.get('lines') or [])
+            if (ln.get('category') or '').strip()
+        }
+    )
+    return render_template(
+        'eposone/inventory_count_capture.html',
+        count=payload,
+        warehouse_name=wh_names.get(int(payload.get('warehouse_org_unit_id') or 0), ''),
+        organization_id=oid,
+        categories=categories,
+        can_self_approve=bool(getattr(current_user, 'is_admin', False)),
+        current_user_id=int(current_user.id) if getattr(current_user, 'id', None) else None,
+    )
+
+
+@eposone_bp.route('/inventory-counts/<int:count_id>/complete', methods=['POST'])
+@login_required
+def eposone_inventory_count_complete(count_id: int):
+    oid = _eposone_inventory_oid()
+    if not isinstance(oid, int):
+        return oid
+    from nodeone.core.platform.inventory_service import InventoryError
+    from nodeone.core.platform.physical_count_service import PhysicalCountError, complete_count
+
+    try:
+        complete_count(oid, count_id)
+        flash('Toma finalizada. El stock no cambió. Revisá diferencias y aprobá para ajustar.', 'success')
+    except (PhysicalCountError, InventoryError) as exc:
+        flash(str(exc), 'danger')
+    return redirect(url_for('eposone.eposone_inventory_count_capture', count_id=count_id))
+
+
+@eposone_bp.route('/inventory-counts/<int:count_id>/approve', methods=['POST'])
+@login_required
+def eposone_inventory_count_approve(count_id: int):
+    oid = _eposone_inventory_oid()
+    if not isinstance(oid, int):
+        return oid
+    from nodeone.core.platform.inventory_service import InventoryError
+    from nodeone.core.platform.physical_count_service import PhysicalCountError, approve_count
+
+    is_admin = bool(getattr(current_user, 'is_admin', False))
+    try:
+        approve_count(
+            oid,
+            count_id,
+            approved_by_user_id=int(current_user.id) if getattr(current_user, 'id', None) else None,
+            allow_self_approve=is_admin,
+            is_admin=is_admin,
+        )
+        flash('Toma aprobada. Se registraron los ajustes en el kardex.', 'success')
+    except (PhysicalCountError, InventoryError) as exc:
+        flash(str(exc), 'danger')
+    return redirect(url_for('eposone.eposone_inventory_count_capture', count_id=count_id))
+
+
+@eposone_bp.route('/inventory-counts/<int:count_id>/cancel', methods=['POST'])
+@login_required
+def eposone_inventory_count_cancel(count_id: int):
+    oid = _eposone_inventory_oid()
+    if not isinstance(oid, int):
+        return oid
+    from nodeone.core.platform.inventory_service import InventoryError
+    from nodeone.core.platform.physical_count_service import PhysicalCountError, cancel_count
+
+    try:
+        cancel_count(oid, count_id)
+        flash('Toma cancelada. El stock no se modificó.', 'success')
+    except (PhysicalCountError, InventoryError) as exc:
+        flash(str(exc), 'danger')
+    return redirect(url_for('eposone.eposone_inventory_counts'))
 
 
 @eposone_bp.route('/stock/adjust', methods=['POST'])

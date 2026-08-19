@@ -8,7 +8,7 @@
     </h1>
     <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('accounting_core.receivables_list') }}">Por factura</a>
     <a class="btn btn-outline-primary btn-sm" href="{{ url_for('admin_accounting_invoices') }}">Facturas</a>
-    <span class="ms-md-auto erp-footnote text-muted text-nowrap">Total: <strong>B/. {{ '%.2f'|format(total_pending) }}</strong> · {{ rows|length }} cliente(s)</span>
+    <span class="ms-md-auto erp-footnote text-muted text-nowrap">Total: <strong>{{ total_pending|en1_money }}</strong> · {{ rows|length }} cliente(s)</span>
   </div>
 
   <div class="table-responsive border rounded bg-white">
@@ -29,7 +29,7 @@
             {% if row.email %}<div class="erp-footnote text-muted">{{ row.email }}</div>{% endif %}
           </td>
           <td class="text-end">{{ row.invoice_count }}</td>
-          <td class="text-end fw-semibold text-nowrap">B/. {{ '%.2f'|format(row.pending or 0) }}</td>
+          <td class="text-end fw-semibold text-nowrap">{{ (row.pending or 0)|en1_money }}</td>
           <td class="text-nowrap">
             <a class="btn btn-sm btn-outline-primary py-0" href="{{ url_for('accounting_core.receivables_list', customer_id=row.customer_id) }}">Ver facturas</a>
           </td>

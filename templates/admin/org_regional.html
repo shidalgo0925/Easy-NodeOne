@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Regionalización y formatos | {{ get_nav_brand_name() }}{% endblock %}
+{% block content %}
+<div class="container-fluid px-2 px-sm-3 py-3 erp-compact-page" style="max-width:960px">
+  <form method="post">
+    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+      <h1 class="h5 mb-0 text-nowrap">
+        <i class="fas fa-globe me-1 text-muted" aria-hidden="true"></i>Regionalización y formatos
+      </h1>
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_company_setup') }}">Empresa / fiscal</a>
+      <button type="submit" class="btn btn-primary btn-sm ms-md-auto">Guardar</button>
+    </div>
+    <p class="small text-muted mb-3">
+      Presentación por organización. No mueve RUC, ITBMS, FE ni sucursales fiscales.
+      Cambiar un formato no altera importes ni fechas ya guardados.
+    </p>
+
+    <div class="card border shadow-sm mb-3">
+      <div class="card-body">
+        <h2 class="h6">Región y reloj</h2>
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label small mb-0" for="country_code">País / región</label>
+            <select class="form-select form-select-sm" id="country_code" name="country_code">
+              {% for code, label in country_codes %}
+              <option value="{{ code }}" {% if (settings.country_code or '') == code %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text">Perfil Panamá (TZ, USD, fecha DD/MM) solo si elige Panamá; no se aplica a las demás orgs.</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small mb-0" for="timezone">Zona horaria</label>
+            <select class="form-select form-select-sm" id="timezone" name="timezone">
+              {% for tz in timezones %}
+              <option value="{{ tz }}" {% if settings.timezone == tz %}selected{% endif %}>{{ tz }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small mb-0" for="date_format">Formato de fecha</label>
+            <select class="form-select form-select-sm" id="date_format" name="date_format">
+              {% for f in date_formats %}
+              <option value="{{ f }}" {% if settings.date_format == f %}selected{% endif %}>{{ f }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small mb-0" for="time_format">Formato de hora</label>
+            <select class="form-select form-select-sm" id="time_format" name="time_format">
+              <option value="24h" {% if settings.time_format == '24h' %}selected{% endif %}>24 horas</option>
+              <option value="12h" {% if settings.time_format == '12h' %}selected{% endif %}>12 horas</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small mb-0" for="week_start">Primer día de la semana</label>
+            <select class="form-select form-select-sm" id="week_start" name="week_start">
+              <option value="monday" {% if settings.week_start == 'monday' %}selected{% endif %}>Lunes</option>
+              <option value="sunday" {% if settings.week_start == 'sunday' %}selected{% endif %}>Domingo</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small mb-0" for="locale">Idioma / locale</label>
+            <input class="form-control form-control-sm" id="locale" name="locale" maxlength="16"
+                   value="{{ settings.locale }}" placeholder="es, es_PA, en_US">
+            <div class="form-text">Reserva para i18n. No traduce la UI todavía.</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small mb-0" for="paper_size">Papel de documentos / reportes</label>
+            <select class="form-select form-select-sm" id="paper_size" name="paper_size">
+              <option value="letter" {% if settings.paper_size == 'letter' %}selected{% endif %}>Carta (Letter)</option>
+              <option value="a4" {% if settings.paper_size == 'a4' %}selected{% endif %}>A4</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card border shadow-sm mb-3">
+      <div class="card-body">
+        <h2 class="h6">Números y moneda</h2>
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label small mb-0" for="number_format">Formato numérico</label>
+            <select class="form-select form-select-sm" id="number_format" name="number_format">
+              {% for f in number_formats %}
+              <option value="{{ f }}" {% if settings.number_format == f %}selected{% endif %}>{{ f }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text">También se usa al interpretar montos en importación XLS/CSV.</div>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-0" for="money_decimals">Decimales importe</label>
+            <input class="form-control form-control-sm" id="money_decimals" name="money_decimals" type="number" min="0" max="6"
+                   value="{{ settings.money_decimals }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-0" for="qty_decimals">Decimales cantidad</label>
+            <input class="form-control form-control-sm" id="qty_decimals" name="qty_decimals" type="number" min="0" max="6"
+                   value="{{ settings.qty_decimals }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-0" for="currency_code">Moneda principal</label>
+            <select class="form-select form-select-sm" id="currency_code" name="currency_code">
+              {% for c in currencies %}
+              <option value="{{ c }}" {% if settings.currency_code == c %}selected{% endif %}>{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-0" for="currency_symbol">Símbolo</label>
+            <input class="form-control form-control-sm" id="currency_symbol" name="currency_symbol" maxlength="16"
+                   value="{{ settings.currency_symbol }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small mb-0" for="symbol_position">Posición del símbolo</label>
+            <select class="form-select form-select-sm" id="symbol_position" name="symbol_position">
+              <option value="before" {% if settings.symbol_position == 'before' %}selected{% endif %}>$ 100.00</option>
+              <option value="after" {% if settings.symbol_position == 'after' %}selected{% endif %}>100.00 $</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+  </form>
+</div>
+<script>
+(function () {
+  var sel = document.getElementById('country_code');
+  if (!sel) return;
+  sel.addEventListener('change', function () {
+    if (sel.value !== 'PA') return;
+    var map = {
+      timezone: 'America/Panama',
+      date_format: 'DD/MM/YYYY',
+      time_format: '24h',
+      week_start: 'monday',
+      number_format: '1,234.56',
+      money_decimals: '2',
+      qty_decimals: '2',
+      currency_code: 'USD',
+      currency_symbol: '$',
+      symbol_position: 'before',
+      locale: 'es_PA',
+      paper_size: 'letter'
+    };
+    Object.keys(map).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.value = map[id];
+    });
+  });
+})();
+</script>
+{% endblock %}

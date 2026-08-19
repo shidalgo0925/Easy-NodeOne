@@ -3,43 +3,44 @@
 {% block title %}CRM | Easy NodeOne{% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/sales-quotation-odoo.css') }}?v=4">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/crm-new-lead-modal.css') }}?v=1">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm-toolbar.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm-toolbar.css') }}?v=3">
+<style>
+.crm-list-page .crm-search { width: min(14rem, 42vw); }
+.crm-list-page .crm-filter-select { width: min(8.5rem, 24vw); }
+.crm-list-page .table > :not(caption) > * > * { padding: 0.3rem 0.45rem; font-size: 0.8125rem; }
+.crm-list-page .table thead th { font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+</style>
 {% endblock %}
 
 {% block page_content %}
-<div class="container-fluid py-2">
-  <div class="d-flex flex-column flex-md-row flex-wrap justify-content-between align-items-stretch align-items-md-center gap-2 mb-2">
-    <div class="min-w-0">
-      <h3 class="mb-1"><i class="fas fa-funnel-dollar me-2"></i>CRM</h3>
-      <p class="text-muted mb-0 small">Leads, oportunidades, actividades y reportes.</p>
-    </div>
-    <div class="d-flex flex-shrink-0 gap-2 flex-md-wrap">
-      <button class="btn btn-outline-secondary btn-sm text-nowrap" id="crmReloadBtn"><i class="fas fa-sync-alt me-1"></i>Actualizar</button>
-      <button class="btn btn-primary btn-sm text-nowrap" data-bs-toggle="modal" data-bs-target="#newLeadModal"><i class="fas fa-plus me-1"></i>Nuevo lead</button>
-    </div>
+<div class="container-fluid px-2 px-sm-3 py-2 erp-compact-page crm-list-page">
+  <div class="crm-toolbar erp-toolbar d-flex flex-wrap align-items-center mb-2" role="search" aria-label="Filtros de CRM">
+    <h1 class="h5 mb-0 text-nowrap me-1">
+      <i class="fas fa-handshake me-1 text-muted" aria-hidden="true"></i>CRM
+    </h1>
+    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newLeadModal">Nuevo</button>
+    <span class="d-none d-md-inline vr align-self-stretch mx-1" aria-hidden="true"></span>
+    {% if crm_view in ['list', 'table', 'kanban'] %}
+    <input class="form-control form-control-sm crm-search" id="crmSearch" type="search" placeholder="Buscar título, contacto, email…" aria-label="Buscar" />
+    <select class="form-select form-select-sm crm-filter-select" id="filterStage" aria-label="Etapa">
+      <option value="">Etapa: todas</option>
+    </select>
+    <input class="form-control form-control-sm crm-filter-select" id="filterSource" placeholder="Fuente" aria-label="Fuente" />
+    <button type="button" class="btn btn-sm btn-secondary" id="crmFilterBtn">Filtrar</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" id="crmClearBtn">Limpiar</button>
+    {% endif %}
+    <select class="form-select form-select-sm crm-filter-select" id="crmViewSelect" aria-label="Vista">
+      <option value="{{ url_for('admin_crm_leads') }}" {% if crm_view == 'list' %}selected{% endif %}>Vista: lista</option>
+      <option value="{{ url_for('admin_crm_kanban') }}" {% if crm_view == 'kanban' %}selected{% endif %}>Vista: kanban</option>
+      <option value="{{ url_for('admin_crm_calendar') }}" {% if crm_view == 'calendar' %}selected{% endif %}>Vista: calendario</option>
+      <option value="{{ url_for('admin_crm_table') }}" {% if crm_view == 'table' %}selected{% endif %}>Vista: tabla</option>
+      <option value="{{ url_for('admin_crm_activities') }}" {% if crm_view == 'activities' %}selected{% endif %}>Vista: actividades</option>
+      <option value="{{ url_for('admin_crm_reports') }}" {% if crm_view == 'reports' %}selected{% endif %}>Vista: reportes</option>
+      <option value="{{ url_for('admin_crm_settings') }}" {% if crm_view == 'settings' %}selected{% endif %}>Vista: config</option>
+    </select>
   </div>
 
-  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-    <div class="crm-view-toolbar d-inline-flex align-items-center flex-wrap">
-      <a class="crm-view-btn {% if crm_view == 'kanban' %}is-active{% endif %}" href="{{ url_for('admin_crm_kanban') }}" title="Kanban" aria-label="Kanban"><i class="fas fa-columns"></i></a>
-      <a class="crm-view-btn {% if crm_view == 'list' %}is-active{% endif %}" href="{{ url_for('admin_crm_leads') }}" title="Lista" aria-label="Lista"><i class="fas fa-list"></i></a>
-      <a class="crm-view-btn {% if crm_view == 'calendar' %}is-active{% endif %}" href="{{ url_for('admin_crm_calendar') }}" title="Calendario" aria-label="Calendario"><i class="fas fa-calendar-alt"></i></a>
-      <a class="crm-view-btn {% if crm_view == 'table' %}is-active{% endif %}" href="{{ url_for('admin_crm_table') }}" title="Tabla" aria-label="Tabla"><i class="fas fa-table"></i></a>
-      <a class="crm-view-btn {% if crm_view == 'reports' %}is-active{% endif %}" href="{{ url_for('admin_crm_reports') }}" title="Reportes" aria-label="Reportes"><i class="fas fa-chart-line"></i></a>
-      <a class="crm-view-btn {% if crm_view == 'activities' %}is-active{% endif %}" href="{{ url_for('admin_crm_activities') }}" title="Actividades" aria-label="Actividades"><i class="fas fa-clock"></i></a>
-      <a class="crm-view-btn crm-view-btn--settings {% if crm_view == 'settings' %}is-active{% endif %}" href="{{ url_for('admin_crm_settings') }}" title="Configuración" aria-label="Configuración"><i class="fas fa-cog"></i></a>
-    </div>
-    <a class="small text-decoration-none {% if crm_view == 'dashboard' %}fw-semibold text-primary{% else %}text-muted{% endif %}" href="{{ url_for('admin_crm_dashboard') }}"><i class="fas fa-tachometer-alt me-1"></i>Resumen</a>
-  </div>
-
-  <div class="row g-2 mb-2 crm-kpi-strip {% if crm_view in ['settings'] %}d-none{% endif %}">
-    <div class="col-6 col-lg-3"><div class="card"><div class="card-body py-2"><small class="text-muted">Leads totales</small><div id="kpiTotal" class="fs-5 fw-semibold mb-0">0</div></div></div></div>
-    <div class="col-6 col-lg-3"><div class="card"><div class="card-body py-2"><small class="text-muted">Ganados</small><div id="kpiWon" class="fs-5 fw-semibold mb-0">0</div></div></div></div>
-    <div class="col-6 col-lg-3"><div class="card"><div class="card-body py-2"><small class="text-muted">Conversión</small><div id="kpiConv" class="fs-5 fw-semibold mb-0">0%</div></div></div></div>
-    <div class="col-6 col-lg-3"><div class="card"><div class="card-body py-2"><small class="text-muted">Forecast</small><div id="kpiForecast" class="fs-5 fw-semibold mb-0">$0</div></div></div></div>
-  </div>
   <div id="crmAlertsBox" class="{% if crm_view == 'settings' %}d-none{% endif %}"></div>
 
   {% if crm_view == 'settings' %}
@@ -99,10 +100,13 @@
   <div class="crm-kanban-wrapper">
     <div id="kanbanBoard" class="crm-kanban-board row g-3"></div>
   </div>
-  <button type="button" class="btn btn-primary rounded-circle crm-kanban-fab d-lg-none" data-bs-toggle="modal" data-bs-target="#newLeadModal" aria-label="Nuevo lead">
-    <i class="fas fa-plus fa-lg"></i>
-  </button>
   {% elif crm_view == 'reports' %}
+  <div class="row g-2 mb-2">
+    <div class="col-6 col-lg-3"><div class="card"><div class="card-body py-2"><small class="text-muted">Leads totales</small><div id="kpiTotal" class="fs-5 fw-semibold mb-0">0</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card"><div class="card-body py-2"><small class="text-muted">Ganados</small><div id="kpiWon" class="fs-5 fw-semibold mb-0">0</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card"><div class="card-body py-2"><small class="text-muted">Conversión</small><div id="kpiConv" class="fs-5 fw-semibold mb-0">0%</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card"><div class="card-body py-2"><small class="text-muted">Forecast</small><div id="kpiForecast" class="fs-5 fw-semibold mb-0">$0</div></div></div></div>
+  </div>
   <div class="row g-3">
     <div class="col-12 col-lg-6">
       <div class="card"><div class="card-header">Leads por canal</div><div class="card-body"><pre id="bySource" class="mb-0 small"></pre></div></div>
@@ -134,37 +138,23 @@
     </div>
   </div>
   {% elif crm_view == 'table' %}
-  <div class="card">
-    <div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2">
-      <span class="fw-medium">Vista tabla</span>
-      <div class="d-flex flex-column flex-sm-row gap-2 w-100 w-md-auto">
-        <select id="filterStageTable" class="form-select form-select-sm flex-grow-1"><option value="">Todas las etapas</option></select>
-        <input id="filterSourceTable" class="form-control form-control-sm flex-grow-1" placeholder="Fuente (web, campaña)">
-      </div>
-    </div>
+  <div class="border rounded bg-white overflow-hidden">
     <div class="table-responsive">
-      <table class="table table-sm mb-0 align-middle table-striped crm-leads-table">
-        <thead><tr><th>Título</th><th>Contacto</th><th>Email</th><th>Tel.</th><th>Etapa</th><th>Fuente</th><th>Vendedor</th><th>Ingreso</th><th>Prob.</th><th>Alta</th><th>Act.</th><th></th></tr></thead>
+      <table class="table table-sm table-hover mb-0 align-middle crm-leads-table">
+        <thead class="table-light"><tr><th>Título</th><th>Contacto</th><th>Email</th><th>Tel.</th><th>Etapa</th><th>Fuente</th><th>Vendedor</th><th>Ingreso</th><th>Prob.</th><th>Alta</th><th>Act.</th><th></th></tr></thead>
         <tbody id="crmTableTbody"></tbody>
       </table>
     </div>
   </div>
-  {% elif crm_view == 'dashboard' or crm_view == 'list' %}
-  <div class="card">
-    <div class="card-header d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-2">
-      <span class="fw-medium">Leads y oportunidades</span>
-      <div class="d-flex flex-column flex-sm-row gap-2 w-100 w-md-auto">
-        <select id="filterStage" class="form-select form-select-sm flex-grow-1"><option value="">Todas las etapas</option></select>
-        <input id="filterSource" class="form-control form-control-sm flex-grow-1" placeholder="Fuente (web, campaña)">
-      </div>
-    </div>
+  {% elif crm_view == 'list' %}
+  <div class="border rounded bg-white overflow-hidden">
     <div class="d-none d-md-block table-responsive">
-      <table class="table table-sm mb-0 align-middle crm-leads-table">
-        <thead><tr><th>Título</th><th>Contacto</th><th>Etapa</th><th>Vendedor</th><th>Ingreso</th><th>Prob.</th><th>Actividades</th><th></th></tr></thead>
+      <table class="table table-sm table-hover mb-0 align-middle crm-leads-table">
+        <thead class="table-light"><tr><th>Título</th><th>Contacto</th><th>Etapa</th><th>Vendedor</th><th>Ingreso</th><th>Prob.</th><th>Actividades</th><th></th></tr></thead>
         <tbody id="leadsTbody"></tbody>
       </table>
     </div>
-    <div id="leadsMobileCards" class="d-md-none p-2 border-top"></div>
+    <div id="leadsMobileCards" class="d-md-none p-2"></div>
   </div>
   {% endif %}
 </div>
@@ -225,8 +215,7 @@
   const kanbanBoard = document.getElementById('kanbanBoard');
   const filterStage = document.getElementById('filterStage');
   const filterSource = document.getElementById('filterSource');
-  const filterStageTable = document.getElementById('filterStageTable');
-  const filterSourceTable = document.getElementById('filterSourceTable');
+  const crmSearch = document.getElementById('crmSearch');
   const crmTableTbody = document.getElementById('crmTableTbody');
   const crmActivityFeed = document.getElementById('crmActivityFeed');
   const crmCalPrev = document.getElementById('crmCalPrev');
@@ -234,7 +223,9 @@
   let calMonth = new Date();
   const newLeadForm = document.getElementById('newLeadForm');
   const newActivityForm = document.getElementById('newActivityForm');
-  const reloadBtn = document.getElementById('crmReloadBtn');
+  const filterBtn = document.getElementById('crmFilterBtn');
+  const clearBtn = document.getElementById('crmClearBtn');
+  const viewSelect = document.getElementById('crmViewSelect');
   const activitiesList = document.getElementById('activitiesList');
   const activityLeadId = document.getElementById('activityLeadId');
   const actLeadTitle = document.getElementById('actLeadTitle');
@@ -408,7 +399,7 @@
     const fill = (sel) => {
       if (!sel) return;
       const cur = sel.value;
-      sel.innerHTML = '<option value="">Todas las etapas</option>';
+      sel.innerHTML = '<option value="">Etapa: todas</option>';
       for (const s of items) {
         const o = document.createElement('option');
         o.value = String(s.id);
@@ -418,17 +409,20 @@
       if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
     };
     fill(filterStage);
-    fill(filterStageTable);
     return items;
   }
 
   async function loadReports() {
     const data = await j('/crm/reports');
     const k = data.kpis || {};
-    document.getElementById('kpiTotal').textContent = String(k.total_leads || 0);
-    document.getElementById('kpiWon').textContent = String(k.won || 0);
-    document.getElementById('kpiConv').textContent = `${(k.conversion_rate || 0).toFixed(1)}%`;
-    document.getElementById('kpiForecast').textContent = money(data.forecast || 0);
+    const kpiTotal = document.getElementById('kpiTotal');
+    const kpiWon = document.getElementById('kpiWon');
+    const kpiConv = document.getElementById('kpiConv');
+    const kpiForecast = document.getElementById('kpiForecast');
+    if (kpiTotal) kpiTotal.textContent = String(k.total_leads || 0);
+    if (kpiWon) kpiWon.textContent = String(k.won || 0);
+    if (kpiConv) kpiConv.textContent = `${(k.conversion_rate || 0).toFixed(1)}%`;
+    if (kpiForecast) kpiForecast.textContent = money(data.forecast || 0);
     const bySource = document.getElementById('bySource');
     const byUser = document.getElementById('byUser');
     if (bySource) bySource.textContent = JSON.stringify(k.leads_by_source || {}, null, 2);
@@ -454,14 +448,18 @@
     alertsBox.innerHTML = `<div class="alert alert-warning py-1 mb-0 small"><i class="fas fa-bell me-2"></i>${chunks.join('')}</div>`;
   }
 
-  function emptyStateHtml() {
-    return `
-      <div class="crm-empty-state">
-        <p class="mb-2 text-muted">Aún no hay leads.</p>
-        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newLeadModal">
-          <i class="fas fa-plus me-1"></i>Crear el primero
-        </button>
-      </div>`;
+  function emptyStateHtml(colspan) {
+    return `<td colspan="${colspan || 8}" class="text-muted py-3">Sin leads con estos filtros.</td>`;
+  }
+
+  function applySearch(items) {
+    const term = ((crmSearch && crmSearch.value) || '').trim().toLowerCase();
+    if (!term) return items || [];
+    return (items || []).filter((x) => {
+      const blob = [x.name, x.contact_name, x.email, x.phone, x.source, x.stage_name]
+        .filter(Boolean).join(' ').toLowerCase();
+      return blob.includes(term);
+    });
   }
 
   async function loadAlerts() {
@@ -486,10 +484,10 @@
     if (leadsMobileCards) leadsMobileCards.innerHTML = '';
     if (!(items || []).length) {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td colspan="8" class="p-0 border-0">${emptyStateHtml()}</td>`;
+      tr.innerHTML = emptyStateHtml(8);
       leadsTbody.appendChild(tr);
       if (leadsMobileCards) {
-        leadsMobileCards.innerHTML = emptyStateHtml();
+        leadsMobileCards.innerHTML = '<p class="text-muted mb-0 py-2 px-1">Sin leads con estos filtros.</p>';
       }
       return;
     }
@@ -558,7 +556,7 @@
     crmTableTbody.innerHTML = '';
     if (!(items || []).length) {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td colspan="12" class="p-0 border-0">${emptyStateHtml()}</td>`;
+      tr.innerHTML = emptyStateHtml(12);
       crmTableTbody.appendChild(tr);
       return;
     }
@@ -730,12 +728,10 @@
 
   async function loadLeads(stages) {
     const params = new URLSearchParams();
-    const stEl = currentView === 'table' ? filterStageTable : filterStage;
-    const srcEl = currentView === 'table' ? filterSourceTable : filterSource;
-    if (stEl && stEl.value) params.set('stage', stEl.value);
-    if (srcEl && srcEl.value.trim()) params.set('source', srcEl.value.trim());
+    if (filterStage && filterStage.value) params.set('stage', filterStage.value);
+    if (filterSource && filterSource.value.trim()) params.set('source', filterSource.value.trim());
     const data = await j('/crm/leads' + (params.toString() ? `?${params.toString()}` : ''));
-    const items = data.items || [];
+    const items = applySearch(data.items || []);
     for (const x of items) {
       try {
         const detail = await j(`/crm/leads/${x.id}`);
@@ -805,18 +801,35 @@
     const stages = await loadStages();
     await syncActivityTypes();
     await loadAlerts();
-    await loadReports();
+    if (currentView === 'reports') await loadReports();
     if (currentView === 'settings') await loadSettingsLists();
     else if (currentView === 'calendar') await loadCalendarMonth();
     else if (currentView === 'activities') await loadActivityFeedView();
     else if (currentView !== 'reports' && currentView !== 'settings') await loadLeads(stages);
   }
 
-  if (reloadBtn) reloadBtn.addEventListener('click', refresh);
-  if (filterStage) filterStage.addEventListener('change', () => loadLeads());
-  if (filterSource) filterSource.addEventListener('change', () => loadLeads());
-  if (filterStageTable) filterStageTable.addEventListener('change', () => loadLeads());
-  if (filterSourceTable) filterSourceTable.addEventListener('change', () => loadLeads());
+  if (filterBtn) filterBtn.addEventListener('click', () => loadLeads());
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      if (crmSearch) crmSearch.value = '';
+      if (filterStage) filterStage.value = '';
+      if (filterSource) filterSource.value = '';
+      loadLeads();
+    });
+  }
+  if (crmSearch) {
+    crmSearch.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        loadLeads();
+      }
+    });
+  }
+  if (viewSelect) {
+    viewSelect.addEventListener('change', () => {
+      if (viewSelect.value) window.location.href = viewSelect.value;
+    });
+  }
   if (crmCalPrev) crmCalPrev.addEventListener('click', () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1); loadCalendarMonth(); });
   if (crmCalNext) crmCalNext.addEventListener('click', () => { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1); loadCalendarMonth(); });
   if (newLeadForm) {

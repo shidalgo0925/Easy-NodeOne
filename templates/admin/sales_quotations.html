@@ -8,8 +8,8 @@
         <h1 class="h5 mb-0 text-nowrap me-1">
             <i class="fas fa-file-alt me-1 text-muted" aria-hidden="true"></i>Cotizaciones
         </h1>
-        <button type="button" id="btnNewQuotation" class="btn btn-primary btn-sm">Nuevo</button>
-        <button type="button" class="btn btn-outline-secondary btn-sm">Cargar</button>
+        <button type="button" id="btnNewQuotation" class="btn btn-primary btn-sm">+ Nueva cotización</button>
+        <a href="{{ url_for('admin_sales_xls_import') }}" class="btn btn-outline-success btn-sm" id="btnImportXls">XLS</a>
         <span class="d-none d-md-inline vr align-self-stretch mx-1" aria-hidden="true"></span>
         <span class="badge text-bg-light border text-secondary erp-footnote py-2">Mis cotizaciones</span>
         <input type="search" id="quotationSearch" class="form-control form-control-sm erp-search" placeholder="Buscar número, cliente, email…" aria-label="Buscar cotizaciones">
@@ -33,12 +33,12 @@
             <tfoot>
                 <tr>
                     <td colspan="6" class="border-0 py-1"></td>
-                    <td class="text-end fw-semibold border-0 py-1" id="qTotalFooter">B/. 0.00</td>
+                    <td class="text-end fw-semibold border-0 py-1" id="qTotalFooter">{{ 0|en1_money }}</td>
                     <td class="border-0 py-1"></td>
                 </tr>
             </tfoot>
         </table>
     </div>
 </div>
-<script src="{{ url_for('static', filename='js/modules/sales/quotations_list.js') }}?v=13"></script>
+<script src="{{ url_for('static', filename='js/modules/sales/quotations_list.js') }}?v=14"></script>
 {% endblock %}

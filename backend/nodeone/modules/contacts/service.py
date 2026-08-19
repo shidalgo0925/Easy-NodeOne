@@ -6,7 +6,7 @@ import json
 import re
 from typing import Any
 
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 
 from models.contact import Contact
 from nodeone.core.db import db
@@ -251,7 +251,7 @@ def search_contacts(
         if q.isdigit():
             conds.append(Contact.id == int(q))
         query = query.filter(or_(*conds))
-    total = query.count()
+    total = int(query.order_by(None).with_entities(func.count(Contact.id)).scalar() or 0)
     rows = (
         query.order_by(Contact.display_name.asc(), Contact.id.asc())
         .offset(max(0, offset))

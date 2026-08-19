@@ -468,21 +468,23 @@ def apply_platform_org_allowlist(printfn=None) -> None:
     Si EASYNODEONE_PLATFORM_VISIBLE_ORG_IDS está definido: desactiva tenants fuera de la lista
     y reasigna sus usuarios a la organización por defecto (id canónico).
     La org por defecto nunca se desactiva aunque no esté en el env (se fuerza en allow).
+    Orgs con id mayor al máximo del env (creadas después) no se tocan.
     """
-    from utils.organization import default_organization_id, platform_visible_organization_ids
+    from utils.organization import default_organization_id, env_platform_visible_organization_ids
 
-    raw_allow = platform_visible_organization_ids()
-    if raw_allow is None:
+    env_allow = env_platform_visible_organization_ids()
+    if env_allow is None:
         return
     def_oid = int(default_organization_id())
-    allow = set(raw_allow) | {def_oid}
+    allow = set(env_allow) | {def_oid}
+    mx = max(allow)
 
     from app import SaasOrganization, User, db
 
     changed = False
     for o in SaasOrganization.query.order_by(SaasOrganization.id.asc()).all():
         oid = int(o.id)
-        if oid in allow:
+        if oid in allow or oid > mx:
             continue
         if bool(getattr(o, 'is_active', True)):
             o.is_active = False

@@ -60,10 +60,10 @@ def register_admin_tenant_contacts_routes(app):
         if moved:
             flash(f'Se migraron {moved} contactos a CRM.', 'info')
         flash('Contactos fue unificado en CRM. Usa el módulo CRM.', 'info')
-        return redirect(url_for('admin_crm_dashboard'))
+        return redirect(url_for('admin_crm_leads'))
 
     @app.route('/admin/contacts/<int:cid>/delete', methods=['POST'])
     @admin_required
     def admin_tenant_contact_delete(cid):
         flash('Contactos fue unificado en CRM. Usa el módulo CRM.', 'info')
-        return redirect(url_for('admin_crm_dashboard'))
+        return redirect(url_for('admin_crm_leads'))

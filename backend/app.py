@@ -14,6 +14,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from datetime import datetime, timedelta
 import os
 import secrets
+import tempfile
 from functools import wraps
 from sqlalchemy import func, text as sql_text
 
@@ -993,6 +994,53 @@ def inject_theme():
             'theme_logo_url': '',
             'theme_favicon_url': '',
         }
+
+
+@app.context_processor
+def inject_en1_regional():
+    """Preferencias de presentación por org (no fiscal). Lectura; no crea fila."""
+    from flask import g
+
+    from nodeone.core.regional_format import RegionalFormatService, default_regional_dict
+
+    cfg = default_regional_dict()
+    try:
+        if getattr(current_user, 'is_authenticated', False):
+            from utils.organization import get_current_organization_id
+
+            oid = get_current_organization_id()
+            if oid is not None:
+                dto = RegionalFormatService.get(int(oid))
+                if dto is not None:
+                    cfg = dto.to_dict()
+    except Exception:
+        pass
+    g.en1_regional = cfg
+    return {'en1_regional': cfg}
+
+
+@app.template_filter('en1_money')
+def en1_money_filter(value):
+    from flask import g
+
+    from nodeone.core.regional_format import format_money_from_cfg
+
+    return format_money_from_cfg(value, getattr(g, 'en1_regional', None))
+
+
+@app.template_filter('en1_number')
+def en1_number_filter(value):
+    from flask import g
+
+    from nodeone.core.regional_format import default_regional_dict, format_plain_number
+
+    c = getattr(g, 'en1_regional', None) or default_regional_dict()
+    return format_plain_number(
+        value,
+        number_format=str(c.get('number_format') or '1,234.56'),
+        decimals=int(c.get('money_decimals') if c.get('money_decimals') is not None else 2),
+    )
+
 
 # Context processor: planes de membresía configurables (para dropdowns y listas)
 @app.context_processor
@@ -2193,6 +2241,16 @@ YAPPY_PAYMENT_UPLOAD_ROOT = os.path.normpath(
     os.path.join(os.path.dirname(__file__), '..', 'uploads', 'payments', 'yappy')
 )
 os.makedirs(YAPPY_PAYMENT_UPLOAD_ROOT, exist_ok=True)
+SALES_XLS_UPLOAD_ROOT = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), '..', '..', 'uploads', 'sales_xls')
+)
+try:
+    os.makedirs(SALES_XLS_UPLOAD_ROOT, exist_ok=True)
+except OSError:
+    SALES_XLS_UPLOAD_ROOT = os.path.join(tempfile.gettempdir(), 'en1-sales-xls')
+    os.makedirs(SALES_XLS_UPLOAD_ROOT, exist_ok=True)
+app.SALES_XLS_UPLOAD_ROOT = SALES_XLS_UPLOAD_ROOT
+app.config['SALES_XLS_UPLOAD_ROOT'] = SALES_XLS_UPLOAD_ROOT
 YAPPY_RECEIPT_MAX_BYTES = 5 * 1024 * 1024
 _ym = (os.environ.get('YAPPY_RECEIPT_MAX_BYTES') or '').strip()
 if _ym.isdigit():
@@ -3501,6 +3559,12 @@ def bootstrap_nodeone_schema():
         except Exception as e:
             print(f'⚠️ ensure_saas_organization_timezone_column: {e}')
         try:
+            from nodeone.services.org_regional_schema import ensure_organization_regional_settings_schema
+
+            ensure_organization_regional_settings_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_organization_regional_settings_schema: {e}')
+        try:
             from nodeone.services.tenant_email_logo_storage import migrate_legacy_tenant_email_logos_to_uploads
 
             migrate_legacy_tenant_email_logos_to_uploads(db, printfn=lambda m: print(f'📋 {m}'))
@@ -3523,6 +3587,12 @@ def bootstrap_nodeone_schema():
             ensure_invoices_model_columns(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
         except Exception as e:
             print(f'⚠️ ensure_invoices_model_columns: {e}')
+        try:
+            from nodeone.services.sales_xls_import_schema import ensure_sales_xls_import_schema
+
+            ensure_sales_xls_import_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            print(f'⚠️ ensure_sales_xls_import_schema: {e}')
         try:
             from nodeone.services.saas_org_fiscal_schema import ensure_saas_organization_fiscal_columns
 
@@ -3721,6 +3791,13 @@ def bootstrap_nodeone_schema():
         except Exception as e:
             db.session.rollback()
             print(f'⚠️ ensure_cash_shift_client_id_schema: {e}')
+        try:
+            from nodeone.services.eposone_ops_closure_schema import ensure_eposone_ops_closure_schema
+
+            ensure_eposone_ops_closure_schema(db, db.engine, printfn=lambda m: print(f'📋 {m}'))
+        except Exception as e:
+            db.session.rollback()
+            print(f'⚠️ ensure_eposone_ops_closure_schema: {e}')
         try:
             from nodeone.services.eposone_commercial_policy_schema import (
                 ensure_eposone_commercial_policy_schema,

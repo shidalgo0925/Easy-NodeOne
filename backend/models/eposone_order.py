@@ -35,6 +35,11 @@ class EposoneOrder(db.Model):
     parent_order_id = db.Column(db.Integer, db.ForeignKey('eposone_order.id', ondelete='SET NULL'), nullable=True)
     opened_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # ADR-EN1-EP1
+    is_test = db.Column(db.Boolean, nullable=False, default=False)
+    test_session_id = db.Column(db.String(80), nullable=True, index=True)
+    charged_by_user_ref = db.Column(db.String(64), nullable=True)
+    charged_at = db.Column(db.DateTime, nullable=True)
 
     items = db.relationship(
         'EposoneOrderItem',

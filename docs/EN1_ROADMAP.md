@@ -1,6 +1,6 @@
 # EN1 — Roadmap producto
 
-**Última actualización:** 15 jul 2026  
+**Última actualización:** 18 ago 2026  
 **Edición:** `/opt/easynodeone/dev/app` → rama `develop`
 
 Índice de iniciativas planificadas o en curso en Easy NodeOne. Roadmaps de módulo con detalle propio enlazan desde aquí.
@@ -14,6 +14,62 @@
 | Sprint UX transición apps | [`EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md`](EN1_PLATFORM_SPRINT_UX_TRANSICION_APPS.md) |
 | **EPosOne V5 (activo)** | [`EN1_PLATFORM_EPOSONE_V5_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V5_ROADMAP.md) · [handoff](EN1_EPOSONE_HANDOFF_STATUS.md) |
 | **EPosOne V4 (historia)** | [`EN1_PLATFORM_EPOSONE_V4_ROADMAP.md`](EN1_PLATFORM_EPOSONE_V4_ROADMAP.md) · [EN1-01](EPOSONE_EN1_HITO1_PROVISIONING_CONTRACT.md) · [POS/licencia](EN1_PLATFORM_EPOSONE_V4_POS_LICENSING_ROADMAP.md) · [Etapa 2 Android](EN1_PLATFORM_EPOSONE_V4_ANDROID_ETAPA2.md) · sync: [`EN1_PLATFORM_EPOSONE_V4_SYNC.md`](EN1_PLATFORM_EPOSONE_V4_SYNC.md) |
+| **Ventas / CRM (cotizaciones)** | Este archivo § Ventas — CRM y cotizaciones |
+
+---
+
+## Ventas — CRM y cotizaciones (sprint UX — ago 2026)
+
+**Estado:** **DONE en Dev EN1** (18 ago 2026) — cambios en working tree **sin commit** al cierre de chat; pendiente QA usuario + `commit`/`push` a `develop`.
+
+**Alcance:** lista CRM alineada a Clientes · import XLS → cotización borrador · formulario cotización estilo Odoo · líneas por descripción · formato monetario · toolbar compacto una fila.
+
+### Entregado (dev)
+
+| Entrega | Detalle |
+|---------|---------|
+| **CRM list UX** | Toolbar compacto (Nuevo, búsqueda, etapa, fuente, Filtrar, Limpiar, Vista); sin KPIs duplicados en lista |
+| **Ruta canónica CRM** | `/admin/crm` → 302 `/admin/crm/leads`; menú y enlaces apuntan a leads |
+| **Import XLS cotización** | `POST analyze` → preview → `commit` crea cotización borrador; regla: nunca FE directo desde XLS |
+| **Parser FACTURA / BLUNT** | Perfil versionado + tests; storage en `/opt/easynodeone/dev/uploads/sales_xls` |
+| **Form cotización Odoo** | Toolbar + chevrons estado · cabecera 2 cols · tabs líneas · totales abajo-derecha |
+| **Líneas por descripción** | Sin columna Producto; búsqueda M2O en Descripción (como Odoo); `product_id` oculto |
+| **Formato números** | Miles con coma: `B/. 262,934.38` (import preview + cotización + líneas) |
+| **Toolbar una fila** | Acciones compactas + estado Borrador→Pagada en la misma línea |
+| **Anti-flicker** | Eliminado layout duplicado (`erp-compact-page` + sheet); redirect CRM; CSS scoped |
+
+### Archivos clave
+
+| Área | Ubicación |
+|------|-----------|
+| Import XLS API | `backend/nodeone/modules/sales/xls_import/` |
+| UI import | `templates/admin/sales_xls_import.html`, `static/js/modules/sales/xls_import.js` |
+| Form cotización | `templates/admin/sales_quotation_form.html`, `quotation_form.js`, `quotation_lines_component.js` |
+| CSS Odoo sheet | `static/css/sales-quotation-odoo.css` |
+| CRM admin | `templates/admin/crm_dashboard.html`, `admin_crm/routes.py` |
+| Tests | `backend/tests/sales/test_xls_import.py`, `backend/tests/crm/test_admin_pages.py` |
+
+### Flujo operativo acordado (XLS)
+
+```text
+XLS → preview/analyze → cotización borrador → Confirmar → factura → FE
+(nunca FE directo desde import XLS)
+```
+
+### Pendiente (requiere GO / siguiente chat)
+
+- [ ] **Commit + push** `develop` (diff grande: ventas, CRM, contacts perf, EPosOne ops — revisar alcance antes de commit único o split)
+- [ ] UAT appdev: import FACTURA 496 / BLUNT end-to-end
+- [ ] UAT cotización Q-0001: líneas, totales, toolbar, sin flash layout
+- [ ] Despliegue staging/prod (solo con GO explícito por silo)
+- [ ] (Opcional) Extraer JS inline CRM (~800 líneas) → `static/js/modules/crm/dashboard.js`
+- [ ] (Opcional) Mismo patrón toolbar compacto en factura (`invoice_form.html`)
+
+### Fuera de alcance (esta fase)
+
+- Productos opcionales (tab placeholder)
+- FE automática al importar XLS
+- STG/PRD sin tag/commit acordado
 
 ---
 

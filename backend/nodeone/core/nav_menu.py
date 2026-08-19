@@ -126,6 +126,7 @@ _CONFIG_EPS = (
     'admin_configuration_taxes',
     'admin_identity',
     'admin_company_setup',
+    'admin_regional_settings',
     'admin_email',
     'media_admin.admin_media',
     'admin_ai',
@@ -496,8 +497,8 @@ _CRM_PIPELINE_ITEMS: tuple[NavAreaItem, ...] = (
         'oportunidades',
         'Oportunidades',
         'fas fa-bullseye',
-        'admin_crm_dashboard',
-        active_endpoints=('admin_crm_dashboard',),
+        'admin_crm_leads',
+        active_endpoints=('admin_crm_leads', 'admin_crm_dashboard'),
     ),
     NavAreaItem(
         'actividades',
@@ -970,6 +971,14 @@ _CONFIG_ORG_ITEMS: tuple[NavAreaItem, ...] = (
         active_endpoints=('admin_company_setup', 'admin_identity'),
     ),
     NavAreaItem(
+        'regional',
+        'Regionalización y formatos',
+        'fas fa-globe',
+        'admin_regional_settings',
+        visible=_v_config,
+        active_endpoints=('admin_regional_settings',),
+    ),
+    NavAreaItem(
         'smtp',
         'SMTP',
         'fas fa-envelope',
@@ -1067,20 +1076,21 @@ _SIDEBAR_TOP_LEVEL_AREA_IDS: tuple[str, ...] = (
     'eposone',  # TEMPORAL — atajo classic hasta cutover launcher
 )
 
-# Orden plano ADR-015 v2 (cosmético Dev): Mis apps + Dashboard viven en base.html;
-# debajo solo estos dominios, en este orden. Taller/Eventos fuera del menú v2.
+# Orden plano por proceso comercial (DEV):
+# Clientes → CRM → Ventas (cot) → Facturación → Cobros → Inventario → canal/ops.
+# Mis apps + Dashboard viven en base.html. Taller/Eventos fuera del menú v2.
 _SIDEBAR_V2_FLAT_AREA_IDS: tuple[str, ...] = (
-    'tienda',
     'contactos',
-    'inventario',
-    'marketing_email',
     'crm',
     'ventas',
     'facturacion',
     'cobros',
+    'inventario',
+    'tienda',
+    'marketing_email',
     'eposone',
-    'membresias',
     'agenda',
+    'membresias',
     'educacion',
     'certificados',
     'analitica',

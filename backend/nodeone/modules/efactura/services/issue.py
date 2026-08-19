@@ -13,6 +13,10 @@ from models.efactura import (
     ElectronicInvoiceEventLog,
     ElectronicInvoiceProviderConfig,
 )
+from nodeone.modules.efactura.services.pac_artifacts import (
+    enrich_fe_artifacts_from_pac,
+    persist_emit_artifacts,
+)
 from nodeone.modules.efactura.services import config_service as cfg_svc
 from nodeone.modules.accounting.models import Invoice, InvoiceLine
 from nodeone.modules.efactura.services.mapper import build_invoice_payload, build_test_invoice_payload
@@ -194,6 +198,8 @@ def issue_test_invoice(
         doc.rejected_at = datetime.utcnow()
         doc.error_message = result.get('authorization_message') or 'Rechazada por el PAC'
 
+    persist_emit_artifacts(doc, result)
+    enrich_fe_artifacts_from_pac(adapter, doc)
     _log_event(
         organization_id,
         'emit_invoice',
@@ -221,7 +227,7 @@ def find_active_fe_for_invoice(invoice_id: int, organization_id: int) -> Electro
     )
 
 
-def _apply_pac_result(doc: ElectronicInvoiceDocument, result: dict[str, Any]) -> None:
+def _apply_pac_result(doc: ElectronicInvoiceDocument, result: dict[str, Any], *, adapter=None) -> None:
     doc.response_payload = _json_dump(result.get('raw_response'))
     doc.pac_reference = result.get('protocolo')
     doc.authorization_message = result.get('authorization_message')
@@ -237,6 +243,9 @@ def _apply_pac_result(doc: ElectronicInvoiceDocument, result: dict[str, Any]) ->
         doc.status = 'rejected'
         doc.rejected_at = datetime.utcnow()
         doc.error_message = result.get('authorization_message') or 'Rechazada por el PAC'
+    persist_emit_artifacts(doc, result)
+    if adapter is not None:
+        enrich_fe_artifacts_from_pac(adapter, doc)
 
 
 def maybe_auto_emit_for_invoice(invoice_id: int, organization_id: int, *, trigger: str) -> ElectronicInvoiceDocument | None:
@@ -340,7 +349,7 @@ def issue_from_commercial_invoice(invoice_id: int, organization_id: int) -> Elec
         _log_event(organization_id, 'error', document_id=doc.id, message=str(exc))
         db.session.commit()
         raise
-    _apply_pac_result(doc, result)
+    _apply_pac_result(doc, result, adapter=adapter)
     _log_event(
         organization_id,
         'emit_invoice',
@@ -466,7 +475,7 @@ def issue_credit_note_from_commercial_invoice(
         _log_event(organization_id, 'error', document_id=doc.id, message=str(exc))
         db.session.commit()
         raise
-    _apply_pac_result(doc, result)
+    _apply_pac_result(doc, result, adapter=adapter)
     _log_event(
         organization_id,
         'emit_credit_note',
@@ -582,7 +591,7 @@ def issue_debit_note_from_commercial_invoice(
         _log_event(organization_id, 'error', document_id=doc.id, message=str(exc))
         db.session.commit()
         raise
-    _apply_pac_result(doc, result)
+    _apply_pac_result(doc, result, adapter=adapter)
     _log_event(
         organization_id,
         'emit_debit_note',
@@ -621,6 +630,13 @@ def document_to_dict(doc: ElectronicInvoiceDocument, *, include_payloads: bool =
         'retry_count': doc.retry_count,
         'created_at': doc.created_at.isoformat() if doc.created_at else None,
         'accepted_at': doc.accepted_at.isoformat() if doc.accepted_at else None,
+        'authorized_at': doc.authorized_at.isoformat() if getattr(doc, 'authorized_at', None) else None,
+        'qr_url': getattr(doc, 'qr_url', None),
+        'qr_source': getattr(doc, 'qr_source', None),
+        'consultation_url': getattr(doc, 'consultation_url', None),
+        'has_qr_image': bool((getattr(doc, 'qr_image_base64', None) or '').strip()),
+        'has_pac_pdf': bool((getattr(doc, 'pdf_content', None) or '').strip()),
+        'has_pac_xml': bool((getattr(doc, 'xml_content', None) or '').strip()),
     }
     if include_payloads:
         out['request_payload'] = _json_load(doc.request_payload)

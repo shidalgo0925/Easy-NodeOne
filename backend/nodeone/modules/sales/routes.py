@@ -55,6 +55,12 @@ def _ensure_tables():
         ensure_contacts_schema(db, db.engine)
     except Exception:
         current_app.logger.exception('ensure_contacts_schema en sales._ensure_tables')
+    try:
+        from nodeone.services.sales_xls_import_schema import ensure_sales_xls_import_schema
+
+        ensure_sales_xls_import_schema(db, db.engine)
+    except Exception:
+        current_app.logger.exception('ensure_sales_xls_import_schema en sales._ensure_tables')
     _TABLES_ENSURED = True
 
 
@@ -769,6 +775,8 @@ def products_search():
     if q:
         like = f'%{q}%'
         conds = [Service.name.ilike(like), Service.description.ilike(like)]
+        if getattr(Service, 'sku', None) is not None:
+            conds.append(Service.sku.ilike(like))
         if q.isdigit():
             try:
                 conds.append(Service.id == int(q))
@@ -786,7 +794,7 @@ def products_search():
             {
                 'id': s.id,
                 'name': s.name,
-                'code': str(s.id),
+                'code': (getattr(s, 'sku', None) or '').strip() or str(s.id),
                 'description': s.description or '',
                 'price_unit': float(getattr(s, 'base_price', 0.0) or 0.0),
                 'default_tax_id': int(getattr(s, 'default_tax_id', None) or 0) or None,
@@ -1020,3 +1028,8 @@ def quotations_create_invoice(qid):
             'quotation_status': q.status,
         }
     ), 201
+
+
+from nodeone.modules.sales.xls_import.routes import register_xls_import_api
+
+register_xls_import_api(sales_bp)

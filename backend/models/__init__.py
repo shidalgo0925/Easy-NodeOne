@@ -7,6 +7,7 @@ from .events import *  # noqa: F403
 from .communications import *  # noqa: F403
 from .organization_invite import *  # noqa: F403
 from .saas import *  # noqa: F403
+from .org_regional import *  # noqa: F403
 from .module_registry import *  # noqa: F403 — ADR-038 F1 Module Registry
 from .email_notifications import *  # noqa: F403
 from .policies import *  # noqa: F403
@@ -36,5 +37,6 @@ from .ets_activation_token import *  # noqa: F403
 from .ets_product_subscription import *  # noqa: F403
 from .ets_product_entitlement import *  # noqa: F403
 from .integration_api import *  # noqa: F403
+from .eposone_ops_closure import *  # noqa: F403 — ADR-EN1-EP1
 from .core_master import *  # noqa: F403
 from .password_reset import *  # noqa: F403

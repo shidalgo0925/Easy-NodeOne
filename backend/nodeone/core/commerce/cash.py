@@ -112,6 +112,9 @@ class CashRegisterService:
             ),
             custodian_cashier_name=name,
         )
+        from nodeone.modules.eposone.ops_lifecycle import stamp_test_fields
+
+        stamp_test_fields(row, int(organization_id))
         db.session.add(row)
         db.session.commit()
         CashRegisterService.publish_shift_opened(

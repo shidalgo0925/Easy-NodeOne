@@ -44,6 +44,13 @@ class CoreCommercialOrder(db.Model):
     inventory_deducted_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # ADR-EN1-EP1
+    is_test = db.Column(db.Boolean, nullable=False, default=False)
+    test_session_id = db.Column(db.String(80), nullable=True, index=True)
+    created_by_user_id = db.Column(db.Integer, nullable=True)
+    charged_by_cashier_contact_id = db.Column(db.Integer, nullable=True)
+    charged_at = db.Column(db.DateTime, nullable=True)
+    cash_shift_id = db.Column(db.Integer, nullable=True)
 
     lines = db.relationship(
         'CoreCommercialOrderLine',
@@ -177,6 +184,9 @@ class CoreCashShift(db.Model):
         db.Integer, db.ForeignKey('en1_contact.id', ondelete='SET NULL'), nullable=True, index=True
     )
     custodian_cashier_name = db.Column(db.String(120), nullable=True)
+    # ADR-EN1-EP1
+    is_test = db.Column(db.Boolean, nullable=False, default=False)
+    test_session_id = db.Column(db.String(80), nullable=True)
 
     movements = db.relationship(
         'CoreCashMovement',
@@ -310,6 +320,9 @@ class CoreStockMovement(db.Model):
     idempotency_key = db.Column(db.String(128), nullable=True, index=True)
     notes = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    # ADR-EN1-EP1
+    is_test = db.Column(db.Boolean, nullable=False, default=False)
+    test_session_id = db.Column(db.String(80), nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint('organization_id', 'idempotency_key', name='uq_core_stock_movement_idempotency'),

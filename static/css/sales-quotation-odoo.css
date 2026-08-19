@@ -7,78 +7,429 @@
   min-height: 100%;
 }
 
-.quote-odoo-page.erp-compact-page {
+.quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) {
   background: #f9fafb;
 }
-.quote-odoo-page.erp-compact-page .quote-odoo-number {
+.quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) .quote-odoo-number {
   font-size: 1.1rem;
   line-height: 1.2;
 }
-.quote-odoo-page.erp-compact-page .quote-odoo-header--compact {
+.quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) .quote-odoo-header--compact {
   border-bottom: 1px solid var(--quote-border);
   padding-bottom: 0.5rem;
   margin-bottom: 0.5rem;
 }
-.quote-odoo-page.erp-compact-page .quote-odoo-field {
+.quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) .quote-odoo-field {
   min-width: 0;
   gap: 0.1rem;
 }
-.quote-odoo-page.erp-compact-page .quote-odoo-field-customer {
+.quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) .quote-odoo-field-customer {
   max-width: none;
 }
-.quote-odoo-page.erp-compact-page .quote-odoo-input,
-.quote-odoo-page.erp-compact-page .odoo-m2o-input-wrap {
+.quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) .quote-odoo-input,
+.quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) .odoo-m2o-input-wrap {
   padding-top: 0.25rem;
   padding-bottom: 0.25rem;
   min-height: 1.85rem;
   font-size: 0.8125rem;
 }
-.quote-odoo-page.erp-compact-page .quote-customer-m2o input,
-.quote-odoo-page.erp-compact-page .quote-salesperson-m2o input {
+.quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) .quote-customer-m2o input,
+.quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) .quote-salesperson-m2o input {
   padding-top: 0.2rem !important;
   padding-bottom: 0.2rem !important;
   font-size: 0.8125rem;
 }
-.quote-odoo-page.erp-compact-page .quote-odoo-tabs .nav-link {
+.quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) .quote-odoo-tabs .nav-link {
   padding: 0.35rem 0.75rem;
   font-size: 0.8125rem;
 }
-.quote-odoo-page.erp-compact-page .quote-odoo-tab-content {
+.quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) .quote-odoo-tab-content {
   padding: 0.5rem 0.65rem !important;
 }
-.quote-odoo-page.erp-compact-page .quote-lines-table thead th {
+.quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) .quote-lines-table thead th {
   padding: 0.35rem 0.4rem;
 }
-.quote-odoo-page.erp-compact-page .quote-lines-table tbody td {
+.quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) .quote-lines-table tbody td {
   padding: 0.25rem 0.4rem;
 }
-.quote-odoo-page.erp-compact-page .quote-totals-panel {
+.quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) .quote-totals-panel {
   min-width: 0;
   width: 100%;
   padding: 0.5rem 0.65rem;
 }
-.quote-odoo-page.erp-compact-page .quote-totals-row {
+.quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) .quote-totals-row {
   padding: 0.2rem 0;
   font-size: 0.8125rem;
   gap: 1rem;
 }
-.quote-odoo-page.erp-compact-page .quote-totals-grand {
+.quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) .quote-totals-grand {
   margin-top: 0.25rem;
   padding-top: 0.35rem;
   font-size: 0.9375rem;
 }
-.quote-odoo-page.erp-compact-page .quote-doc-body-row {
+.quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) .quote-doc-body-row {
   align-items: flex-start;
 }
 @media (min-width: 992px) {
-  .quote-odoo-page.erp-compact-page .quote-totals-col {
+  .quote-odoo-page.erp-compact-page:not(.quote-odoo-page--sheet) .quote-totals-col {
     position: sticky;
     top: 0.5rem;
   }
 }
 
-.quote-odoo-toolbar .btn-light {
+.quote-odoo-page--sheet {
+  background: #f8f9fa;
+}
+
+.quote-odoo-page--sheet.is-loading .quote-sheet-card {
+  visibility: hidden;
+}
+
+.quote-odoo-page--sheet .quote-sheet-toolbar {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.65rem;
+  margin-bottom: 0.55rem;
+  width: 100%;
+}
+
+.quote-sheet-toolbar-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.28rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.quote-odoo-page--sheet.is-invoice-form .quote-sheet-toolbar,
+.quote-odoo-page--sheet.is-invoice-form .quote-sheet-toolbar-actions {
+  flex-wrap: wrap !important;
+}
+
+.quote-odoo-page--sheet .quote-sheet-toolbar .btn-sm {
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 0.18rem 0.48rem;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+}
+
+.quote-odoo-arrows {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  flex: 0 0 auto;
+  margin-left: 0.35rem;
+}
+
+.quote-odoo-page--sheet .quote-arrow {
+  height: 1.6rem;
+  padding: 0 0.7rem 0 0.85rem;
+  margin-left: -0.35rem;
+  font-size: 0.68rem;
+}
+
+.quote-odoo-page--sheet .quote-arrow:first-child {
+  padding-left: 0.6rem;
+}
+
+.quote-odoo-page--sheet .quote-arrow-cancelled {
+  height: 1.6rem;
+  font-size: 0.68rem;
+}
+
+.quote-arrow {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 1.85rem;
+  padding: 0 1.05rem 0 1.25rem;
+  margin-left: -0.45rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4b5563;
+  background: #eef2f6;
+  border: 1px solid #d5dbe3;
+  clip-path: polygon(0 0, calc(100% - 0.55rem) 0, 100% 50%, calc(100% - 0.55rem) 100%, 0 100%, 0.55rem 50%);
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.quote-arrow:first-child {
+  margin-left: 0;
+  padding-left: 0.85rem;
+  clip-path: polygon(0 0, calc(100% - 0.55rem) 0, 100% 50%, calc(100% - 0.55rem) 100%, 0 100%);
+  border-radius: 0.2rem 0 0 0.2rem;
+}
+
+.quote-arrow.is-upcoming {
+  color: #4b5563;
+  background: #f3f4f6;
+}
+
+.quote-arrow.is-done {
+  color: #1f2937;
+  background: #e2e8f0;
+  z-index: 2;
+}
+
+.quote-arrow.is-current {
+  color: #fff;
+  background: #0f766e;
+  border-color: #0f766e;
+  z-index: 3;
+}
+
+.quote-odoo-arrows.is-cancelled .quote-arrow {
+  opacity: 0.45;
+}
+
+.quote-arrow-cancelled {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.5rem;
+  padding: 0 0.65rem;
+  height: 1.85rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #991b1b;
+  background: #fee2e2;
+  border-radius: 0.2rem;
+}
+
+.quote-sheet-card {
   background: #fff;
+  border-radius: 0.25rem;
+}
+
+.quote-odoo-page--sheet .quote-sheet-card .card-body {
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.quote-sheet-title {
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #111827;
+  margin: 0 0 1.15rem;
+  line-height: 1.2;
+}
+
+.quote-sheet-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem 3.5rem;
+  max-width: 58rem;
+  margin-bottom: 1.35rem;
+}
+
+.quote-sheet-grid--other {
+  max-width: none;
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 767.98px) {
+  .quote-sheet-grid {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+}
+
+.quote-sheet-row {
+  display: grid;
+  grid-template-columns: 9.25rem minmax(0, 1fr);
+  align-items: center;
+  min-height: 2.15rem;
+  column-gap: 0.85rem;
+}
+
+.quote-sheet-row--top {
+  align-items: start;
+  padding-top: 0.35rem;
+}
+
+.quote-sheet-label {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #374151;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.quote-sheet-ctl {
+  min-width: 0;
+}
+
+.quote-sheet-input,
+.quote-sheet-underline {
+  width: 100%;
+  max-width: none;
+  border: none !important;
+  border-bottom: 1px solid #d1d5db !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  min-height: 2rem;
+  padding: 0.2rem 0.15rem;
+  font-size: 0.875rem;
+}
+
+.quote-sheet-input:focus,
+.quote-sheet-underline:focus-within {
+  border-bottom-color: #0f766e !important;
+}
+
+.quote-sheet-textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+.quote-sheet-static {
+  min-height: 2rem;
+  padding: 0.3rem 0.15rem;
+  font-size: 0.8125rem;
+  color: #4b5563;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.quote-odoo-page--sheet .quote-odoo-tabs {
+  gap: 0.15rem;
+}
+
+.quote-odoo-page--sheet .quote-odoo-tabs .nav-link {
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 0.55rem 0.85rem;
+}
+
+.quote-odoo-page--sheet .quote-odoo-tabs .nav-link:hover {
+  color: #111827;
+  background: transparent;
+}
+
+.quote-odoo-page--sheet .quote-odoo-tabs .nav-link.active {
+  color: #0f766e;
+  background: transparent;
+  border-color: transparent transparent #0f766e;
+  margin-bottom: 0;
+}
+
+.quote-odoo-page--sheet .quote-odoo-tab-content {
+  border-color: #e5e7eb !important;
+  padding: 0 !important;
+  border-radius: 0;
+}
+
+.quote-odoo-page--sheet .quote-lines-table thead th {
+  font-size: 0.72rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #6b7280;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0.55rem 0.5rem;
+}
+
+.quote-odoo-page--sheet .qcell-input,
+.quote-odoo-page--sheet .qcell-select {
+  border: none;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  padding-left: 0.15rem;
+  padding-right: 0.15rem;
+}
+
+.quote-odoo-page--sheet .qcell-input:hover,
+.quote-odoo-page--sheet .qcell-select:hover {
+  background: #f8fafc;
+}
+
+.quote-add-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.25rem;
+  padding: 0.45rem 0.5rem 0.75rem;
+}
+
+.quote-add-links .btn-link {
+  color: #0f766e;
+  text-decoration: none;
+  font-weight: 500;
+  padding: 0.15rem 0.2rem;
+}
+
+.quote-add-links .btn-link:hover {
+  text-decoration: underline;
+}
+
+.quote-add-sep {
+  color: #cbd5e1;
+  user-select: none;
+}
+
+.quote-sheet-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.quote-sheet-terms {
+  flex: 1 1 16rem;
+  max-width: 28rem;
+  padding-top: 0.35rem;
+}
+
+.quote-odoo-page--sheet .quote-totals-panel {
+  min-width: 16.5rem;
+  width: min(20rem, 100%);
+  margin-left: auto;
+  padding: 0.35rem 0 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.quote-odoo-page--sheet .quote-totals-row {
+  font-size: 0.875rem;
+  padding: 0.28rem 0;
+}
+
+.quote-odoo-page--sheet .quote-totals-grand {
+  margin-top: 0.15rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #d1d5db;
+  font-size: 1.05rem;
+}
+
+.quote-odoo-page--sheet .quote-totals-grand span:last-child {
+  color: #0f766e;
+  font-size: 1.15rem;
+}
+
+@media (max-width: 575.98px) {
+  .quote-arrow {
+    clip-path: none;
+    margin-left: 0;
+    border-radius: 0.2rem;
+    padding: 0 0.55rem;
+  }
+  .quote-odoo-arrows {
+    gap: 0.25rem;
+  }
 }
 
 .quote-odoo-card {
@@ -310,13 +661,35 @@
   width: 100%;
 }
 .quotation-lines-table {
-  min-width: 720px;
+  min-width: 640px;
+  table-layout: auto;
+}
+
+.quote-line-desc-cell {
+  width: 100%;
+  min-width: 18rem;
+}
+
+/* Búsqueda de producto en Descripción */
+.quote-line-desc-m2o {
+  min-width: 0;
+  width: 100%;
+}
+.quote-line-desc-m2o .odoo-m2o-input-wrap {
+  align-items: flex-start;
+}
+.quote-line-desc-m2o .li-product-search {
+  min-height: 2.15rem;
 }
 
 /* Odoo-like many2one (servicio) en líneas de cotización */
 .odoo-m2o {
   position: relative;
   min-width: 220px;
+}
+.odoo-m2o.quote-line-desc-m2o {
+  min-width: 0;
+  width: 100%;
 }
 .odoo-m2o-input-wrap {
   border: 1px solid var(--quote-border, #e8eaed);

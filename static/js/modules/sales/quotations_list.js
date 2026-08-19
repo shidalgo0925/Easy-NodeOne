@@ -7,7 +7,7 @@
   const search = document.getElementById('quotationSearch');
 
   let rowsCache = [];
-  const fmt = (n) => `B/. ${Number(n || 0).toFixed(2)}`;
+  const fmt = (n) => (window.EN1Format ? window.EN1Format.money(n) : `B/. ${Number(n || 0).toFixed(2)}`);
   const statusBadge = (s) => {
     if (s === 'sent') return '<span class="badge bg-primary">Enviada</span>';
     if (s === 'confirmed') return '<span class="badge bg-success">Confirmada</span>';

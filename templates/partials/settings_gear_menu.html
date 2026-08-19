@@ -13,6 +13,9 @@
     <li><h6 class="dropdown-header text-muted mb-0 small">Organización</h6></li>
     {% if nav_can('system.settings.view') %}
     <li><a class="dropdown-item" href="{{ url_for('admin_identity') }}"><i class="fas fa-palette me-2"></i> Identidad empresarial</a></li>
+    {% if has_view_endpoint('admin_regional_settings') %}
+    <li><a class="dropdown-item" href="{{ url_for('admin_regional_settings') }}"><i class="fas fa-globe me-2"></i> Regionalización y formatos</a></li>
+    {% endif %}
     <li><a class="dropdown-item" href="{{ url_for('admin_email') }}"><i class="fas fa-envelope me-2"></i> Email / SMTP</a></li>
     <li><a class="dropdown-item" href="{{ url_for('media_admin.admin_media') }}"><i class="fas fa-photo-video me-2"></i> Multimedia</a></li>
     {% endif %}

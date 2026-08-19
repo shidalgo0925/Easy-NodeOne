@@ -10,7 +10,7 @@ from models.eposone_digital_menu import EposoneDigitalMenu, EposoneDigitalMenuIt
 from nodeone.core.commerce.order import OrderService, OrderValidationError
 
 
-# Orden preferido de categorías (Mexican Food / resto alfabético al final).
+# Orden preferido de categorías (Mexican Food / Al Barril / resto alfabético al final).
 _CATEGORY_ORDER = (
     'Entradas',
     'Nachos',
@@ -18,7 +18,25 @@ _CATEGORY_ORDER = (
     'Burritos',
     'Platos fuertes',
     'Bandejas',
+    'Platos',
+    'Picadas mixtas',
+    'Burgers',
+    'Alitas',
+    'Salchipapas',
+    'Para compartir',
+    'Hot Dog',
+    'Arepas',
+    'Patacones',
+    'Acompañamientos',
     'Bebidas',
+    'Whisky',
+    'Ron',
+    'Vodka',
+    'Gin',
+    'Tequila',
+    'Cerveza',
+    'Vino',
+    'Tragos',
     'Postres',
 )
 
@@ -302,6 +320,56 @@ class DigitalMenuService:
             return None
         row = EposoneDigitalMenu.query.filter_by(public_token=token, active=True).first()
         return _menu_to_dto(row, public_only=True) if row is not None else None
+
+    @staticmethod
+    def get_active_for_organization(organization_id: int) -> DigitalMenuDTO | None:
+        """Menú activo más reciente del tenant (para /menu en host del cliente)."""
+        row = (
+            EposoneDigitalMenu.query.filter_by(organization_id=int(organization_id), active=True)
+            .order_by(EposoneDigitalMenu.id.desc())
+            .first()
+        )
+        return _menu_to_dto(row, public_only=True) if row is not None else None
+
+    @staticmethod
+    def create_menu_from_products(
+        organization_id: int,
+        *,
+        name: str | None = None,
+        replace_existing: bool = False,
+    ) -> DigitalMenuDTO:
+        """Arma un menú digital con productos activos (CoreProduct) del tenant."""
+        from app import db
+        from models.core_master import CoreProduct
+
+        oid = int(organization_id)
+        products = (
+            CoreProduct.query.filter_by(organization_id=oid, status='active')
+            .order_by(CoreProduct.category.asc(), CoreProduct.name.asc())
+            .all()
+        )
+        items: list[dict[str, Any]] = []
+        for idx, p in enumerate(products):
+            items.append(
+                {
+                    'name': (p.name or '').strip(),
+                    'description': (getattr(p, 'description', None) or None),
+                    'category': (p.category or None),
+                    'price': float(getattr(p, 'unit_price', None) or 0),
+                    'available': True,
+                    'sort_order': idx,
+                }
+            )
+        if not items:
+            raise OrderValidationError('no_products')
+
+        label = (name or '').strip() or 'Menú'
+        if replace_existing:
+            for old in EposoneDigitalMenu.query.filter_by(organization_id=oid).all():
+                old.active = False
+            db.session.flush()
+
+        return DigitalMenuService.create_menu(oid, name=label, items=items)
 
     @staticmethod
     def public_menu_url(public_token: str) -> str:

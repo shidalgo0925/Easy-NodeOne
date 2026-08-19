@@ -82,7 +82,14 @@ class PaymentService:
         payment_ref = (data.get('payment_ref') or '').strip() or PaymentService._next_payment_ref(oid)
 
         cash_shift_id = None
-        if payment_type == PAYMENT_TYPE_CASH:
+        chain_handoff = False
+        try:
+            from nodeone.modules.eposone.ops_lifecycle import MONEY_HANDOFF_CHAIN, resolve_money_handoff_mode
+
+            chain_handoff = resolve_money_handoff_mode(oid) == MONEY_HANDOFF_CHAIN
+        except Exception:
+            chain_handoff = False
+        if payment_type == PAYMENT_TYPE_CASH and not chain_handoff:
             from nodeone.core.commerce.cash import CashRegisterService
 
             register_ref = (data.get('register_ref') or '').strip()

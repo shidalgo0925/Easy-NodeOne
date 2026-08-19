@@ -285,6 +285,9 @@ class StockService:
             idempotency_key=idem,
             notes=(notes or '').strip()[:500] or None,
         )
+        from nodeone.modules.eposone.ops_lifecycle import stamp_test_fields
+
+        stamp_test_fields(row, oid)
         db.session.add(row)
         db.session.commit()
         return {'status': 'applied', 'movement': movement, 'product_ref': ref, 'quantity': qty}

@@ -33,7 +33,7 @@
                 </li>
             </ul>
 
-            <form method="post" class="card card-body shadow-sm" id="companyWizardForm"
+            <form method="post" class="card card-body shadow-sm" id="companyWizardForm" novalidate
                   action="{% if wizard_mode == 'tenant' %}{{ url_for('admin_company_setup') }}{% elif wizard_mode == 'create' %}{{ url_for('admin_organization_new') }}{% else %}{{ url_for('admin_organization_edit', oid=org.id) }}{% endif %}{% if show_onboarding_rail %}?guide=1{% endif %}">
                 {% if show_onboarding_rail %}
                 <input type="hidden" name="onboarding_guide" value="1">
@@ -53,8 +53,9 @@
                     {% else %}
                     <div class="mb-3">
                         <label class="form-label">Nombre <span class="text-danger">*</span></label>
-                        <input type="text" name="name" class="form-control" required maxlength="200"
+                        <input type="text" name="name" class="form-control" maxlength="200" autocomplete="organization"
                                value="{{ form.get('name', '') if form else (org.name if org else '') }}">
+                        <div class="invalid-feedback">El nombre es obligatorio.</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Subdominio</label>
@@ -135,7 +136,7 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Email fiscal</label>
-                            <input type="email" name="fiscal_email" class="form-control" maxlength="200"
+                            <input type="text" name="fiscal_email" class="form-control" maxlength="200" inputmode="email" autocomplete="email"
                                    value="{{ form.get('fiscal_email', '') if form else ((org.fiscal_email or '') if org else '') }}">
                         </div>
                     </div>
@@ -310,7 +311,20 @@ window.NODEONE_IDENTITY_PRESETS = {{ identity_presets|tojson }};
     var btnNext = document.getElementById('wizardBtnNext');
     var btnSave = document.getElementById('wizardBtnSave');
     var stepField = document.getElementById('wizard_step_field');
+    var form = document.getElementById('companyWizardForm');
     var brandPreview = null;
+
+    function nameInput() {
+        return form ? form.querySelector('[name="name"]') : null;
+    }
+
+    function ensureName() {
+        var inp = nameInput();
+        if (!inp) return true;
+        var ok = !!(inp.value || '').trim();
+        inp.classList.toggle('is-invalid', !ok);
+        return ok;
+    }
 
     function showStep(n) {
         current = n;
@@ -337,7 +351,24 @@ window.NODEONE_IDENTITY_PRESETS = {{ identity_presets|tojson }};
         });
     });
     if (btnPrev) btnPrev.addEventListener('click', function () { showStep(current - 1); });
-    if (btnNext) btnNext.addEventListener('click', function () { showStep(current + 1); });
+    if (btnNext) btnNext.addEventListener('click', function () {
+        if (current === 1 && !ensureName()) {
+            var inp = nameInput();
+            if (inp) inp.focus();
+            return;
+        }
+        showStep(current + 1);
+    });
+    if (form) {
+        form.addEventListener('submit', function (e) {
+            if (!ensureName()) {
+                e.preventDefault();
+                showStep(1);
+                var inp = nameInput();
+                if (inp) inp.focus();
+            }
+        });
+    }
 
     if (window.NodeOneBrandPreview) {
         brandPreview = window.NodeOneBrandPreview.init({ liveApp: true });

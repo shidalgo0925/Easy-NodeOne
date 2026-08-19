@@ -29,6 +29,8 @@
     <link href="{{ url_for('static', filename='css/eposone-ui.css') }}?v=tenant-accent-20260727" rel="stylesheet">
     {% endif %}
     {% block head_extra %}{% endblock %}
+    <script>window.EN1_REGIONAL = {{ (en1_regional|default({}))|tojson }};</script>
+    <script src="{{ url_for('static', filename='js/en1-format.js') }}?v=1"></script>
     <style>
         /* Design tokens: identidad por cliente (organization_settings). No hardcodear colores de marca. */
         :root {

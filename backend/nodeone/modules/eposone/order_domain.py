@@ -162,6 +162,11 @@ def order_to_dict(order: EposoneOrder, *, include_events: bool = False) -> dict[
         'parent_order_id': order.parent_order_id,
         'opened_at': _iso(order.opened_at),
         'updated_at': _iso(order.updated_at),
+        'created_by': order.user_ref,
+        'charged_by_user_ref': getattr(order, 'charged_by_user_ref', None),
+        'charged_at': _iso(getattr(order, 'charged_at', None)),
+        'is_test': bool(getattr(order, 'is_test', False)),
+        'test_session_id': getattr(order, 'test_session_id', None),
         'items': [
             {
                 'id': it.id,
@@ -271,12 +276,17 @@ class OrderDomainService:
         status: str | None = None,
         table_ref: str | None = None,
         limit: int = 50,
+        mine: bool = False,
+        user_ref: str | None = None,
     ) -> list[EposoneOrder]:
         q = EposoneOrder.query.filter_by(organization_id=int(device.organization_id))
         if status:
             q = q.filter_by(status=status.strip().lower())
         if table_ref:
             q = q.filter_by(table_ref=table_ref.strip())
+        actor = (user_ref or '').strip() or None
+        if mine and actor:
+            q = q.filter_by(user_ref=actor)
         return q.order_by(EposoneOrder.id.desc()).limit(min(limit, 200)).all()
 
     @staticmethod
@@ -321,6 +331,9 @@ class OrderDomainService:
             notes=(body.get('notes') or None),
             tip=float(body.get('tip') or 0),
         )
+        from nodeone.modules.eposone.ops_lifecycle import stamp_test_fields
+
+        stamp_test_fields(order, oid)
         db.session.add(order)
         db.session.flush()
         order.en1_number = f'EN1-{oid}-{order.id}'

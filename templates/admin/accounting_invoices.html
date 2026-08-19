@@ -148,8 +148,8 @@ async function loadInvoices(){
       <td class="text-nowrap"><a class="fw-semibold text-decoration-none" href="${editUrl}">${r.number}</a></td>
       <td>${r.customer_id}</td>
       <td>${statusBadge(r.status)}</td>
-      <td class="text-end text-nowrap">$${(r.grand_total||0).toFixed(2)}</td>
-      <td class="text-end text-nowrap small">${pend > 0.004 ? ('$'+pend.toFixed(2)) : '—'}</td>
+      <td class="text-end text-nowrap">${(window.EN1Format ? window.EN1Format.money(r.grand_total||0) : (r.grand_total||0).toFixed(2))}</td>
+      <td class="text-end text-nowrap small">${pend > 0.004 ? (window.EN1Format ? window.EN1Format.money(pend) : ('$'+pend.toFixed(2))) : '—'}</td>
       <td class="text-nowrap">${r.origin_quotation_id || '—'}</td>
       <td class="small text-nowrap">${ledHtml}</td>
       <td class="invoices-actions text-nowrap" onclick="event.stopPropagation()">

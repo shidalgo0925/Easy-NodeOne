@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Preparar para operación real | {{ get_nav_brand_name() }}{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid py-3 en1-eposone-page">
+    <div class="epos-page-header mb-3">
+        <div>
+            <h1 class="epos-page-title">
+                <i class="fas fa-flag-checkered me-2" aria-hidden="true"></i>Preparar para operación real
+            </h1>
+            <p class="epos-page-subtitle mb-0">
+                Purga únicamente transacciones de prueba · org <code>{{ organization_id }}</code>
+                · ciclo <strong>{{ preview.operational_lifecycle }}</strong>
+                {% if preview.test_session_id %} · sesión <code>{{ preview.test_session_id }}</code>{% endif %}
+            </p>
+        </div>
+        <div class="epos-btn-row">
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('eposone.eposone_section', slug='registers') }}">Cajas</a>
+        </div>
+    </div>
+
+    {% if preview.operational_lifecycle == 'OPERATIONAL' %}
+    <div class="alert alert-success">Esta organización ya está en <strong>OPERATIONAL</strong>. No se puede usar esta operación para borrar ventas reales.</div>
+    {% elif not preview.allow %}
+    <div class="alert alert-warning">El cierre TEST solo está permitido con ciclo <strong>TEST</strong> (ahora: {{ preview.operational_lifecycle }}).</div>
+    {% else %}
+    <div class="alert alert-warning">
+        Conserva organización, usuarios, catálogo, terminales, configuración y modo de custodia.
+        Después hay que fijar el inventario inicial definitivo: el stock de las pruebas no es el stock del negocio.
+    </div>
+    {% endif %}
+
+    <div class="row g-3 mb-3">
+        {% for key, label in [
+            ('orders', 'Pedidos TEST'),
+            ('payments', 'Pagos TEST'),
+            ('commercial_orders', 'Ventas commercial'),
+            ('shifts', 'Turnos / cajas'),
+            ('stock_movements', 'Mov. inventario'),
+            ('money_handoffs', 'Entregas de dinero'),
+        ] %}
+        <div class="col-md-4 col-lg-2">
+            <div class="epos-card"><div class="epos-card-body">
+                <div class="text-muted small">{{ label }}</div>
+                <div class="fs-4 fw-bold">{{ preview.counts[key] }}</div>
+            </div></div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="epos-card mb-3">
+        <div class="epos-card-body">
+            <h2 class="epos-section-label">Qué se conserva</h2>
+            <p class="small mb-0">{{ preview.kept | join(', ') }}</p>
+        </div>
+    </div>
+
+    {% if preview.allow %}
+    <div class="epos-card">
+        <div class="epos-card-body">
+            <form method="post">
+                <label class="form-label" for="confirm_phrase">
+                    Primera confirmación: escribí <code>{{ confirm_phrase }}</code>
+                </label>
+                <input class="form-control mb-3" type="text" name="confirm_phrase" id="confirm_phrase"
+                       autocomplete="off" required>
+                <label class="form-label" for="confirm_again">
+                    Segunda confirmación: volvé a escribir <code>{{ confirm_phrase }}</code>
+                </label>
+                <input class="form-control mb-3" type="text" name="confirm_again" id="confirm_again"
+                       autocomplete="off" required>
+                <button type="submit" class="btn btn-danger"
+                        onclick="return confirm('Esto elimina solo datos TEST. ¿Continuar?');">
+                    Autorizar y purgar TEST
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

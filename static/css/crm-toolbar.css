@@ -1,4 +1,20 @@
-/* KPI strip compacta (CRM leads / dashboard) */
+.crm-list-page .crm-toolbar {
+  gap: 0.35rem;
+}
+
+.crm-list-page .crm-toolbar .form-control,
+.crm-list-page .crm-toolbar .form-select {
+  min-height: 1.85rem;
+  font-size: 0.8125rem;
+}
+
+.crm-list-page .crm-toolbar .btn {
+  min-height: 1.85rem;
+  padding-top: 0.15rem;
+  padding-bottom: 0.15rem;
+}
+
+/* KPI strip compacta (CRM reportes) */
 .crm-kpi-strip .card-body {
   padding-top: 0.5rem;
   padding-bottom: 0.5rem;

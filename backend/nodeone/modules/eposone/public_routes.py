@@ -5,16 +5,16 @@ from __future__ import annotations
 from flask import Blueprint, jsonify, render_template, request, url_for
 
 from nodeone.core.commerce.order import OrderValidationError
-from nodeone.modules.eposone.digital_menu_service import DigitalMenuService, resolve_public_menu_brand_logo
+from nodeone.modules.eposone.digital_menu_service import (
+    DigitalMenuDTO,
+    DigitalMenuService,
+    resolve_public_menu_brand_logo,
+)
 
 eposone_public_bp = Blueprint('eposone_public', __name__)
 
 
-@eposone_public_bp.route('/m/eposone/<token>')
-def public_menu_page(token: str):
-    menu = DigitalMenuService.get_by_token(token)
-    if menu is None:
-        return render_template('eposone/public_menu_not_found.html'), 404
+def _render_public_menu(menu: DigitalMenuDTO, token: str):
     brand_logo = resolve_public_menu_brand_logo(menu.organization_id)
     brand_logo_url = url_for('static', filename=brand_logo) if brand_logo else None
     brand_favicon = None
@@ -41,6 +41,29 @@ def public_menu_page(token: str):
         brand_logo_url=brand_logo_url,
         brand_favicon_url=brand_favicon_url,
     )
+
+
+@eposone_public_bp.route('/menu')
+@eposone_public_bp.route('/menu/')
+def public_menu_for_host():
+    """Menú digital del tenant resuelto por Host (p. ej. albarril.etsrv.site/menu)."""
+    from app import _organization_id_from_request_host
+
+    oid = _organization_id_from_request_host(request)
+    if oid is None:
+        return render_template('eposone/public_menu_not_found.html'), 404
+    menu = DigitalMenuService.get_active_for_organization(int(oid))
+    if menu is None:
+        return render_template('eposone/public_menu_not_found.html'), 404
+    return _render_public_menu(menu, menu.public_token)
+
+
+@eposone_public_bp.route('/m/eposone/<token>')
+def public_menu_page(token: str):
+    menu = DigitalMenuService.get_by_token(token)
+    if menu is None:
+        return render_template('eposone/public_menu_not_found.html'), 404
+    return _render_public_menu(menu, token)
 
 
 @eposone_public_bp.route('/api/public/eposone/menu/<token>', methods=['GET'])

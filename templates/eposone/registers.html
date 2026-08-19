@@ -84,7 +84,33 @@
                             <option value="SIMPLE" {% if mode == 'SIMPLE' %}selected{% endif %}>SIMPLE — cajero = custodio</option>
                             <option value="CHAIN_OF_CUSTODY" {% if mode == 'CHAIN_OF_CUSTODY' %}selected{% endif %}>CHAIN_OF_CUSTODY — handover de custodia</option>
                         </select>
-                        <div class="form-text">En modo B el cierre exige custodio actual; el cambio de cajero se hace por handover en el POS.</div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label small mb-1" for="money_handoff_mode">Custodia de dinero de ventas (ADR-EN1-EP1)</label>
+                        <select class="form-select form-select-sm" id="money_handoff_mode" name="money_handoff_mode">
+                            {% set mh = (settings.money_handoff_mode if settings else 'SIMPLE') or 'SIMPLE' %}
+                            <option value="SIMPLE" {% if mh == 'SIMPLE' %}selected{% endif %}>SIMPLE — cobrado entra a la caja del cajero</option>
+                            <option value="CHAIN_OF_CUSTODY" {% if mh == 'CHAIN_OF_CUSTODY' %}selected{% endif %}>CHAIN_OF_CUSTODY — cobrado ≠ recibido por Caja Central</option>
+                        </select>
+                        <div class="form-text">Distinto del modo de cajón (ADR-036). En cadena de custodia, Caja Central debe confirmar recepción.</div>
+                    </div>
+                    <div class="mt-3">
+                        {% set life = (settings.operational_lifecycle if settings else 'TEST') or 'TEST' %}
+                        {% if life != 'OPERATIONAL' %}
+                        <label class="form-label small mb-1" for="operational_lifecycle">Ciclo EP1 (instalación / operación)</label>
+                        <select class="form-select form-select-sm" id="operational_lifecycle" name="operational_lifecycle">
+                            <option value="PROVISIONING" {% if life == 'PROVISIONING' %}selected{% endif %}>PROVISIONING</option>
+                            <option value="TEST" {% if life == 'TEST' %}selected{% endif %}>TEST — capacitación / ensayos</option>
+                        </select>
+                        {% else %}
+                        <div class="alert alert-success py-2 small mb-0">Ciclo <strong>OPERATIONAL</strong> — prohibido purgar TEST.</div>
+                        {% endif %}
+                        <div class="form-text">
+                            {% if settings and settings.test_session_id %}Sesión {{ settings.test_session_id }} · {% endif %}
+                            <a href="{{ url_for('eposone.eposone_money_handoffs') }}">Confirmar recepción de dinero</a>
+                            ·
+                            <a href="{{ url_for('eposone.eposone_prepare_operational') }}">Preparar para operación real</a>
+                        </div>
                     </div>
                 </div>
                 <div class="col-12 col-lg-4 text-lg-end">

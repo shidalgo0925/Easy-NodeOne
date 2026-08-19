@@ -125,9 +125,9 @@ def _type_label(ptype: str, tracks: bool) -> str:
 def products_index():
     oid = _org_id()
     try:
-        from nodeone.core.master.product_bridge import backfill_org
+        from nodeone.core.master.product_bridge import maybe_backfill_org
 
-        backfill_org(oid, limit=300)
+        maybe_backfill_org(oid, limit=300)
     except Exception:
         pass
     q = (request.args.get('q') or '').strip() or None

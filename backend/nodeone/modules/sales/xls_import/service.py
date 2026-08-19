@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import tempfile
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -60,13 +62,24 @@ def analyze_upload(
         return _already_processed_payload(oid, existing)
 
     grid = load_sheet_grid(wb.kind, wb.payload)
+    from nodeone.core.regional_format import RegionalFormatService
+    from nodeone.modules.sales.xls_import.workbook import reset_number_format, use_number_format
+
+    nf = '1,234.56'
+    try:
+        nf = RegionalFormatService.get_or_create(oid).number_format
+    except Exception:
+        pass
+    token = use_number_format(nf)
     try:
         parsed, prof, ver = parse_grid(wb.filename, grid, profile_code)
     except ValueError as exc:
         raise XlsImportError('unrecognized_format', str(exc)) from exc
+    finally:
+        reset_number_format(token)
     parsed.profile = prof
     parsed.profile_version = ver
-    _match_catalog(oid, parsed)
+    _match_catalog(oid, parsed, create_missing=False)
     totals = recompute(parsed, tax_resolver=lambda rate: _resolve_tax(oid, rate))
     _apply_tax_ids(parsed, totals)
     contact_info = _match_contact(oid, parsed)
@@ -77,13 +90,20 @@ def analyze_upload(
     if not parsed.external_number:
         warnings.append('No se encontró número de factura de origen; se usará el nombre de archivo.')
     if contact_info['status'] == 'missing':
-        warnings.append('Cliente no encontrado en la organización. Se propondrá crearlo al confirmar la importación.')
-    if any(ln.product_id is None for ln in parsed.lines):
-        warnings.append('Algunas líneas no coinciden con el catálogo; se importarán como descripción.')
+        warnings.append('Cliente no encontrado en la organización. Se creará en Clientes al confirmar la importación.')
+    elif contact_info['status'] == 'ambiguous':
+        warnings.append(
+            'Hay varios contactos con el mismo nombre. No se creará un duplicado; elija el cliente en Clientes o unifique el catálogo.'
+        )
+    unmatched = sum(1 for ln in parsed.lines if ln.product_id is None and (ln.description or '').strip())
+    if unmatched:
+        warnings.append(
+            f'{unmatched} línea(s) sin producto en catálogo. Se crearán con código P-#### al confirmar la importación.'
+        )
     if not parsed.email:
         warnings.append('El archivo no trae correo del cliente (necesario más adelante para FE).')
-    if not parsed.tax_id:
-        warnings.append('El RUC del archivo está vacío o es un placeholder; no se vinculará por identificación fiscal.')
+    if not _usable_tax_id(parsed.tax_id):
+        warnings.append('El RUC del archivo está vacío o es un placeholder; se buscará el cliente por nombre.')
 
     stored = _store_file(oid, wb)
     payload_json = json.dumps(parsed.to_dict(), ensure_ascii=False)
@@ -150,7 +170,7 @@ def commit_import(
     if row.quotation_id:
         return _already_processed_payload(oid, row)
     parsed = SalesImportData.from_dict(json.loads(row.parser_payload_json or '{}'))
-    _match_catalog(oid, parsed)
+    _match_catalog(oid, parsed, create_missing=True)
     totals = recompute(parsed, tax_resolver=lambda rate: _resolve_tax(oid, rate))
     if totals.errors:
         raise XlsImportError(
@@ -288,28 +308,168 @@ def _fe_for_quotation(organization_id: int, quotation_id: int) -> dict[str, Any]
     return {'invoice_id': inv.id, 'invoice_number': inv.number, 'fe_id': fe.id, 'fe_status': fe.status}
 
 
-def _match_catalog(organization_id: int, parsed: SalesImportData) -> None:
-    from sqlalchemy import func
+def _catalog_key(value: str | None) -> str:
+    """Clave comparable: quita tildes, puntuación y espacios (G.M. HOLDING, INC → gmholdinginc)."""
+    t = unicodedata.normalize('NFKD', value or '')
+    t = ''.join(c for c in t if not unicodedata.combining(c))
+    return re.sub(r'[^a-z0-9]+', '', t.lower())
+
+
+def _usable_tax_id(tax_id: str | None) -> str:
+    raw = (tax_id or '').strip()
+    if not raw or raw in ('--', '-', '0'):
+        return ''
+    digits = re.sub(r'\D', '', raw)
+    if digits and set(digits) <= {'0'}:
+        return ''
+    return raw
+
+
+def _contact_keys(contact) -> set[str]:
+    keys = set()
+    for raw in (getattr(contact, 'display_name', None), getattr(contact, 'company_name', None), getattr(contact, 'commercial_name', None)):
+        k = _catalog_key(raw)
+        if k:
+            keys.add(k)
+    return keys
+
+
+def _find_contacts_by_name(organization_id: int, name: str):
+    from sqlalchemy import or_
+
+    from models.contact import Contact
+
+    key = _catalog_key(name)
+    if not key:
+        return []
+    tokens = re.findall(r'[A-Za-z0-9]{3,}', name or '')
+    token = tokens[0] if tokens else (name or '')[:8]
+    like = f'%{token}%'
+    candidates = (
+        Contact.query.filter(
+            Contact.organization_id == int(organization_id),
+            Contact.active.is_(True),
+            or_(
+                Contact.display_name.ilike(like),
+                Contact.company_name.ilike(like),
+                Contact.commercial_name.ilike(like),
+            ),
+        )
+        .limit(80)
+        .all()
+    )
+    return [c for c in candidates if key in _contact_keys(c)]
+
+
+def _find_services_by_description(organization_id: int, description: str):
+    from sqlalchemy import or_
 
     from models.catalog import Service
 
+    key = _catalog_key(description)
+    if not key:
+        return []
+    tokens = re.findall(r'[A-Za-z0-9]{3,}', description or '')
+    token = tokens[0] if tokens else (description or '')[:8]
+    like = f'%{token}%'
+    conds = [Service.name.ilike(like), Service.description.ilike(like)]
+    if getattr(Service, 'sku', None) is not None:
+        conds.append(Service.sku.ilike(like))
+    candidates = (
+        Service.query.filter(
+            Service.organization_id == int(organization_id),
+            Service.is_active.is_(True),
+            or_(*conds),
+        )
+        .limit(80)
+        .all()
+    )
+    hits = []
+    for s in candidates:
+        keys = {_catalog_key(s.name), _catalog_key(s.description)}
+        sku = (getattr(s, 'sku', None) or '').strip()
+        if sku:
+            keys.add(_catalog_key(sku))
+        if key in keys:
+            hits.append(s)
+    return hits
+
+
+def _next_product_sku(organization_id: int) -> str:
+    from models.catalog import Service
+
+    rx = re.compile(r'^P-(\d{1,12})\Z', re.I)
+    max_seq = 0
+    q = Service.query.filter_by(organization_id=int(organization_id)).with_entities(Service.sku)
+    for (sku,) in q:
+        if not sku:
+            continue
+        m = rx.match(str(sku).strip())
+        if m:
+            max_seq = max(max_seq, int(m.group(1)))
+    return f'P-{max_seq + 1:04d}'
+
+
+def _create_imported_service(organization_id: int, ln) -> Any:
+    from models.catalog import Service
+
+    desc = (ln.description or '').strip() or 'Producto importado'
+    sku = _next_product_sku(organization_id)
+    svc = Service(
+        name=desc[:200],
+        description=desc,
+        icon='fas fa-box',
+        membership_type='basic',
+        service_type='AGENDABLE',
+        base_price=float(ln.unit_price or 0),
+        is_active=True,
+        organization_id=int(organization_id),
+        default_tax_id=(int(ln.tax_id) if ln.tax_id else None),
+        sku=sku,
+    )
+    db.session.add(svc)
+    db.session.flush()
+    try:
+        from nodeone.core.master.product_bridge import ensure_from_service
+
+        ensure_from_service(int(organization_id), svc)
+    except Exception:
+        pass
+    return svc
+
+
+def _match_catalog(organization_id: int, parsed: SalesImportData, *, create_missing: bool = False) -> dict[str, int]:
+    created_by_key: dict[str, Any] = {}
+    unmatched = 0
+    ambiguous = 0
+    created = 0
     for ln in parsed.lines:
         name = (ln.description or '').strip()
         if not name:
             continue
-        matches = (
-            Service.query.filter(
-                Service.organization_id == int(organization_id),
-                Service.is_active.is_(True),
-                func.lower(Service.name) == name.lower(),
-            )
-            .limit(2)
-            .all()
-        )
-        if len(matches) == 1:
-            ln.product_id = int(matches[0].id)
-            if ln.tax_id is None and getattr(matches[0], 'default_tax_id', None) and ln.tax_rate is None:
-                ln.tax_id = int(matches[0].default_tax_id)
+        if ln.product_id:
+            continue
+        key = _catalog_key(name)
+        if key and key in created_by_key:
+            ln.product_id = int(created_by_key[key].id)
+            continue
+        hits = _find_services_by_description(organization_id, name)
+        if len(hits) == 1:
+            ln.product_id = int(hits[0].id)
+            if ln.tax_id is None and getattr(hits[0], 'default_tax_id', None) and ln.tax_rate is None:
+                ln.tax_id = int(hits[0].default_tax_id)
+            continue
+        if len(hits) > 1:
+            ambiguous += 1
+            continue
+        if create_missing:
+            svc = _create_imported_service(organization_id, ln)
+            created_by_key[key] = svc
+            ln.product_id = int(svc.id)
+            created += 1
+        else:
+            unmatched += 1
+    return {'unmatched': unmatched, 'ambiguous': ambiguous, 'created': created}
 
 
 def _resolve_tax(organization_id: int, rate: float | None) -> tuple[int | None, Any]:
@@ -340,7 +500,7 @@ def _apply_tax_ids(parsed: SalesImportData, totals: TotalsResult) -> None:
 def _match_contact(organization_id: int, parsed: SalesImportData) -> dict[str, Any]:
     from nodeone.modules.contacts import service as contact_svc
 
-    tax_id = (parsed.tax_id or '').strip()
+    tax_id = _usable_tax_id(parsed.tax_id)
     dv = (parsed.dv or '').strip() or None
     if tax_id:
         ident = 'ruc'
@@ -351,6 +511,7 @@ def _match_contact(organization_id: int, parsed: SalesImportData) -> dict[str, A
                 'contact_id': found.id,
                 'display_name': found.display_name,
                 'create_proposed': False,
+                'match': 'tax_id',
             }
     email = (parsed.email or '').strip().lower()
     if email:
@@ -363,12 +524,33 @@ def _match_contact(organization_id: int, parsed: SalesImportData) -> dict[str, A
                 'contact_id': by_email.id,
                 'display_name': by_email.display_name,
                 'create_proposed': False,
+                'match': 'email',
             }
+    name_hits = _find_contacts_by_name(organization_id, parsed.customer or '')
+    if len(name_hits) == 1:
+        found = name_hits[0]
+        return {
+            'status': 'matched',
+            'contact_id': found.id,
+            'display_name': found.display_name,
+            'create_proposed': False,
+            'match': 'name',
+        }
+    if len(name_hits) > 1:
+        return {
+            'status': 'ambiguous',
+            'contact_id': None,
+            'display_name': parsed.customer,
+            'create_proposed': False,
+            'match': 'name',
+            'matches': [{'id': c.id, 'display_name': c.display_name} for c in name_hits[:8]],
+        }
     return {
         'status': 'missing',
         'contact_id': None,
         'display_name': parsed.customer,
         'create_proposed': True,
+        'match': None,
     }
 
 
@@ -380,12 +562,18 @@ def _resolve_or_create_contact(organization_id: int, parsed: SalesImportData, *,
         c = contact_svc.get_contact(organization_id, int(info['contact_id']))
         if c:
             return c
+    if info['status'] == 'ambiguous':
+        raise XlsImportError(
+            'customer_ambiguous',
+            'Hay varios clientes con el mismo nombre. Unifique el catálogo o elija el contacto antes de importar.',
+            {'matches': info.get('matches') or []},
+        )
     if not allow_create:
         raise XlsImportError(
             'customer_not_found',
             'El cliente no existe en esta organización. Indique crear cliente o cárguelo antes en Clientes.',
         )
-    tax_id = (parsed.tax_id or '').strip()
+    tax_id = _usable_tax_id(parsed.tax_id)
     name = (parsed.customer or '').strip() or f'Cliente {tax_id or parsed.external_number or "XLS"}'
     is_company = bool(tax_id) or any(x in name.lower() for x in ('s.a', 'sa', 'inc', 'corp', 'ltda'))
     payload = {
@@ -399,7 +587,7 @@ def _resolve_or_create_contact(organization_id: int, parsed: SalesImportData, *,
         'fiscal_address': parsed.address,
         'identification_type': 'ruc' if tax_id else 'consumer_final',
         'tax_id': tax_id or None,
-        'dv': parsed.dv,
+        'dv': parsed.dv if tax_id else None,
         'is_customer': True,
         'country': 'PA',
     }

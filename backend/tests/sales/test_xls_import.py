@@ -244,6 +244,22 @@ class TestStorageRoot(unittest.TestCase):
                     os.environ['NODEONE_SALES_XLS_STORAGE'] = prev
 
 
+class TestCatalogMatchHelpers(unittest.TestCase):
+    def test_catalog_key_collapses_punctuation(self):
+        from nodeone.modules.sales.xls_import.service import _catalog_key
+
+        self.assertEqual(_catalog_key('G.M. HOLDING, INC'), 'gmholdinginc')
+        self.assertEqual(_catalog_key('GM HOLDING INC'), 'gmholdinginc')
+        self.assertEqual(_catalog_key('BW PLATINUM 2X -PAPEL HOMOGENIZADO'), _catalog_key('bw platinum 2x papel homogenizado'))
+
+    def test_usable_tax_id_drops_placeholders(self):
+        from nodeone.modules.sales.xls_import.service import _usable_tax_id
+
+        self.assertEqual(_usable_tax_id('0000000000'), '')
+        self.assertEqual(_usable_tax_id('--'), '')
+        self.assertEqual(_usable_tax_id('15561234-2-2023'), '15561234-2-2023')
+
+
 class TestRoutesRegistered(unittest.TestCase):
     def test_endpoints_exist(self):
         from app import app

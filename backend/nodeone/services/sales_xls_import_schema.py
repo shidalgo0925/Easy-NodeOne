@@ -38,5 +38,9 @@ def ensure_sales_xls_import_schema(db, engine, printfn=None) -> None:
         for name, ddl in additions:
             if name not in cols:
                 _add_column(engine, 'quotations', name, ddl, printfn=printfn)
+    if 'service' in insp.get_table_names():
+        scols = {c['name'] for c in insp.get_columns('service')}
+        if 'sku' not in scols:
+            _add_column(engine, 'service', 'sku', 'VARCHAR(32)', printfn=printfn)
     if printfn:
         printfn('sales_xls_import: tabla lista')

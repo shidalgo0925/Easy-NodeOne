@@ -210,7 +210,56 @@ def ensure_from_product(
     return int(service.id)
 
 
-def backfill_org(organization_id: int, *, limit: int = 200) -> dict[str, int]:
+def _has_unlinked_catalog(organization_id: int) -> bool:
+    """True si hay Service o CoreProduct sin fila en el puente (EXISTS, barato)."""
+    from models.catalog import Service
+    from sqlalchemy import and_, exists
+
+    oid = int(organization_id)
+    unlinked_svc = (
+        db.session.query(Service.id)
+        .filter(
+            Service.organization_id == oid,
+            ~exists().where(
+                and_(
+                    CoreProductLegacyServiceLink.organization_id == oid,
+                    CoreProductLegacyServiceLink.legacy_service_id == Service.id,
+                )
+            ),
+        )
+        .limit(1)
+        .first()
+    )
+    if unlinked_svc is not None:
+        return True
+    unlinked_prod = (
+        db.session.query(CoreProduct.id)
+        .filter(
+            CoreProduct.organization_id == oid,
+            ~exists().where(
+                and_(
+                    CoreProductLegacyServiceLink.organization_id == oid,
+                    CoreProductLegacyServiceLink.product_ref == CoreProduct.product_ref,
+                )
+            ),
+        )
+        .limit(1)
+        .first()
+    )
+    return unlinked_prod is not None
+
+
+def maybe_backfill_org(organization_id: int, *, limit: int = 200) -> dict[str, int]:
+    """Puente solo si faltan links. No toca imágenes (no usar en GET caliente)."""
+    oid = int(organization_id)
+    if not _has_unlinked_catalog(oid):
+        return {'from_service': 0, 'from_product': 0, 'images': {}, 'skipped': 1}
+    return backfill_org(oid, limit=limit, sync_images=False)
+
+
+def backfill_org(
+    organization_id: int, *, limit: int = 200, sync_images: bool = False
+) -> dict[str, int]:
     """Migra Services sin link → core_product y Products sin link → Service."""
     from models.catalog import Service
 
@@ -254,7 +303,9 @@ def backfill_org(organization_id: int, *, limit: int = 200) -> dict[str, int]:
             linked_refs.add(str(prod.product_ref))
 
     db.session.commit()
-    images = sync_missing_product_images(oid, commit=True)
+    images: dict[str, int] = {}
+    if sync_images:
+        images = sync_missing_product_images(oid, commit=True)
     return {
         'from_service': created_from_service,
         'from_product': created_from_product,

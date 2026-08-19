@@ -775,6 +775,8 @@ def products_search():
     if q:
         like = f'%{q}%'
         conds = [Service.name.ilike(like), Service.description.ilike(like)]
+        if getattr(Service, 'sku', None) is not None:
+            conds.append(Service.sku.ilike(like))
         if q.isdigit():
             try:
                 conds.append(Service.id == int(q))
@@ -792,7 +794,7 @@ def products_search():
             {
                 'id': s.id,
                 'name': s.name,
-                'code': str(s.id),
+                'code': (getattr(s, 'sku', None) or '').strip() or str(s.id),
                 'description': s.description or '',
                 'price_unit': float(getattr(s, 'base_price', 0.0) or 0.0),
                 'default_tax_id': int(getattr(s, 'default_tax_id', None) or 0) or None,

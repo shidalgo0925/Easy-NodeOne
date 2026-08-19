@@ -338,6 +338,8 @@ class Service(db.Model):
     service_type = db.Column(db.String(20), nullable=False, default='AGENDABLE')
     # Slug público del programa para API / landing (único por organización en lógica de negocio).
     program_slug = db.Column(db.String(120), nullable=True, index=True)
+    # Código de catálogo (P-0001). Si está vacío, la UI usa el id.
+    sku = db.Column(db.String(32), nullable=True, index=True)
     # Campos para cita de diagnóstico
     requires_diagnostic_appointment = db.Column(db.Boolean, default=False)  # Si requiere cita diagnóstico antes de usar
     diagnostic_appointment_type_id = db.Column(db.Integer, db.ForeignKey('appointment_type.id'), nullable=True)  # Tipo de cita de diagnóstico
@@ -573,6 +575,7 @@ class Service(db.Model):
             'deposit_percentage': float(self.deposit_percentage) if self.deposit_percentage else None,
             'service_type': getattr(self, 'service_type', 'AGENDABLE') or 'AGENDABLE',
             'program_slug': (getattr(self, 'program_slug', None) or '') or '',
+            'sku': (getattr(self, 'sku', None) or '') or '',
             'organization_id': int(getattr(self, 'organization_id', None) or 1),
             'default_tax_id': int(getattr(self, 'default_tax_id', None) or 0) or None,
         }
